@@ -1,0 +1,41 @@
+{
+  "name": "unipresident-active-etf-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "web:dev": "vite --host 127.0.0.1",
+    "web:build": "vue-tsc -p tsconfig.web.json && vite build",
+    "web:preview": "vite preview --host 127.0.0.1",
+    "start": "func start",
+    "api:dev": "node dist/src/cli/devApi.js",
+    "discover:ezmoney": "node scripts/discover-ezmoney-endpoints.mjs 49YTW",
+    "backfill:00981A": "node dist/src/cli/backfillPcf.js 00981A 10",
+    "calculate:00981A": "node dist/src/cli/calculateChanges.js 00981A",
+    "sync:00981A": "node dist/src/cli/manualSync.js 00981A"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.3",
+    "@lucide/vue": "^1.16.0",
+    "dotenv": "^16.4.7",
+    "mongodb": "^6.12.0",
+    "vue": "^3.5.34",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "playwright": "^1.60.0",
+    "typescript": "^5.7.2",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
