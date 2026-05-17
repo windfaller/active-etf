@@ -7,9 +7,9 @@ export const nomuraEtfs: EtfInfo[] = [
     issuer: "野村投信",
     providerId: "nomura",
     currency: "TWD",
-    enabled: false,
+    enabled: true,
     implementationStatus: "verified",
-    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified and wired to daily refresh."
   },
   {
     etfCode: "00985A",
@@ -17,9 +17,9 @@ export const nomuraEtfs: EtfInfo[] = [
     issuer: "野村投信",
     providerId: "nomura",
     currency: "TWD",
-    enabled: false,
+    enabled: true,
     implementationStatus: "verified",
-    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified and wired to daily refresh."
   },
   {
     etfCode: "00999A",
@@ -27,8 +27,8 @@ export const nomuraEtfs: EtfInfo[] = [
     issuer: "野村投信",
     providerId: "nomura",
     currency: "TWD",
-    enabled: false,
+    enabled: true,
     implementationStatus: "verified",
-    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified and wired to daily refresh."
   }
 ];

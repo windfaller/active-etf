@@ -38,6 +38,9 @@ export function normalizeUniPresidentSummary(raw: RawSummaryResponse): Normalize
     premiumDiscount: summary.premiumDiscount,
     totalUnits: summary.totalUnits,
     fundSize: summary.fundSize,
+    netCreationUnits: summary.netCreationUnits,
+    cashRatio: summary.cashRatio,
+    stockRatio: summary.stockRatio,
     sourceProvider: "uniPresident"
   };
 }

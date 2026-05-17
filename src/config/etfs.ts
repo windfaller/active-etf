@@ -50,6 +50,51 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00980A",
+    fundCode: "00980A",
+    name: "主動野村臺灣優選",
+    issuer: "野村投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "nomura",
+      infoUrl: "https://www.nomurafunds.com.tw/ETFWEB/product-description?fundNo=00980A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00985A",
+    fundCode: "00985A",
+    name: "野村臺灣50主動式ETF",
+    issuer: "野村投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "nomura",
+      infoUrl: "https://www.nomurafunds.com.tw/ETFWEB/product-description?fundNo=00985A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00999A",
+    fundCode: "00999A",
+    name: "野村全球航運龍頭主動式ETF",
+    issuer: "野村投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "nomura",
+      infoUrl: "https://www.nomurafunds.com.tw/ETFWEB/product-description?fundNo=00999A"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 

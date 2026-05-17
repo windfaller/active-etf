@@ -26,6 +26,9 @@ export function normalizeNomuraSummary(raw: RawSummaryResponse): NormalizedSumma
     premiumDiscount: null,
     totalUnits: summary.totalUnits,
     fundSize: summary.fundSize,
+    netCreationUnits: null,
+    cashRatio: summary.cashRatio,
+    stockRatio: summary.stockRatio,
     sourceProvider: "nomura"
   };
 }

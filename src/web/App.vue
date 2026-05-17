@@ -156,6 +156,12 @@ const premiumValues = computed(() =>
     .map((row) => row.premiumDiscount)
     .filter((value): value is number => value !== null && !Number.isNaN(value))
 );
+const premiumChartRows = computed(() =>
+  premiumRows.value
+    .filter((row) => row.premiumDiscount !== null && !Number.isNaN(row.premiumDiscount))
+    .slice(0, 45)
+    .reverse()
+);
 
 const premiumRange = computed(() => {
   const values = premiumValues.value;
@@ -298,17 +304,24 @@ function barWidth(value: NullableNumber): string {
 }
 
 function premiumBarStyle(value: NullableNumber): Record<string, string> {
-  if (value === null) return { width: "0%" };
+  if (value === null) return { height: "0%" };
 
   const { min, max } = premiumRange.value;
-  const zero = ((0 - min) / (max - min)) * 100;
-  const point = ((value - min) / (max - min)) * 100;
-  const left = Math.min(zero, point);
-  const width = Math.max(2, Math.abs(point - zero));
+  const zeroTop = ((max - 0) / (max - min)) * 100;
+  const pointTop = ((max - value) / (max - min)) * 100;
+  const top = Math.min(zeroTop, pointTop);
+  const height = Math.max(2, Math.abs(pointTop - zeroTop));
 
   return {
-    left: `${left}%`,
-    width: `${width}%`
+    top: `${top}%`,
+    height: `${height}%`
+  };
+}
+
+function premiumZeroStyle(): Record<string, string> {
+  const { min, max } = premiumRange.value;
+  return {
+    top: `${((max - 0) / (max - min)) * 100}%`
   };
 }
 
@@ -428,7 +441,7 @@ onMounted(() => {
       <div class="table-title">
         <div>
           <h2><BarChart3 :size="18" /> 個股影響排名</h2>
-          <p>依主動張數與權重變動排序，共 {{ displayedImpacts.length }} 檔</p>
+          <p>依影響分數排序：主動張數絕對值與權重變動幅度加權，共 {{ displayedImpacts.length }} 檔</p>
         </div>
         <label class="search-box">
           <Search :size="16" />
@@ -524,6 +537,50 @@ onMounted(() => {
         </div>
       </section>
 
+      <details class="history-disclosure premium-disclosure" open>
+        <summary>
+          <span><LineChart :size="18" /> 折溢價走勢（橫軸：交易日）</span>
+          <small>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</small>
+        </summary>
+
+        <div class="premium-chart" :class="{ empty: !premiumValues.length }">
+          <div v-if="premiumValues.length" class="premium-bars">
+            <div class="premium-zero" :style="premiumZeroStyle()"></div>
+            <div v-for="row in premiumChartRows" :key="row.tradeDate" class="premium-bar-slot">
+              <span
+                class="premium-bar"
+                :class="{ positive: (row.premiumDiscount ?? 0) >= 0, negative: (row.premiumDiscount ?? 0) < 0 }"
+                :style="premiumBarStyle(row.premiumDiscount)"
+                :title="`${formatDateLabel(row.tradeDate)} ${formatPct(row.premiumDiscount, 2)}`"
+              ></span>
+            </div>
+          </div>
+          <div v-if="premiumValues.length" class="premium-axis">
+            <span>{{ premiumChartRows[0] ? formatDateLabel(premiumChartRows[0].tradeDate) : "-" }}</span>
+            <span>交易日</span>
+            <span>{{ premiumChartRows[premiumChartRows.length - 1] ? formatDateLabel(premiumChartRows[premiumChartRows.length - 1].tradeDate) : "-" }}</span>
+          </div>
+          <p v-if="!premiumValues.length">目前已保存 NAV 歷史，但尚未同步市價，因此折溢價待補。</p>
+        </div>
+
+        <div class="premium-table">
+          <div class="premium-head">
+            <span>日期</span>
+            <span>股價</span>
+            <span>淨值</span>
+            <span>折溢價</span>
+          </div>
+          <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
+            <span>{{ formatDateLabel(row.tradeDate) }}</span>
+            <span>{{ formatNumber(row.marketPrice, 2) }}</span>
+            <span>{{ formatNumber(row.nav, 2) }}</span>
+            <span :class="{ 'increase-number': (row.premiumDiscount ?? 0) > 0, 'decrease-number': (row.premiumDiscount ?? 0) < 0 }">
+              {{ formatPct(row.premiumDiscount, 2) }}
+            </span>
+          </div>
+        </div>
+      </details>
+
       <section v-if="showInitialSkeleton" class="operation-cards">
         <div v-for="item in 4" :key="`operation-skeleton-${item}`" class="kpi skeleton-card">
           <span></span>
@@ -566,7 +623,7 @@ onMounted(() => {
           <div class="operation-head">
             <span>標的</span>
             <span>狀態</span>
-            <span>持股變動</span>
+            <span>持股變動<br />張數</span>
             <span>變動幅度</span>
             <span>目前權重<br />變動%</span>
           </div>
@@ -596,55 +653,17 @@ onMounted(() => {
         </div>
       </section>
 
-      <details class="history-disclosure">
-        <summary>
-          <span><LineChart :size="18" /> 折溢價歷史</span>
-          <small>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</small>
-        </summary>
-
-        <div class="premium-chart" :class="{ empty: !premiumValues.length }">
-          <div class="premium-zero"></div>
-          <div
-            v-for="row in premiumRows.slice().reverse()"
-            :key="row.tradeDate"
-            v-show="row.premiumDiscount !== null"
-            class="premium-bar"
-            :class="{ positive: (row.premiumDiscount ?? 0) >= 0, negative: (row.premiumDiscount ?? 0) < 0 }"
-            :style="premiumBarStyle(row.premiumDiscount)"
-            :title="`${formatDateLabel(row.tradeDate)} ${formatPct(row.premiumDiscount, 2)}`"
-          ></div>
-          <p v-if="!premiumValues.length">目前已保存 NAV 歷史，但尚未同步市價，因此折溢價待補。</p>
-        </div>
-
-        <div class="premium-table">
-          <div class="premium-head">
-            <span>日期</span>
-            <span>股價</span>
-            <span>淨值</span>
-            <span>折溢價</span>
-          </div>
-          <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
-            <span>{{ formatDateLabel(row.tradeDate) }}</span>
-            <span>{{ formatNumber(row.marketPrice, 2) }}</span>
-            <span>{{ formatNumber(row.nav, 2) }}</span>
-            <span :class="{ 'increase-number': (row.premiumDiscount ?? 0) > 0, 'decrease-number': (row.premiumDiscount ?? 0) < 0 }">
-              {{ formatPct(row.premiumDiscount, 2) }}
-            </span>
-          </div>
-        </div>
-      </details>
-
       <section class="signal-grid">
         <article class="panel">
           <div class="panel-title positive">
             <TrendingUp :size="18" />
-            <h2>真正主動加碼</h2>
+            <h2>規模校正加碼</h2>
           </div>
           <div class="signal-table">
             <div class="signal-head">
               <span>股票</span>
-              <span>表面張數</span>
-              <span>主動張數</span>
+              <span>表面張數<br />張</span>
+              <span>校正張數<br />張</span>
               <span>比例</span>
               <span>權重</span>
               <span>分數</span>
@@ -665,13 +684,13 @@ onMounted(() => {
         <article class="panel">
           <div class="panel-title negative">
             <TrendingDown :size="18" />
-            <h2>真正主動減碼</h2>
+            <h2>規模校正減碼</h2>
           </div>
           <div class="signal-table">
             <div class="signal-head">
               <span>股票</span>
-              <span>表面張數</span>
-              <span>主動張數</span>
+              <span>表面張數<br />張</span>
+              <span>校正張數<br />張</span>
               <span>比例</span>
               <span>權重</span>
               <span>分數</span>

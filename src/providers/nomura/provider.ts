@@ -1,4 +1,5 @@
 import { defaultCrawlerHeaders, fetchSource } from "../../services/source/httpClient.js";
+import { todayInTaipei } from "../../utils/date.js";
 import type { EtfProvider, RawHoldingResponse, RawSummaryResponse } from "../types.js";
 import { normalizeNomuraHoldings, normalizeNomuraSummary } from "./normalizer.js";
 import { detectNomuraFundAssetsTradeDate } from "./parser.js";
@@ -6,7 +7,11 @@ import { nomuraEtfs } from "./types.js";
 
 const nomuraApiBase = "https://www.nomurafunds.com.tw/API/ETFAPI/api";
 
-function toNomuraSearchDate(tradeDate: string): string {
+function toNomuraSearchDate(tradeDate: string): string | null {
+  if (tradeDate === todayInTaipei()) {
+    return null;
+  }
+
   return new Date(`${tradeDate}T00:00:00.000Z`).toISOString();
 }
 

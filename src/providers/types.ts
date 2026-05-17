@@ -63,6 +63,9 @@ export interface NormalizedSummary {
   premiumDiscount: number | null;
   totalUnits: number | null;
   fundSize: number | null;
+  netCreationUnits?: number | null;
+  cashRatio?: number | null;
+  stockRatio?: number | null;
   sourceProvider: ProviderId;
 }
 

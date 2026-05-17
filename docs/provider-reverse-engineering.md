@@ -7,7 +7,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | Provider | ETF codes | Status | Source notes |
 | --- | --- | --- | --- |
 | 統一投信 `uniPresident` | `00981A`, `00403A`, `00988A` | Verified | Official Ezmoney `GetPCF` JSON endpoint. `00988A` is already supported from the previous build and remains enabled to avoid removing existing functionality. |
-| 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified provider, sync pending | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. Production sync is not enabled yet. |
+| 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. Production daily refresh is enabled. |
 | 群益投信 `capital` | `00982A`, `00992A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | 國泰投信 `cathay` | `00400A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | 摩根投信 `jpmorgan` | `00401A` | Pending | The user prompt listed `allianz` in the folder plan, but the first-stage ETF is 摩根; implementation uses `jpmorgan`. |
@@ -58,7 +58,7 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Entries.Data.FundAsset` for AUM, total units, NAV and NAV date
   - `Entries.Data.Table[]` with `股票` holdings rows: stock code, stock name, shares and weight
   - allocation rows for stocks, futures, cash and receivables
-- Limitation: this endpoint does not provide market closing price. Premium/discount should continue to be calculated with TWSE closing price sync after Nomura production sync is wired.
+- Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Nomura holdings/NAV sync.
 
 ## Provider Enablement Checklist
 

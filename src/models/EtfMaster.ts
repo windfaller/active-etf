@@ -9,6 +9,7 @@ export const etfMasterSchema = z.object({
   currency: z.enum(["TWD", "USD"]),
   enabled: z.boolean(),
   source: z.object({
+    providerId: z.string().optional(),
     infoUrl: z.string().url().optional(),
     pcfUrl: z.string().url().optional(),
     unitMarketRatioUrl: z.string().url().optional()

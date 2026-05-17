@@ -44,7 +44,7 @@ allianz/
 - `normalizer.ts`
 - `types.ts`
 
-目前只有 `uniPresident` 是 verified provider。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
+目前 `uniPresident` 與 `nomura` 是 verified provider，會被 production daily refresh 使用。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
 
 ## 安裝方式
 

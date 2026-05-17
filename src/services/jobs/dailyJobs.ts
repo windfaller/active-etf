@@ -6,6 +6,7 @@ import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import { applyActiveSignals } from "../calculator/activeSignalCalculator.js";
 import { calculateDailyChanges as calculateChanges } from "../calculator/changeCalculator.js";
 import { invalidateDailyCache } from "../cache/dailyDataCache.js";
+import { syncProviderDailyData } from "../sync/providerDailyDataSync.js";
 import { syncEzmoneyPcf } from "../sync/ezmoneyPcfSync.js";
 import { todayInTaipei } from "../../utils/date.js";
 import { logger } from "../../utils/logger.js";
@@ -41,7 +42,7 @@ export async function runSyncDailyHoldingsJob(etfCode = "00981A"): Promise<SyncD
   if (!etf) throw new Error(`${etfCode} is not configured`);
 
   const db = await getDb();
-  const result = await syncEzmoneyPcf(db, etf);
+  const result = etf.source.providerId ? await syncProviderDailyData(db, etf) : await syncEzmoneyPcf(db, etf);
 
   logger.info("Daily holdings synced", {
     etfCode: etf.etfCode,

@@ -588,11 +588,8 @@ input:focus {
 
 .premium-chart {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  min-height: 176px;
-  padding: 20px 18px;
+  min-height: 216px;
+  padding: 18px 18px 12px;
   background:
     linear-gradient(#edf1f4 1px, transparent 1px) 0 0 / 100% 25%,
     #ffffff;
@@ -612,21 +609,33 @@ input:focus {
 
 .premium-zero {
   position: absolute;
-  top: 50%;
-  right: 18px;
-  left: 18px;
+  right: 4px;
+  left: 4px;
   height: 1px;
   background: #a8b0b8;
 }
 
-.premium-bar {
+.premium-bars {
   position: relative;
-  flex: 1 1 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4px, 1fr);
+  gap: 3px;
+  height: 162px;
+}
+
+.premium-bar-slot {
+  position: relative;
   min-width: 3px;
-  max-width: 12px;
-  height: 18px;
-  align-self: center;
+}
+
+.premium-bar {
+  position: absolute;
+  left: 50%;
+  width: min(10px, 82%);
+  min-height: 3px;
   border-radius: 2px;
+  transform: translateX(-50%);
 }
 
 .premium-bar.positive {
@@ -635,6 +644,16 @@ input:focus {
 
 .premium-bar.negative {
   background: #5cad98;
+}
+
+.premium-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  color: #6f7983;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .premium-head,
