@@ -65,6 +65,31 @@ interface ChangesResponse {
   exitedHoldings: Change[];
 }
 
+interface StockImpactEtf {
+  etfCode: string;
+  diffLots: number;
+  activeDiffLots: NullableNumber;
+  diffWeightPoint: NullableNumber;
+  currentWeight: NullableNumber;
+  status: string;
+}
+
+interface StockImpact {
+  stockId: string;
+  stockName: string;
+  etfCount: number;
+  increaseEtfCount: number;
+  decreaseEtfCount: number;
+  totalDiffLots: number;
+  totalActiveDiffLots: number;
+  totalDiffWeightPoint: number;
+  maxAbsActiveDiffLots: number;
+  maxAbsDiffWeightPoint: number;
+  impactScore: number;
+  primaryImpactEtf: StockImpactEtf | null;
+  etfs: StockImpactEtf[];
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfCode = "00981A";
 const availableDates = [
@@ -85,6 +110,7 @@ const errorMessage = ref("");
 const holdings = ref<Holding[]>([]);
 const summary = ref<Summary | null>(null);
 const summaryHistory = ref<Summary[]>([]);
+const stockImpacts = ref<StockImpact[]>([]);
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -96,10 +122,10 @@ const changes = ref<ChangesResponse>({
 
 const displayedHoldings = computed(() => {
   const normalized = query.value.trim().toLowerCase();
-  if (!normalized) return holdings.value;
+  if (!normalized) return stockImpacts.value;
 
-  return holdings.value.filter((holding) =>
-    `${holding.stockId} ${holding.stockName}`.toLowerCase().includes(normalized)
+  return stockImpacts.value.filter((row) =>
+    `${row.stockId} ${row.stockName} ${row.primaryImpactEtf?.etfCode ?? ""}`.toLowerCase().includes(normalized)
   );
 });
 
@@ -265,16 +291,18 @@ async function loadDashboard(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse] = await Promise.all([
+    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse, stockImpactResponse] = await Promise.all([
       getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
       getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
       getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
-      getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`)
+      getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`),
+      getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`)
     ]);
 
     holdings.value = holdingsResponse.holdings;
     summary.value = summaryResponse.summary;
     summaryHistory.value = summaryHistoryResponse.summaries;
+    stockImpacts.value = stockImpactResponse.impacts;
     changes.value = changesResponse;
   } catch (error) {
     errorMessage.value =
@@ -491,14 +519,14 @@ onMounted(() => {
 
     <section v-if="activeView === 'holdings'" class="summary-cards holdings-overview" aria-label="Holdings overview">
       <div class="kpi">
-        <span>總持股</span>
-        <strong>{{ formatNumber(holdings.length) }}</strong>
-        <em>檔，依權重與市值排序</em>
+        <span>影響個股</span>
+        <strong>{{ formatNumber(stockImpacts.length) }}</strong>
+        <em>檔，依跨 ETF 影響排序</em>
       </div>
       <div class="kpi">
-        <span>股票部位</span>
-        <strong>{{ formatPct(summary?.stockRatio ?? null, 2) }}</strong>
-        <em>現金 {{ formatPct(summary?.cashRatio ?? null, 2) }}</em>
+        <span>主動淨變動</span>
+        <strong>{{ formatLots(stockImpacts.reduce((sum, row) => sum + row.totalActiveDiffLots, 0)) }}</strong>
+        <em>張，跨所有追蹤 ETF</em>
       </div>
     </section>
 
@@ -545,29 +573,39 @@ onMounted(() => {
     <section v-if="activeView === 'holdings'" class="holdings-panel">
       <div class="table-title">
         <div>
-          <h2><Database :size="18" /> 全持股清單</h2>
-          <p>{{ selectedDate }}，共 {{ displayedHoldings.length }} 筆</p>
+          <h2><Database :size="18" /> 個股影響總表</h2>
+          <p>{{ selectedDate }}，共 {{ displayedHoldings.length }} 檔受影響個股</p>
         </div>
         <label class="search-box">
           <Search :size="16" />
-          <input v-model="query" type="search" placeholder="搜尋股票代號或名稱" />
+          <input v-model="query" type="search" placeholder="搜尋股票代號、名稱或 ETF" />
         </label>
       </div>
 
       <div class="holdings-table">
         <div class="holdings-head">
           <span>股票</span>
-          <span>股數</span>
-          <span>張數</span>
-          <span>權重</span>
-          <span>市值</span>
+          <span>主動淨變動</span>
+          <span>權重變動</span>
+          <span>影響 ETF</span>
+          <span>主要來源</span>
         </div>
-        <div v-for="holding in displayedHoldings" :key="holding.stockId" class="holding-row">
-          <span class="stock-cell"><b>{{ holding.stockId }}</b>{{ holding.stockName }}</span>
-          <span>{{ formatNumber(holding.shares) }}</span>
-          <span>{{ formatNumber(holding.lots) }}</span>
-          <span>{{ formatPct(holding.weight, 2) }}</span>
-          <span>{{ formatMoney(holding.marketValue) }}</span>
+        <div v-for="row in displayedHoldings" :key="row.stockId" class="holding-row">
+          <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
+          <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
+            {{ formatLots(row.totalActiveDiffLots) }}
+          </span>
+          <span :class="{ 'increase-number': row.totalDiffWeightPoint > 0, 'decrease-number': row.totalDiffWeightPoint < 0 }">
+            {{ formatPct(row.totalDiffWeightPoint, 2) }}
+          </span>
+          <span>
+            {{ row.etfCount }} 檔
+            <small class="impact-split">加 {{ row.increaseEtfCount }} / 減 {{ row.decreaseEtfCount }}</small>
+          </span>
+          <span>
+            {{ row.primaryImpactEtf?.etfCode ?? "-" }}
+            <small class="impact-split">{{ formatLots(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? null) }}</small>
+          </span>
         </div>
       </div>
     </section>

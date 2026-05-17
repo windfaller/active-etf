@@ -748,6 +748,14 @@ input:focus {
   background: #fbfcfd;
 }
 
+.impact-split {
+  display: block;
+  margin-top: 3px;
+  color: #8a939e;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .disclaimer {
   padding: 14px 2px 0;
   font-size: 12px;

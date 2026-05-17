@@ -30,6 +30,12 @@ Returns recent NAV, market price, premium or discount, total units, and fund siz
 
 Returns cross-ETF active-signal ranking.
 
+## Get Market Stock Impact
+
+`GET /api/market/stock-impact?date=YYYY-MM-DD`
+
+Returns stock-level impact ranking across all tracked active ETFs for a date.
+
 ## Admin Sync Holdings
 
 `POST /api/jobs/etf/{etfCode}/sync-holdings`
