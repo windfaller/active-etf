@@ -17,3 +17,7 @@ export function badRequest(message: string): HttpResponseInit {
 export function unauthorized(message = "Unauthorized"): HttpResponseInit {
   return jsonResponse({ error: message }, 401);
 }
+
+export function serverError(message = "Server configuration error"): HttpResponseInit {
+  return jsonResponse({ error: message }, 500);
+}

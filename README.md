@@ -74,7 +74,7 @@ POST /api/jobs/etf/00981A/sync-holdings
 POST /api/jobs/etf/00981A/calculate-changes?date=YYYY-MM-DD
 ```
 
-建議在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
+必須在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
 
 ```txt
 x-admin-token: <ADMIN_JOB_TOKEN>

@@ -26,10 +26,11 @@ function required(value: string | null, name: string): string {
   return value;
 }
 
-function isAuthorizedAdminRequest(req: IncomingMessage): boolean {
+function adminAuthError(req: IncomingMessage): { status: number; message: string } | null {
   const expected = process.env.ADMIN_JOB_TOKEN;
-  if (!expected) return true;
-  return req.headers["x-admin-token"] === expected;
+  if (!expected) return { status: 500, message: "ADMIN_JOB_TOKEN is required" };
+  if (req.headers["x-admin-token"] !== expected) return { status: 401, message: "Unauthorized" };
+  return null;
 }
 
 const server = createServer(async (req, res) => {
@@ -44,8 +45,9 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "etf") {
-      if (!isAuthorizedAdminRequest(req)) {
-        sendJson(res, 401, { error: "Unauthorized" });
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
         return;
       }
 

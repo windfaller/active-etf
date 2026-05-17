@@ -1,11 +1,11 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { assertTradeDate } from "../utils/date.js";
-import { badRequest, jsonResponse, unauthorized } from "./response.js";
+import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
 
 function validateAdminToken(request: HttpRequest) {
   const expected = process.env.ADMIN_JOB_TOKEN;
-  if (!expected) return null;
+  if (!expected) return serverError("ADMIN_JOB_TOKEN is required");
 
   const actual = request.headers.get("x-admin-token");
   if (actual !== expected) return unauthorized();
