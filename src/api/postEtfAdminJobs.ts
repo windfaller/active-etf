@@ -1,9 +1,21 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { assertTradeDate } from "../utils/date.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { badRequest, jsonResponse, unauthorized } from "./response.js";
+
+function validateAdminToken(request: HttpRequest) {
+  const expected = process.env.ADMIN_JOB_TOKEN;
+  if (!expected) return null;
+
+  const actual = request.headers.get("x-admin-token");
+  if (actual !== expected) return unauthorized();
+  return null;
+}
 
 export async function postEtfSyncHoldings(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
   const etfCode = request.params.etfCode;
   if (!etfCode) return badRequest("etfCode is required");
 
@@ -12,6 +24,9 @@ export async function postEtfSyncHoldings(request: HttpRequest, _context: Invoca
 }
 
 export async function postEtfCalculateChanges(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
   const etfCode = request.params.etfCode;
   if (!etfCode) return badRequest("etfCode is required");
 

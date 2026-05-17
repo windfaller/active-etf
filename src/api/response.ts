@@ -13,3 +13,7 @@ export function jsonResponse(body: unknown, status = 200): HttpResponseInit {
 export function badRequest(message: string): HttpResponseInit {
   return jsonResponse({ error: message }, 400);
 }
+
+export function unauthorized(message = "Unauthorized"): HttpResponseInit {
+  return jsonResponse({ error: message }, 401);
+}

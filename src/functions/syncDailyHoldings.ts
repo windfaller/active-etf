@@ -14,17 +14,19 @@ export async function syncDailyHoldings(_timer: Timer, _context: InvocationConte
   }
 }
 
-app.timer("syncDailyHoldings1630", {
-  schedule: "0 30 16 * * 1-5",
-  handler: syncDailyHoldings
-});
+if (process.env.ENABLE_TIMER_TRIGGERS === "true") {
+  app.timer("syncDailyHoldings1630", {
+    schedule: "0 30 16 * * 1-5",
+    handler: syncDailyHoldings
+  });
 
-app.timer("syncDailyHoldings1800", {
-  schedule: "0 0 18 * * 1-5",
-  handler: syncDailyHoldings
-});
+  app.timer("syncDailyHoldings1800", {
+    schedule: "0 0 18 * * 1-5",
+    handler: syncDailyHoldings
+  });
 
-app.timer("syncDailyHoldings2100", {
-  schedule: "0 0 21 * * 1-5",
-  handler: syncDailyHoldings
-});
+  app.timer("syncDailyHoldings2100", {
+    schedule: "0 0 21 * * 1-5",
+    handler: syncDailyHoldings
+  });
+}

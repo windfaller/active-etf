@@ -34,7 +34,9 @@ export async function sendDailyDigest(_timer: Timer, _context: InvocationContext
   });
 }
 
-app.timer("sendDailyDigest", {
-  schedule: "0 5 21 * * 1-5",
-  handler: sendDailyDigest
-});
+if (process.env.ENABLE_TIMER_TRIGGERS === "true") {
+  app.timer("sendDailyDigest", {
+    schedule: "0 5 21 * * 1-5",
+    handler: sendDailyDigest
+  });
+}

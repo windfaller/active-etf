@@ -8,10 +8,10 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "outDir": "dist",
+    "outDir": "dist-api",
     "rootDir": ".",
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["dist", "dist-web", "node_modules", "src/web"]
+  "exclude": ["dist", "dist-api", "dist-web", "node_modules", "src/web"]
 }

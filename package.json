@@ -3,20 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "dist/src/functions/*.js",
+  "main": "dist-api/src/functions/*.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run web:build",
+    "functions:build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "web:dev": "vite --host 127.0.0.1",
     "web:build": "vue-tsc -p tsconfig.web.json && vite build",
     "web:preview": "vite preview --host 127.0.0.1",
     "start": "func start",
-    "api:dev": "node dist/src/cli/devApi.js",
+    "api:dev": "node dist-api/src/cli/devApi.js",
     "discover:ezmoney": "node scripts/discover-ezmoney-endpoints.mjs 49YTW",
-    "backfill:00981A": "node dist/src/cli/backfillPcf.js 00981A 10",
-    "calculate:00981A": "node dist/src/cli/calculateChanges.js 00981A",
-    "sync:00981A": "node dist/src/cli/manualSync.js 00981A"
+    "backfill:00981A": "node dist-api/src/cli/backfillPcf.js 00981A 10",
+    "calculate:00981A": "node dist-api/src/cli/calculateChanges.js 00981A",
+    "sync:00981A": "node dist-api/src/cli/manualSync.js 00981A"
   },
   "dependencies": {
     "@azure/functions": "^4.7.3",

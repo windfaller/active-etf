@@ -8,7 +8,7 @@ export default defineConfig({
     strictPort: false
   },
   build: {
-    outDir: "dist-web",
+    outDir: "dist",
     emptyOutDir: true
   }
 });

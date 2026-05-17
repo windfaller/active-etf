@@ -5,7 +5,9 @@ export async function calculateDailyChanges(_timer: Timer, _context: InvocationC
   await runCalculateDailyChangesJob("00981A");
 }
 
-app.timer("calculateDailyChanges", {
-  schedule: "0 3 21 * * 1-5",
-  handler: calculateDailyChanges
-});
+if (process.env.ENABLE_TIMER_TRIGGERS === "true") {
+  app.timer("calculateDailyChanges", {
+    schedule: "0 3 21 * * 1-5",
+    handler: calculateDailyChanges
+  });
+}

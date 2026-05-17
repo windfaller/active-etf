@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { createServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
@@ -26,6 +26,12 @@ function required(value: string | null, name: string): string {
   return value;
 }
 
+function isAuthorizedAdminRequest(req: IncomingMessage): boolean {
+  const expected = process.env.ADMIN_JOB_TOKEN;
+  if (!expected) return true;
+  return req.headers["x-admin-token"] === expected;
+}
+
 const server = createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -38,6 +44,11 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && parts[1] === "admin" && parts[2] === "etf") {
+      if (!isAuthorizedAdminRequest(req)) {
+        sendJson(res, 401, { error: "Unauthorized" });
+        return;
+      }
+
       const etfCode = required(parts[3] ?? null, "etfCode");
       const action = parts[4];
 

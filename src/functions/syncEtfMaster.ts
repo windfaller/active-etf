@@ -28,7 +28,9 @@ export async function syncEtfMaster(_timer: Timer, _context: InvocationContext):
   logger.info("ETF master synced", { count: configuredEtfs.length });
 }
 
-app.timer("syncEtfMaster", {
-  schedule: "0 30 8 * * *",
-  handler: syncEtfMaster
-});
+if (process.env.ENABLE_TIMER_TRIGGERS === "true") {
+  app.timer("syncEtfMaster", {
+    schedule: "0 30 8 * * *",
+    handler: syncEtfMaster
+  });
+}

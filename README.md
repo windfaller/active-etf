@@ -41,6 +41,8 @@ MONGODB_URI=
 MONGODB_DB_NAME=taiwan_active_etf
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
+ADMIN_JOB_TOKEN=
+ENABLE_TIMER_TRIGGERS=false
 CRAWLER_TIMEOUT_MS=30000
 ENABLE_BACKUP_SOURCES=true
 ```
@@ -50,26 +52,54 @@ Azure Functions 本機也可用 `local.settings.json` 管理相同設定。
 ## 本機執行
 
 ```bash
-pnpm build
-pnpm start
+pnpm functions:build
+PORT=7072 pnpm api:dev
+pnpm web:dev
 ```
 
-## 部署 Azure Functions
+## 部署 Azure Static Web Apps
+
+此專案預設以 Azure Static Web Apps 部署前端，`npm run build` 會產生 `dist/index.html`，對應 SWA workflow 的：
+
+```yaml
+app_location: "/"
+output_location: "dist"
+app_build_command: "npm run build"
+```
+
+Azure Static Web Apps managed Functions 只支援 HTTP triggers，因此本專案在 SWA 模式不註冊 Timer Trigger。排程請用 Logic App / Automation / GitHub Actions 呼叫：
+
+```txt
+POST /api/admin/etf/00981A/sync-holdings
+POST /api/admin/etf/00981A/calculate-changes?date=YYYY-MM-DD
+```
+
+建議在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
+
+```txt
+x-admin-token: <ADMIN_JOB_TOKEN>
+```
+
+## 部署獨立 Azure Functions App
+
+若要使用真正的 Timer Trigger，請部署到獨立 Azure Functions App，而不是 SWA managed Functions。
 
 1. 建立 Azure Functions v4 Node.js app。
 2. 在 Azure App Settings 設定 `.env.example` 中的變數。
-3. 設定 MongoDB 連線與網路允許清單。
-4. 部署：
+3. 設定 `ENABLE_TIMER_TRIGGERS=true`。
+4. 設定 MongoDB 連線與網路允許清單。
+5. 部署：
 
 ```bash
+pnpm functions:build
 func azure functionapp publish <FUNCTION_APP_NAME>
 ```
 
 ## 手動 sync 00981A
 
 ```bash
-pnpm build
-node dist/src/cli/manualSync.js 00981A
+pnpm functions:build
+node dist-api/src/cli/manualSync.js 00981A
 ```
 
 手動 sync 會呼叫統一投信官方 `GetPCF` JSON endpoint，保存 raw snapshot，並 upsert `etf_daily_holdings` 與 `etf_daily_summary`。
@@ -79,14 +109,14 @@ node dist/src/cli/manualSync.js 00981A
 回填最近 10 個日曆日可用：
 
 ```bash
-pnpm build
-node dist/src/cli/backfillPcf.js 00981A 10
+pnpm functions:build
+node dist-api/src/cli/backfillPcf.js 00981A 10
 ```
 
 計算最新交易日相對前一交易日的變化：
 
 ```bash
-node dist/src/cli/calculateChanges.js 00981A
+node dist-api/src/cli/calculateChanges.js 00981A
 ```
 
 `GetPCF` 的歷史查詢需使用 `specificDate=true`，且查詢日期是公告日期；真正交易日會從官方 response 的 `P_UNIT.ValueDate` 偵測。
@@ -124,13 +154,13 @@ pnpm test
 
 詳細規格見 `docs/api-spec.md`。
 
-兩個 admin POST API 與 Azure Timer Trigger 共用同一批 job 邏輯；部署到 Azure Functions 時使用 `authLevel: "function"`，需帶 function key。
+兩個 admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發這兩個 API。
 
 若本機沒有 Azure Functions Core Tools，可以先用 dev API 驗證 MongoDB 查詢：
 
 ```bash
-pnpm build
-node dist/src/cli/devApi.js
+pnpm functions:build
+node dist-api/src/cli/devApi.js
 ```
 
 ## Vue Dashboard
@@ -138,8 +168,8 @@ node dist/src/cli/devApi.js
 本機網頁使用 Vue 3 + TypeScript + `<script setup>`：
 
 ```bash
-pnpm build
-PORT=7072 node dist/src/cli/devApi.js
+pnpm functions:build
+PORT=7072 node dist-api/src/cli/devApi.js
 pnpm web:dev
 ```
 
@@ -157,7 +187,7 @@ http://127.0.0.1:5173/
 - 折溢價 / 市價頁目前會先進風險揭露頁，尚需補完整 risk-disclosure flow。
 - 歷史多日持股尚未回填；目前先同步官方 endpoint 回傳的最新 PCF 交易日。
 - Codex 桌面環境的預設 `PATH` 可能沒有 `/usr/local/bin`，執行 npm scripts 時建議使用 `PATH=/usr/local/bin:$PATH npm ...`。
-- Azure Timer cron 預設依 host 時區運作，部署時需確認 `WEBSITE_TIME_ZONE` 或改用 UTC 對應時間。
+- Azure Static Web Apps managed Functions 只支援 HTTP triggers；排程請用 Logic App 呼叫 admin POST API，或改用獨立 Azure Functions App 並設定 `ENABLE_TIMER_TRIGGERS=true`。
 
 ## 免責聲明
 

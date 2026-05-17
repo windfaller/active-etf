@@ -62,7 +62,7 @@ interface ChangesResponse {
   exitedHoldings: Change[];
 }
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:7072";
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfCode = "00981A";
 const availableDates = [
   "2026-05-15",
