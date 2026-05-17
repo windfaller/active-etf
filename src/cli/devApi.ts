@@ -6,7 +6,9 @@ import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
+import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
+import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
 
 const port = Number(process.env.PORT ?? 7071);
@@ -195,10 +197,12 @@ const server = createServer(async (req, res) => {
       }
 
       const results = [];
+      const refreshedTradeDates = new Set<string>();
       for (const etf of configuredEtfs.filter((item) => item.enabled)) {
         try {
           const sync = await runSyncDailyHoldingsJob(etf.etfCode);
           const calculate = await runCalculateDailyChangesJob(etf.etfCode, sync.tradeDate);
+          refreshedTradeDates.add(sync.tradeDate);
           results.push({
             etfCode: etf.etfCode,
             ok: true,
@@ -214,7 +218,20 @@ const server = createServer(async (req, res) => {
         }
       }
 
-      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", results });
+      const aggregates = [];
+      for (const tradeDate of refreshedTradeDates) {
+        const [consensus, sectorFlow] = await Promise.all([
+          calculateConsensus(db, tradeDate),
+          calculateSectorFlow(db, tradeDate)
+        ]);
+        aggregates.push({
+          tradeDate,
+          consensusRows: consensus.length,
+          sectorRows: sectorFlow.length
+        });
+      }
+
+      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", results, aggregates });
       return;
     }
 

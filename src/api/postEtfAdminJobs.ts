@@ -1,6 +1,9 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
+import { getDb } from "../db/mongo.js";
+import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
+import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
 
@@ -94,10 +97,12 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
   if (authError) return authError;
 
   const results = [];
+  const refreshedTradeDates = new Set<string>();
   for (const etf of configuredEtfs.filter((item) => item.enabled)) {
     try {
       const syncResult = await runSyncDailyHoldingsJob(etf.etfCode);
       const calculateResult = await runCalculateDailyChangesJob(etf.etfCode, syncResult.tradeDate);
+      refreshedTradeDates.add(syncResult.tradeDate);
       results.push({
         etfCode: etf.etfCode,
         ok: true,
@@ -113,7 +118,21 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
     }
   }
 
-  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", results });
+  const db = await getDb();
+  const aggregates = [];
+  for (const tradeDate of refreshedTradeDates) {
+    const [consensus, sectorFlow] = await Promise.all([
+      calculateConsensus(db, tradeDate),
+      calculateSectorFlow(db, tradeDate)
+    ]);
+    aggregates.push({
+      tradeDate,
+      consensusRows: consensus.length,
+      sectorRows: sectorFlow.length
+    });
+  }
+
+  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", results, aggregates });
 }
 
 app.http("postEtfSyncHoldings", {

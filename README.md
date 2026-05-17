@@ -1,6 +1,6 @@
 # 統一投信主動式 ETF 每日持股追蹤系統
 
-這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台股主動式 ETF 每日調倉雷達」。目前追蹤統一投信 `00981A`、`00988A`、`00403A`，ETF 清單集中放在 `src/config/etfs.ts`。
+這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台灣主動式 ETF Intelligence Platform」。目前 production sync 追蹤已驗證來源的統一投信 `00981A`、`00988A`、`00403A`，provider registry 已納入第一階段其他投信 ETF，但在沒有 reverse engineer 到真正 endpoint 前保持 disabled，避免污染資料。
 
 本系統只整理公開資料並做研究分析，不構成投資建議。
 
@@ -10,7 +10,41 @@
 - 解析每日持股、張數、權重、ETF summary。
 - 計算每日增減、清倉、新增持股。
 - 依 ETF 發行單位數變化校正，判斷真正主動加碼或減碼。
+- 產生跨 ETF consensus 與 sector flow 聚合資料。
 - 提供 API 與 Telegram digest。
+
+## Provider 架構
+
+Provider 介面與 registry 位於：
+
+```txt
+src/providers/
+```
+
+已建立資料夾：
+
+```txt
+uniPresident/
+nomura/
+capital/
+ctbc/
+cathay/
+yuanta/
+taishin/
+jpmorgan/
+fh/
+first/
+allianz/
+```
+
+每個 provider 保留：
+
+- `provider.ts`
+- `parser.ts`
+- `normalizer.ts`
+- `types.ts`
+
+目前只有 `uniPresident` 是 verified provider。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
 
 ## 安裝方式
 
@@ -158,6 +192,9 @@ pnpm test
 - `POST /api/jobs/daily-refresh`
 
 詳細規格見 `docs/api-spec.md`。
+Mongo schema 見 `docs/mongo-schema.md`。
+Provider endpoint 狀態見 `docs/provider-reverse-engineering.md`。
+Troubleshooting 見 `docs/troubleshooting.md`。
 
 admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發 `POST /api/jobs/daily-refresh`。
 
