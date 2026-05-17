@@ -1,11 +1,13 @@
 import "dotenv/config";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
+import type { Db } from "mongodb";
 import { configuredEtfs } from "../config/etfs.js";
 import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
+import { getOrSetDailyCache, invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
@@ -36,11 +38,17 @@ function adminAuthError(req: IncomingMessage): { status: number; message: string
   return null;
 }
 
+let dbPromise: Promise<Db> | null = null;
+
+function getDevDb(): Promise<Db> {
+  dbPromise ??= getDb();
+  return dbPromise;
+}
+
 const server = createServer(async (req, res) => {
   try {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     const parts = requestUrl.pathname.split("/").filter(Boolean);
-    const db = await getDb();
 
     if (parts[0] !== "api") {
       sendJson(res, 404, { error: "Not found" });
@@ -49,63 +57,68 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET" && parts[1] === "market" && parts[2] === "stock-impact") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const changes = await db
-        .collection<EtfHoldingChange>("etf_holding_changes")
-        .find({ tradeDate: date, diffShares: { $ne: 0 } })
-        .toArray();
-      const rowsByStock = new Map<string, any>();
+      const body = await getOrSetDailyCache(["market", "stock-impact", date], async () => {
+        const db = await getDevDb();
+        const changes = await db
+          .collection<EtfHoldingChange>("etf_holding_changes")
+          .find({ tradeDate: date, diffShares: { $ne: 0 } })
+          .toArray();
+        const rowsByStock = new Map<string, any>();
 
-      for (const change of changes) {
-        const row =
-          rowsByStock.get(change.stockId) ??
-          {
-            stockId: change.stockId,
-            stockName: change.stockName,
-            etfCount: 0,
-            increaseEtfCount: 0,
-            decreaseEtfCount: 0,
-            totalDiffLots: 0,
-            totalActiveDiffLots: 0,
-            totalDiffWeightPoint: 0,
-            maxAbsActiveDiffLots: 0,
-            maxAbsDiffWeightPoint: 0,
-            impactScore: 0,
-            primaryImpactEtf: null,
-            etfs: []
+        for (const change of changes) {
+          const row =
+            rowsByStock.get(change.stockId) ??
+            {
+              stockId: change.stockId,
+              stockName: change.stockName,
+              etfCount: 0,
+              increaseEtfCount: 0,
+              decreaseEtfCount: 0,
+              totalDiffLots: 0,
+              totalActiveDiffLots: 0,
+              totalDiffWeightPoint: 0,
+              maxAbsActiveDiffLots: 0,
+              maxAbsDiffWeightPoint: 0,
+              impactScore: 0,
+              primaryImpactEtf: null,
+              etfs: []
+            };
+          const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+          const diffWeightPoint = change.diffWeightPoint ?? 0;
+          const etfImpact = {
+            etfCode: change.etfCode,
+            diffLots: change.diffLots,
+            activeDiffLots: change.activeDiffLots,
+            diffWeightPoint: change.diffWeightPoint,
+            currentWeight: change.currentWeight,
+            status: change.status
           };
-        const activeDiffLots = change.activeDiffLots ?? change.diffLots;
-        const diffWeightPoint = change.diffWeightPoint ?? 0;
-        const etfImpact = {
-          etfCode: change.etfCode,
-          diffLots: change.diffLots,
-          activeDiffLots: change.activeDiffLots,
-          diffWeightPoint: change.diffWeightPoint,
-          currentWeight: change.currentWeight,
-          status: change.status
-        };
-        const primaryMagnitude = Math.abs(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? 0);
+          const primaryMagnitude = Math.abs(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? 0);
 
-        row.etfs.push(etfImpact);
-        row.etfCount += 1;
-        row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
-        row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
-        row.totalDiffLots += change.diffLots;
-        row.totalActiveDiffLots += activeDiffLots;
-        row.totalDiffWeightPoint += diffWeightPoint;
-        row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
-        row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
-        if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
-        rowsByStock.set(change.stockId, row);
-      }
+          row.etfs.push(etfImpact);
+          row.etfCount += 1;
+          row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
+          row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
+          row.totalDiffLots += change.diffLots;
+          row.totalActiveDiffLots += activeDiffLots;
+          row.totalDiffWeightPoint += diffWeightPoint;
+          row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
+          row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
+          if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
+          rowsByStock.set(change.stockId, row);
+        }
 
-      const impacts = [...rowsByStock.values()]
-        .map((row) => ({
-          ...row,
-          impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
-        }))
-        .sort((a, b) => b.impactScore - a.impactScore);
+        const impacts = [...rowsByStock.values()]
+          .map((row) => ({
+            ...row,
+            impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
+          }))
+          .sort((a, b) => b.impactScore - a.impactScore);
 
-      sendJson(res, 200, { date, impacts });
+        return { date, impacts };
+      });
+
+      sendJson(res, 200, body);
       return;
     }
 
@@ -121,6 +134,7 @@ const server = createServer(async (req, res) => {
 
       if (action === "sync-holdings") {
         const result = await runSyncDailyHoldingsJob(etfCode);
+        await invalidateDailyCache(etfCode, result.tradeDate);
         sendJson(res, 200, { ok: true, job: "syncDailyHoldings", result });
         return;
       }
@@ -129,6 +143,7 @@ const server = createServer(async (req, res) => {
         const dateParam = requestUrl.searchParams.get("date");
         const tradeDate = dateParam ? assertTradeDate(dateParam) : undefined;
         const result = await runCalculateDailyChangesJob(etfCode, tradeDate);
+        if (result) await invalidateDailyCache(etfCode, result.tradeDate);
         sendJson(res, 200, { ok: result !== null, job: "calculateDailyChanges", result });
         return;
       }
@@ -147,10 +162,12 @@ const server = createServer(async (req, res) => {
         const results = [];
         for (const etf of configuredEtfs.filter((item) => item.enabled)) {
           try {
+            const result = await runSyncDailyHoldingsJob(etf.etfCode);
+            await invalidateDailyCache(etf.etfCode, result.tradeDate);
             results.push({
               etfCode: etf.etfCode,
               ok: true,
-              result: await runSyncDailyHoldingsJob(etf.etfCode)
+              result
             });
           } catch (error) {
             results.push({
@@ -171,6 +188,7 @@ const server = createServer(async (req, res) => {
         for (const etf of configuredEtfs.filter((item) => item.enabled)) {
           try {
             const result = await runCalculateDailyChangesJob(etf.etfCode, tradeDate);
+            if (result) await invalidateDailyCache(etf.etfCode, result.tradeDate);
             results.push({
               etfCode: etf.etfCode,
               ok: result !== null,
@@ -202,6 +220,7 @@ const server = createServer(async (req, res) => {
         try {
           const sync = await runSyncDailyHoldingsJob(etf.etfCode);
           const calculate = await runCalculateDailyChangesJob(etf.etfCode, sync.tradeDate);
+          await invalidateDailyCache(etf.etfCode, sync.tradeDate);
           refreshedTradeDates.add(sync.tradeDate);
           results.push({
             etfCode: etf.etfCode,
@@ -220,6 +239,7 @@ const server = createServer(async (req, res) => {
 
       const aggregates = [];
       for (const tradeDate of refreshedTradeDates) {
+        const db = await getDevDb();
         const [consensus, sectorFlow] = await Promise.all([
           calculateConsensus(db, tradeDate),
           calculateSectorFlow(db, tradeDate)
@@ -247,13 +267,18 @@ const server = createServer(async (req, res) => {
 
     if (parts[2] === "active" && parts[3] === "ranking") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const ranking = await db
-        .collection<EtfHoldingChange>("etf_holding_changes")
-        .find({ tradeDate: date, activeSignalScore: { $ne: null } })
-        .sort({ activeSignalScore: -1, activeDiffShares: -1 })
-        .limit(100)
-        .toArray();
-      sendJson(res, 200, { date, ranking });
+      const body = await getOrSetDailyCache(["etf", "active", "ranking", date], async () => {
+        const db = await getDevDb();
+        const ranking = await db
+          .collection<EtfHoldingChange>("etf_holding_changes")
+          .find({ tradeDate: date, activeSignalScore: { $ne: null } })
+          .sort({ activeSignalScore: -1, activeDiffShares: -1 })
+          .limit(100)
+          .toArray();
+
+        return { date, ranking };
+      });
+      sendJson(res, 200, body);
       return;
     }
 
@@ -262,58 +287,77 @@ const server = createServer(async (req, res) => {
 
     if (action === "holdings") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const holdings = await db
-        .collection<EtfDailyHolding>("etf_daily_holdings")
-        .find({ etfCode, tradeDate: date })
-        .sort({ weight: -1, marketValue: -1 })
-        .toArray();
-      sendJson(res, 200, { etfCode, date, holdings });
+      const body = await getOrSetDailyCache(["etf", etfCode, "holdings", date], async () => {
+        const db = await getDevDb();
+        const holdings = await db
+          .collection<EtfDailyHolding>("etf_daily_holdings")
+          .find({ etfCode, tradeDate: date })
+          .sort({ weight: -1, marketValue: -1 })
+          .toArray();
+
+        return { etfCode, date, holdings };
+      });
+      sendJson(res, 200, body);
       return;
     }
 
     if (action === "summary") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const summary = await db.collection<EtfDailySummary>("etf_daily_summary").findOne({ etfCode, tradeDate: date });
-      sendJson(res, 200, { etfCode, date, summary });
+      const body = await getOrSetDailyCache(["etf", etfCode, "summary", date], async () => {
+        const db = await getDevDb();
+        const summary = await db.collection<EtfDailySummary>("etf_daily_summary").findOne({ etfCode, tradeDate: date });
+        return { etfCode, date, summary };
+      });
+      sendJson(res, 200, body);
       return;
     }
 
     if (action === "summary-history") {
       const limit = Math.min(180, Math.max(1, Number(requestUrl.searchParams.get("limit") ?? 90)));
-      const summaries = await db
-        .collection<EtfDailySummary>("etf_daily_summary")
-        .find({ etfCode })
-        .sort({ tradeDate: -1 })
-        .limit(limit)
-        .toArray();
-      sendJson(res, 200, { etfCode, summaries });
+      const body = await getOrSetDailyCache(["etf", etfCode, "summary-history", limit], async () => {
+        const db = await getDevDb();
+        const summaries = await db
+          .collection<EtfDailySummary>("etf_daily_summary")
+          .find({ etfCode })
+          .sort({ tradeDate: -1 })
+          .limit(limit)
+          .toArray();
+
+        return { etfCode, summaries };
+      });
+      sendJson(res, 200, body);
       return;
     }
 
     if (action === "changes") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const changes = await db
-        .collection<EtfHoldingChange>("etf_holding_changes")
-        .find({ etfCode, tradeDate: date })
-        .toArray();
-      sendJson(res, 200, {
-        etfCode,
-        date,
-        topIncreases: changes.filter((change) => change.diffShares > 0).sort((a, b) => b.diffShares - a.diffShares),
-        topDecreases: changes.filter((change) => change.diffShares < 0).sort((a, b) => a.diffShares - b.diffShares),
-        topActiveIncreases: changes
-          .filter((change) => (change.activeDiffShares ?? 0) > 0)
-          .sort((a, b) => (b.activeDiffShares ?? 0) - (a.activeDiffShares ?? 0)),
-        topActiveDecreases: changes
-          .filter((change) => (change.activeDiffShares ?? 0) < 0)
-          .sort((a, b) => (a.activeDiffShares ?? 0) - (b.activeDiffShares ?? 0)),
-        newHoldings: changes.filter(
-          (change) => change.status === "new" || (change.prevShares === 0 && change.currentShares > 0)
-        ),
-        exitedHoldings: changes.filter(
-          (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
-        )
+      const body = await getOrSetDailyCache(["etf", etfCode, "changes", date], async () => {
+        const db = await getDevDb();
+        const changes = await db
+          .collection<EtfHoldingChange>("etf_holding_changes")
+          .find({ etfCode, tradeDate: date })
+          .toArray();
+
+        return {
+          etfCode,
+          date,
+          topIncreases: changes.filter((change) => change.diffShares > 0).sort((a, b) => b.diffShares - a.diffShares),
+          topDecreases: changes.filter((change) => change.diffShares < 0).sort((a, b) => a.diffShares - b.diffShares),
+          topActiveIncreases: changes
+            .filter((change) => (change.activeDiffShares ?? 0) > 0)
+            .sort((a, b) => (b.activeDiffShares ?? 0) - (a.activeDiffShares ?? 0)),
+          topActiveDecreases: changes
+            .filter((change) => (change.activeDiffShares ?? 0) < 0)
+            .sort((a, b) => (a.activeDiffShares ?? 0) - (b.activeDiffShares ?? 0)),
+          newHoldings: changes.filter(
+            (change) => change.status === "new" || (change.prevShares === 0 && change.currentShares > 0)
+          ),
+          exitedHoldings: changes.filter(
+            (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
+          )
+        };
       });
+      sendJson(res, 200, body);
       return;
     }
 

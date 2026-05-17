@@ -1,6 +1,7 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
+import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { badRequest, jsonResponse } from "./response.js";
 
 export async function getEtfHoldings(request: HttpRequest, _context: InvocationContext) {
@@ -8,14 +9,18 @@ export async function getEtfHoldings(request: HttpRequest, _context: InvocationC
   const date = request.query.get("date");
   if (!etfCode || !date) return badRequest("etfCode and date are required");
 
-  const db = await getDb();
-  const holdings = await db
-    .collection<EtfDailyHolding>("etf_daily_holdings")
-    .find({ etfCode, tradeDate: date })
-    .sort({ weight: -1, marketValue: -1 })
-    .toArray();
+  const body = await getOrSetDailyCache(["etf", etfCode, "holdings", date], async () => {
+    const db = await getDb();
+    const holdings = await db
+      .collection<EtfDailyHolding>("etf_daily_holdings")
+      .find({ etfCode, tradeDate: date })
+      .sort({ weight: -1, marketValue: -1 })
+      .toArray();
 
-  return jsonResponse({ etfCode, date, holdings });
+    return { etfCode, date, holdings };
+  });
+
+  return jsonResponse(body);
 }
 
 app.http("getEtfHoldings", {

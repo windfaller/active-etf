@@ -1,6 +1,7 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
+import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { badRequest, jsonResponse } from "./response.js";
 
 interface StockImpactEtf {
@@ -36,70 +37,74 @@ export async function getMarketStockImpact(request: HttpRequest, _context: Invoc
   const date = request.query.get("date");
   if (!date) return badRequest("date is required");
 
-  const db = await getDb();
-  const changes = await db
-    .collection<EtfHoldingChange>("etf_holding_changes")
-    .find({ tradeDate: date, diffShares: { $ne: 0 } })
-    .toArray();
+  const body = await getOrSetDailyCache(["market", "stock-impact", date], async () => {
+    const db = await getDb();
+    const changes = await db
+      .collection<EtfHoldingChange>("etf_holding_changes")
+      .find({ tradeDate: date, diffShares: { $ne: 0 } })
+      .toArray();
 
-  const rowsByStock = new Map<string, StockImpactRow>();
+    const rowsByStock = new Map<string, StockImpactRow>();
 
-  for (const change of changes) {
-    const row =
-      rowsByStock.get(change.stockId) ??
-      ({
-        stockId: change.stockId,
-        stockName: change.stockName,
-        etfCount: 0,
-        increaseEtfCount: 0,
-        decreaseEtfCount: 0,
-        totalDiffLots: 0,
-        totalActiveDiffLots: 0,
-        totalDiffWeightPoint: 0,
-        maxAbsActiveDiffLots: 0,
-        maxAbsDiffWeightPoint: 0,
-        impactScore: 0,
-        primaryImpactEtf: null,
-        etfs: []
-      } satisfies StockImpactRow);
+    for (const change of changes) {
+      const row =
+        rowsByStock.get(change.stockId) ??
+        ({
+          stockId: change.stockId,
+          stockName: change.stockName,
+          etfCount: 0,
+          increaseEtfCount: 0,
+          decreaseEtfCount: 0,
+          totalDiffLots: 0,
+          totalActiveDiffLots: 0,
+          totalDiffWeightPoint: 0,
+          maxAbsActiveDiffLots: 0,
+          maxAbsDiffWeightPoint: 0,
+          impactScore: 0,
+          primaryImpactEtf: null,
+          etfs: []
+        } satisfies StockImpactRow);
 
-    const activeDiffLots = change.activeDiffLots ?? change.diffLots;
-    const diffWeightPoint = change.diffWeightPoint ?? 0;
-    const etfImpact: StockImpactEtf = {
-      etfCode: change.etfCode,
-      diffLots: change.diffLots,
-      activeDiffLots: change.activeDiffLots,
-      diffWeightPoint: change.diffWeightPoint,
-      currentWeight: change.currentWeight,
-      status: change.status
-    };
+      const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+      const diffWeightPoint = change.diffWeightPoint ?? 0;
+      const etfImpact: StockImpactEtf = {
+        etfCode: change.etfCode,
+        diffLots: change.diffLots,
+        activeDiffLots: change.activeDiffLots,
+        diffWeightPoint: change.diffWeightPoint,
+        currentWeight: change.currentWeight,
+        status: change.status
+      };
 
-    row.etfs.push(etfImpact);
-    row.etfCount += 1;
-    row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
-    row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
-    row.totalDiffLots += change.diffLots;
-    row.totalActiveDiffLots += activeDiffLots;
-    row.totalDiffWeightPoint += diffWeightPoint;
-    row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
-    row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
+      row.etfs.push(etfImpact);
+      row.etfCount += 1;
+      row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
+      row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
+      row.totalDiffLots += change.diffLots;
+      row.totalActiveDiffLots += activeDiffLots;
+      row.totalDiffWeightPoint += diffWeightPoint;
+      row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
+      row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
 
-    const primaryMagnitude = Math.abs(toNumber(row.primaryImpactEtf?.activeDiffLots) || row.primaryImpactEtf?.diffLots || 0);
-    if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) {
-      row.primaryImpactEtf = etfImpact;
+      const primaryMagnitude = Math.abs(toNumber(row.primaryImpactEtf?.activeDiffLots) || row.primaryImpactEtf?.diffLots || 0);
+      if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) {
+        row.primaryImpactEtf = etfImpact;
+      }
+
+      rowsByStock.set(change.stockId, row);
     }
 
-    rowsByStock.set(change.stockId, row);
-  }
+    const impacts = [...rowsByStock.values()]
+      .map((row) => ({
+        ...row,
+        impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
+      }))
+      .sort((a, b) => b.impactScore - a.impactScore);
 
-  const impacts = [...rowsByStock.values()]
-    .map((row) => ({
-      ...row,
-      impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
-    }))
-    .sort((a, b) => b.impactScore - a.impactScore);
+    return { date, impacts };
+  });
 
-  return jsonResponse({ date, impacts });
+  return jsonResponse(body);
 }
 
 app.http("getMarketStockImpact", {
