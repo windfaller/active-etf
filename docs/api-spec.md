@@ -18,6 +18,12 @@ Returns top increases, decreases, active increases, active decreases, new holdin
 
 Returns NAV, market price, premium or discount, total units, fund size, and allocation ratios.
 
+## Get Summary History
+
+`GET /api/etf/{etfCode}/summary-history?limit=90`
+
+Returns recent NAV, market price, premium or discount, total units, and fund size rows.
+
 ## Get Active Ranking
 
 `GET /api/etf/active/ranking?date=YYYY-MM-DD`

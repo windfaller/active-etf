@@ -93,9 +93,9 @@ const server = createServer(async (req, res) => {
 
     const etfCode = parts[2];
     const action = parts[3];
-    const date = required(requestUrl.searchParams.get("date"), "date");
 
     if (action === "holdings") {
+      const date = required(requestUrl.searchParams.get("date"), "date");
       const holdings = await db
         .collection<EtfDailyHolding>("etf_daily_holdings")
         .find({ etfCode, tradeDate: date })
@@ -106,12 +106,26 @@ const server = createServer(async (req, res) => {
     }
 
     if (action === "summary") {
+      const date = required(requestUrl.searchParams.get("date"), "date");
       const summary = await db.collection<EtfDailySummary>("etf_daily_summary").findOne({ etfCode, tradeDate: date });
       sendJson(res, 200, { etfCode, date, summary });
       return;
     }
 
+    if (action === "summary-history") {
+      const limit = Math.min(180, Math.max(1, Number(requestUrl.searchParams.get("limit") ?? 90)));
+      const summaries = await db
+        .collection<EtfDailySummary>("etf_daily_summary")
+        .find({ etfCode })
+        .sort({ tradeDate: -1 })
+        .limit(limit)
+        .toArray();
+      sendJson(res, 200, { etfCode, summaries });
+      return;
+    }
+
     if (action === "changes") {
+      const date = required(requestUrl.searchParams.get("date"), "date");
       const changes = await db
         .collection<EtfHoldingChange>("etf_holding_changes")
         .find({ etfCode, tradeDate: date })

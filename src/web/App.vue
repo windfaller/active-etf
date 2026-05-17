@@ -7,6 +7,7 @@ import {
   Database,
   Info,
   ListChecks,
+  LineChart,
   RefreshCw,
   Search,
   TrendingDown,
@@ -27,6 +28,8 @@ interface Holding {
 interface Summary {
   tradeDate: string;
   nav: NullableNumber;
+  marketPrice: NullableNumber;
+  premiumDiscount: NullableNumber;
   totalUnits: NullableNumber;
   fundSize: NullableNumber;
   netCreationUnits: NullableNumber;
@@ -75,11 +78,13 @@ const availableDates = [
 ];
 
 const selectedDate = ref("2026-05-15");
+const activeView = ref<"operations" | "holdings" | "premium">("operations");
 const query = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 const holdings = ref<Holding[]>([]);
 const summary = ref<Summary | null>(null);
+const summaryHistory = ref<Summary[]>([]);
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -97,6 +102,27 @@ const displayedHoldings = computed(() => {
     `${holding.stockId} ${holding.stockName}`.toLowerCase().includes(normalized)
   );
 });
+
+const premiumRows = computed(() =>
+  [...summaryHistory.value].sort((a, b) => b.tradeDate.localeCompare(a.tradeDate))
+);
+
+const premiumValues = computed(() =>
+  premiumRows.value
+    .map((row) => row.premiumDiscount)
+    .filter((value): value is number => value !== null && !Number.isNaN(value))
+);
+
+const premiumRange = computed(() => {
+  const values = premiumValues.value;
+  if (!values.length) return { min: -1, max: 1 };
+  return {
+    min: Math.min(-0.1, ...values),
+    max: Math.max(0.1, ...values)
+  };
+});
+
+const latestPremiumDate = computed(() => premiumRows.value[0]?.tradeDate ?? "-");
 
 const activeIncreaseRows = computed(() => changes.value.topActiveIncreases.slice(0, 12));
 const activeDecreaseRows = computed(() => changes.value.topActiveDecreases.slice(0, 12));
@@ -191,6 +217,10 @@ function formatPlainPct(value: NullableNumber, digits = 1): string {
   return `${formatNumber(value, digits)}%`;
 }
 
+function formatDateLabel(value: string): string {
+  return value.slice(5).replace("-", "/");
+}
+
 function formatLots(value: NullableNumber): string {
   if (value === null) return "-";
   return `${value > 0 ? "+" : ""}${formatNumber(value, 0)}`;
@@ -209,6 +239,21 @@ function barWidth(value: NullableNumber): string {
   return `${Math.min(100, (Math.abs(value ?? 0) / maxActiveLots.value) * 100)}%`;
 }
 
+function premiumBarStyle(value: NullableNumber): Record<string, string> {
+  if (value === null) return { width: "0%" };
+
+  const { min, max } = premiumRange.value;
+  const zero = ((0 - min) / (max - min)) * 100;
+  const point = ((value - min) / (max - min)) * 100;
+  const left = Math.min(zero, point);
+  const width = Math.max(2, Math.abs(point - zero));
+
+  return {
+    left: `${left}%`,
+    width: `${width}%`
+  };
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -220,14 +265,16 @@ async function loadDashboard(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    const [holdingsResponse, summaryResponse, changesResponse] = await Promise.all([
+    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse] = await Promise.all([
       getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
       getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
-      getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`)
+      getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
+      getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`)
     ]);
 
     holdings.value = holdingsResponse.holdings;
     summary.value = summaryResponse.summary;
+    summaryHistory.value = summaryHistoryResponse.summaries;
     changes.value = changesResponse;
   } catch (error) {
     errorMessage.value =
@@ -289,7 +336,19 @@ onMounted(() => {
       </button>
     </section>
 
-    <section class="summary-cards" aria-label="ETF summary">
+    <nav class="view-tabs" aria-label="資料頁籤">
+      <button type="button" :class="{ active: activeView === 'operations' }" @click="activeView = 'operations'">
+        操作日報
+      </button>
+      <button type="button" :class="{ active: activeView === 'holdings' }" @click="activeView = 'holdings'">
+        總清單
+      </button>
+      <button type="button" :class="{ active: activeView === 'premium' }" @click="activeView = 'premium'">
+        折溢價
+      </button>
+    </nav>
+
+    <section v-if="activeView === 'operations'" class="summary-cards" aria-label="ETF summary">
       <div class="kpi">
         <span>基金規模</span>
         <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
@@ -302,7 +361,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="operation-cards">
+    <section v-if="activeView === 'operations'" class="operation-cards">
       <div class="kpi">
         <span>新增</span>
         <strong>{{ operationCounts.new }}</strong>
@@ -325,7 +384,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="operation-panel">
+    <section v-if="activeView === 'operations'" class="operation-panel">
       <div class="operation-title">
         <div>
           <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
@@ -357,7 +416,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="signal-grid">
+    <section v-if="activeView === 'operations'" class="signal-grid">
       <article class="panel">
         <div class="panel-title positive">
           <TrendingUp :size="18" />
@@ -413,7 +472,7 @@ onMounted(() => {
       </article>
     </section>
 
-    <section class="list-strip">
+    <section v-if="activeView === 'operations'" class="list-strip">
       <article class="list-panel">
         <h2>新增持股</h2>
         <div class="tag-list">
@@ -430,7 +489,60 @@ onMounted(() => {
       </article>
     </section>
 
-    <section class="holdings-panel">
+    <section v-if="activeView === 'holdings'" class="summary-cards holdings-overview" aria-label="Holdings overview">
+      <div class="kpi">
+        <span>總持股</span>
+        <strong>{{ formatNumber(holdings.length) }}</strong>
+        <em>檔，依權重與市值排序</em>
+      </div>
+      <div class="kpi">
+        <span>股票部位</span>
+        <strong>{{ formatPct(summary?.stockRatio ?? null, 2) }}</strong>
+        <em>現金 {{ formatPct(summary?.cashRatio ?? null, 2) }}</em>
+      </div>
+    </section>
+
+    <section v-if="activeView === 'premium'" class="premium-panel">
+      <div class="table-title">
+        <div>
+          <h2><LineChart :size="18" /> 折溢價歷史</h2>
+          <p>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</p>
+        </div>
+      </div>
+
+      <div class="premium-chart" :class="{ empty: !premiumValues.length }">
+        <div class="premium-zero"></div>
+        <div
+          v-for="row in premiumRows.slice().reverse()"
+          :key="row.tradeDate"
+          v-show="row.premiumDiscount !== null"
+          class="premium-bar"
+          :class="{ positive: (row.premiumDiscount ?? 0) >= 0, negative: (row.premiumDiscount ?? 0) < 0 }"
+          :style="premiumBarStyle(row.premiumDiscount)"
+          :title="`${formatDateLabel(row.tradeDate)} ${formatPct(row.premiumDiscount, 2)}`"
+        ></div>
+        <p v-if="!premiumValues.length">目前已保存 NAV 歷史，但尚未同步市價，因此折溢價待補。</p>
+      </div>
+
+      <div class="premium-table">
+        <div class="premium-head">
+          <span>日期</span>
+          <span>股價</span>
+          <span>淨值</span>
+          <span>折溢價</span>
+        </div>
+        <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
+          <span>{{ formatDateLabel(row.tradeDate) }}</span>
+          <span>{{ formatNumber(row.marketPrice, 2) }}</span>
+          <span>{{ formatNumber(row.nav, 2) }}</span>
+          <span :class="{ 'increase-number': (row.premiumDiscount ?? 0) > 0, 'decrease-number': (row.premiumDiscount ?? 0) < 0 }">
+            {{ formatPct(row.premiumDiscount, 2) }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="activeView === 'holdings'" class="holdings-panel">
       <div class="table-title">
         <div>
           <h2><Database :size="18" /> 全持股清單</h2>
