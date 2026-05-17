@@ -60,6 +60,12 @@ Runs the daily-change calculation job for one ETF. `date` is optional; if omitte
 
 Runs the daily-change calculation job for every enabled ETF in `src/config/etfs.ts`. `date` is optional; if omitted, the job uses today's Taipei date. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
+## Admin Daily Refresh
+
+`POST /api/jobs/daily-refresh`
+
+Universal scheduler entrypoint. Runs holdings/NAV sync, TWSE closing-price sync, and daily-change calculation for every enabled ETF. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
 ## Get Consecutive Signals
 
 `GET /api/etf/{etfCode}/consecutive?days=5`

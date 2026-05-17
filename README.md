@@ -70,8 +70,7 @@ app_build_command: "npm run build"
 Azure Static Web Apps managed Functions 只支援 HTTP triggers，因此本專案在 SWA 模式不註冊 Timer Trigger。排程請用 Logic App / Automation / GitHub Actions 呼叫：
 
 ```txt
-POST /api/jobs/etfs/sync-holdings
-POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD
+POST /api/jobs/daily-refresh
 ```
 
 必須在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
@@ -156,10 +155,11 @@ pnpm test
 - `POST /api/jobs/etf/{etfCode}/calculate-changes?date=YYYY-MM-DD`
 - `POST /api/jobs/etfs/sync-holdings`
 - `POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD`
+- `POST /api/jobs/daily-refresh`
 
 詳細規格見 `docs/api-spec.md`。
 
-admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發批次 API。
+admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發 `POST /api/jobs/daily-refresh`。
 
 若本機沒有 Azure Functions Core Tools，可以先用 dev API 驗證 MongoDB 查詢：
 

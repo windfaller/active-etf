@@ -89,6 +89,33 @@ export async function postAllEtfsCalculateChanges(request: HttpRequest, _context
   return jsonResponse({ ok: results.every((result) => result.ok), job: "calculateDailyChangesAll", results });
 }
 
+export async function postDailyRefresh(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const results = [];
+  for (const etf of configuredEtfs.filter((item) => item.enabled)) {
+    try {
+      const syncResult = await runSyncDailyHoldingsJob(etf.etfCode);
+      const calculateResult = await runCalculateDailyChangesJob(etf.etfCode, syncResult.tradeDate);
+      results.push({
+        etfCode: etf.etfCode,
+        ok: true,
+        sync: syncResult,
+        calculate: calculateResult
+      });
+    } catch (error) {
+      results.push({
+        etfCode: etf.etfCode,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", results });
+}
+
 app.http("postEtfSyncHoldings", {
   methods: ["POST"],
   route: "jobs/etf/{etfCode}/sync-holdings",
@@ -115,4 +142,11 @@ app.http("postAllEtfsCalculateChanges", {
   route: "jobs/etfs/calculate-changes",
   authLevel: "anonymous",
   handler: postAllEtfsCalculateChanges
+});
+
+app.http("postDailyRefresh", {
+  methods: ["POST"],
+  route: "jobs/daily-refresh",
+  authLevel: "anonymous",
+  handler: postDailyRefresh
 });

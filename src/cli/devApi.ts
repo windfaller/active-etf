@@ -187,6 +187,37 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "daily-refresh") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const results = [];
+      for (const etf of configuredEtfs.filter((item) => item.enabled)) {
+        try {
+          const sync = await runSyncDailyHoldingsJob(etf.etfCode);
+          const calculate = await runCalculateDailyChangesJob(etf.etfCode, sync.tradeDate);
+          results.push({
+            etfCode: etf.etfCode,
+            ok: true,
+            sync,
+            calculate
+          });
+        } catch (error) {
+          results.push({
+            etfCode: etf.etfCode,
+            ok: false,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+
+      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", results });
+      return;
+    }
+
     if (req.method !== "GET") {
       sendJson(res, 405, { error: "Method not allowed" });
       return;
