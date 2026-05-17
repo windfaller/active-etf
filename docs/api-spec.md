@@ -26,14 +26,14 @@ Returns cross-ETF active-signal ranking.
 
 ## Admin Sync Holdings
 
-`POST /api/admin/etf/{etfCode}/sync-holdings`
+`POST /api/jobs/etf/{etfCode}/sync-holdings`
 
 Runs the same holdings sync job used by the Azure Timer Trigger. The Azure Function uses `authLevel: "function"`, so production calls must include a function key.
 On Azure Static Web Apps managed Functions, use Logic App or another scheduler to call this endpoint. If `ADMIN_JOB_TOKEN` is configured, include `x-admin-token`.
 
 ## Admin Calculate Changes
 
-`POST /api/admin/etf/{etfCode}/calculate-changes?date=YYYY-MM-DD`
+`POST /api/jobs/etf/{etfCode}/calculate-changes?date=YYYY-MM-DD`
 
 Runs the same daily-change calculation job used by the Azure Timer Trigger. `date` is optional; if omitted, the job uses today's Taipei date. The Azure Function uses `authLevel: "function"`.
 On Azure Static Web Apps managed Functions, use Logic App or another scheduler to call this endpoint. If `ADMIN_JOB_TOKEN` is configured, include `x-admin-token`.

@@ -17,6 +17,6 @@ export async function getEtfSummary(request: HttpRequest, _context: InvocationCo
 app.http("getEtfSummary", {
   methods: ["GET"],
   route: "etf/{etfCode}/summary",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getEtfSummary
 });

@@ -21,6 +21,6 @@ export async function getEtfHoldings(request: HttpRequest, _context: InvocationC
 app.http("getEtfHoldings", {
   methods: ["GET"],
   route: "etf/{etfCode}/holdings",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getEtfHoldings
 });

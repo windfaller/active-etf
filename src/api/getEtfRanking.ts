@@ -21,6 +21,6 @@ export async function getEtfRanking(request: HttpRequest, _context: InvocationCo
 app.http("getEtfRanking", {
   methods: ["GET"],
   route: "etf/active/ranking",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getEtfRanking
 });

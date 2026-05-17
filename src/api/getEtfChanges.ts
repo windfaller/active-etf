@@ -35,6 +35,6 @@ export async function getEtfChanges(request: HttpRequest, _context: InvocationCo
 app.http("getEtfChanges", {
   methods: ["GET"],
   route: "etf/{etfCode}/changes",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: getEtfChanges
 });

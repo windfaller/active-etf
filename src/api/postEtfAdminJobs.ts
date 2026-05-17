@@ -38,14 +38,14 @@ export async function postEtfCalculateChanges(request: HttpRequest, _context: In
 
 app.http("postEtfSyncHoldings", {
   methods: ["POST"],
-  route: "admin/etf/{etfCode}/sync-holdings",
-  authLevel: "function",
+  route: "jobs/etf/{etfCode}/sync-holdings",
+  authLevel: "anonymous",
   handler: postEtfSyncHoldings
 });
 
 app.http("postEtfCalculateChanges", {
   methods: ["POST"],
-  route: "admin/etf/{etfCode}/calculate-changes",
-  authLevel: "function",
+  route: "jobs/etf/{etfCode}/calculate-changes",
+  authLevel: "anonymous",
   handler: postEtfCalculateChanges
 });

@@ -43,7 +43,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "POST" && parts[1] === "admin" && parts[2] === "etf") {
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "etf") {
       if (!isAuthorizedAdminRequest(req)) {
         sendJson(res, 401, { error: "Unauthorized" });
         return;
