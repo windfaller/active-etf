@@ -3,16 +3,19 @@ import { computed, onMounted, ref } from "vue";
 import {
   Activity,
   AlertCircle,
+  BarChart3,
   Calendar,
   Database,
   Info,
-  ListChecks,
+  Layers,
   LineChart,
+  ListChecks,
   RefreshCw,
   Search,
   TrendingDown,
   TrendingUp
 } from "@lucide/vue";
+import { configuredEtfs } from "../config/etfs";
 
 type NullableNumber = number | null;
 
@@ -91,7 +94,8 @@ interface StockImpact {
 }
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
-const etfCode = "00981A";
+const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
+const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
 const availableDates = [
   "2026-05-15",
   "2026-05-14",
@@ -103,8 +107,9 @@ const availableDates = [
 ];
 
 const selectedDate = ref("2026-05-15");
-const activeView = ref<"operations" | "holdings" | "premium">("operations");
-const query = ref("");
+const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
+const marketQuery = ref("");
+const holdingQuery = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 const holdings = ref<Holding[]>([]);
@@ -120,13 +125,25 @@ const changes = ref<ChangesResponse>({
   exitedHoldings: []
 });
 
-const displayedHoldings = computed(() => {
-  const normalized = query.value.trim().toLowerCase();
+const selectedEtf = computed(
+  () => etfOptions.find((etf) => etf.etfCode === selectedEtfCode.value) ?? etfOptions[0]
+);
+
+const displayedImpacts = computed(() => {
+  const normalized = marketQuery.value.trim().toLowerCase();
   if (!normalized) return stockImpacts.value;
 
   return stockImpacts.value.filter((row) =>
-    `${row.stockId} ${row.stockName} ${row.primaryImpactEtf?.etfCode ?? ""}`.toLowerCase().includes(normalized)
+    `${row.stockId} ${row.stockName} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`.toLowerCase().includes(normalized)
   );
+});
+
+const displayedHoldings = computed(() => {
+  const normalized = holdingQuery.value.trim().toLowerCase();
+  const rows = [...holdings.value].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  if (!normalized) return rows;
+
+  return rows.filter((row) => `${row.stockId} ${row.stockName}`.toLowerCase().includes(normalized));
 });
 
 const premiumRows = computed(() =>
@@ -149,9 +166,14 @@ const premiumRange = computed(() => {
 });
 
 const latestPremiumDate = computed(() => premiumRows.value[0]?.tradeDate ?? "-");
-
 const activeIncreaseRows = computed(() => changes.value.topActiveIncreases.slice(0, 12));
 const activeDecreaseRows = computed(() => changes.value.topActiveDecreases.slice(0, 12));
+
+const marketTotals = computed(() => ({
+  impactedStocks: stockImpacts.value.length,
+  activeLots: stockImpacts.value.reduce((sum, row) => sum + row.totalActiveDiffLots, 0),
+  etfTouches: stockImpacts.value.reduce((sum, row) => sum + row.etfCount, 0)
+}));
 
 function isNewLike(row: Change): boolean {
   return row.status === "new" || (row.prevShares === 0 && row.currentShares > 0);
@@ -252,6 +274,11 @@ function formatLots(value: NullableNumber): string {
   return `${value > 0 ? "+" : ""}${formatNumber(value, 0)}`;
 }
 
+function formatWeight(value: NullableNumber): string {
+  if (value === null) return "-";
+  return value === 0 ? "<0.01%" : formatPlainPct(value, 2);
+}
+
 function operationLabel(status: "new" | "delete" | "increase" | "decrease"): string {
   return {
     new: "新增",
@@ -280,6 +307,10 @@ function premiumBarStyle(value: NullableNumber): Record<string, string> {
   };
 }
 
+function etfLabel(code: string): string {
+  return etfNameByCode.get(code) ?? code;
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -291,13 +322,15 @@ async function loadDashboard(): Promise<void> {
   errorMessage.value = "";
 
   try {
-    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse, stockImpactResponse] = await Promise.all([
-      getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
-      getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
-      getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
-      getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`),
-      getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`)
-    ]);
+    const etfCode = selectedEtfCode.value;
+    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse, stockImpactResponse] =
+      await Promise.all([
+        getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
+        getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
+        getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
+        getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`),
+        getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`)
+      ]);
 
     holdings.value = holdingsResponse.holdings;
     summary.value = summaryResponse.summary;
@@ -324,21 +357,14 @@ onMounted(() => {
         <div class="brand-mark"><Activity :size="20" /></div>
         <div>
           <h1>台灣主動式ETF 調倉雷達</h1>
-          <p>公開 PCF 持股資料、每日增減碼與規模校正後主動訊號</p>
+          <p>跨 ETF 個股影響、單檔操作日報、折溢價與持股總表</p>
         </div>
       </div>
 
-      <div class="toolbar">
+      <div class="toolbar compact-toolbar">
         <label class="control">
-          <span>ETF</span>
-          <select aria-label="ETF">
-            <option>00981A 主動統一台股增長</option>
-          </select>
-        </label>
-
-        <label class="control">
-          <span><Calendar :size="14" /> 日期</span>
-          <select v-model="selectedDate" aria-label="日期" @change="loadDashboard">
+          <span><Calendar :size="14" /> 指定日期</span>
+          <select v-model="selectedDate" aria-label="指定日期" @change="loadDashboard">
             <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
           </select>
         </label>
@@ -354,235 +380,45 @@ onMounted(() => {
       <span>{{ errorMessage }}</span>
     </section>
 
-    <section class="daily-heading">
-      <div>
-        <h2>{{ selectedDate.slice(5).replace("-", "/") }} 操作日報</h2>
-        <p>以官方 PCF 持股揭露計算，並校正 ETF 規模變化。</p>
-      </div>
-      <button class="text-button" type="button">
-        變動說明 <Info :size="15" />
-      </button>
-    </section>
-
-    <nav class="view-tabs" aria-label="資料頁籤">
-      <button type="button" :class="{ active: activeView === 'operations' }" @click="activeView = 'operations'">
-        操作日報
-      </button>
-      <button type="button" :class="{ active: activeView === 'holdings' }" @click="activeView = 'holdings'">
-        總清單
-      </button>
-      <button type="button" :class="{ active: activeView === 'premium' }" @click="activeView = 'premium'">
-        折溢價
-      </button>
-    </nav>
-
-    <section v-if="activeView === 'operations'" class="summary-cards" aria-label="ETF summary">
-      <div class="kpi">
-        <span>基金規模</span>
-        <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
-        <em>較前日 {{ formatPct(summary?.netCreationUnits ? (summary.netCreationUnits / (summary.totalUnits ?? 1)) * 100 : 0, 2) }}</em>
-      </div>
-      <div class="kpi">
-        <span>NAV</span>
-        <strong>{{ formatNumber(summary?.nav ?? null, 2) }}</strong>
-        <em>股票 {{ formatPct(summary?.stockRatio ?? null, 2) }}｜現金 {{ formatPct(summary?.cashRatio ?? null, 2) }}</em>
-      </div>
-    </section>
-
-    <section v-if="activeView === 'operations'" class="operation-cards">
-      <div class="kpi">
-        <span>新增</span>
-        <strong>{{ operationCounts.new }}</strong>
-        <em>檔</em>
-      </div>
-      <div class="kpi delete-card">
-        <span>刪除</span>
-        <strong>{{ operationCounts.delete }}</strong>
-        <em>檔</em>
-      </div>
-      <div class="kpi add-card">
-        <span>加碼</span>
-        <strong>{{ operationCounts.increase }}</strong>
-        <em>檔</em>
-      </div>
-      <div class="kpi cut-card">
-        <span>減碼</span>
-        <strong>{{ operationCounts.decrease }}</strong>
-        <em>檔</em>
-      </div>
-    </section>
-
-    <section v-if="activeView === 'operations'" class="operation-panel">
-      <div class="operation-title">
+    <section class="section-panel market-panel">
+      <div class="section-heading">
         <div>
-          <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
-        </div>
-        <span>變動說明 <Info :size="15" /></span>
-      </div>
-
-      <div class="operation-table">
-        <div class="operation-head">
-          <span>標的</span>
-          <span>狀態</span>
-          <span>持股變動</span>
-          <span>變動幅度</span>
-          <span>目前權重<br />變動%</span>
-        </div>
-        <div v-for="row in operationRows" :key="`${row.operationStatus}-${row.stockId}`" class="operation-row">
-          <span class="operation-stock">
-            <b>{{ row.stockName }}</b>
-            <small>{{ row.stockId }}</small>
-          </span>
-          <span class="status-pill" :class="row.operationStatus">{{ operationLabel(row.operationStatus) }}</span>
-          <span :class="['operation-number', row.operationStatus]">{{ formatLots(row.diffLots) }}</span>
-          <span>{{ formatPlainPct(row.diffPct, 1) }}</span>
-          <span class="weight-stack">
-            <b>{{ row.currentWeight === null || row.currentWeight === 0 ? "<0.01%" : formatPlainPct(row.currentWeight, 2) }}</b>
-            <small>{{ formatPct(row.diffWeightPoint, 2) }}</small>
-          </span>
+          <span class="eyebrow">市場總覽</span>
+          <h2><Layers :size="19" /> {{ formatDateLabel(selectedDate) }} 跨 ETF 個股影響總表</h2>
+          <p>彙整所有已追蹤統一主動式 ETF 的當日持股異動，先看哪些個股受到最大影響。</p>
         </div>
       </div>
-    </section>
 
-    <section v-if="activeView === 'operations'" class="signal-grid">
-      <article class="panel">
-        <div class="panel-title positive">
-          <TrendingUp :size="18" />
-          <h2>真正主動加碼</h2>
+      <div class="market-kpis">
+        <div class="kpi">
+          <span>影響個股</span>
+          <strong>{{ formatNumber(marketTotals.impactedStocks) }}</strong>
+          <em>檔</em>
         </div>
-        <div class="signal-table">
-          <div class="signal-head">
-            <span>股票</span>
-            <span>表面張數</span>
-            <span>主動張數</span>
-            <span>比例</span>
-            <span>權重</span>
-            <span>分數</span>
-          </div>
-          <div v-for="row in activeIncreaseRows" :key="row.stockId" class="signal-row">
-            <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
-            <span>{{ formatLots(row.diffLots) }}</span>
-            <span class="increase-number">{{ formatLots(row.activeDiffLots) }}</span>
-            <span>{{ formatPct(row.activeDiffPct) }}</span>
-            <span>{{ formatPct(row.diffWeightPoint) }}</span>
-            <span class="score">{{ row.activeSignalScore ?? "-" }}</span>
-            <div class="magnitude positive-bg" :style="{ width: barWidth(row.activeDiffLots) }"></div>
-          </div>
-          <p v-if="!activeIncreaseRows.length" class="empty-row">此日沒有符合門檻的主動加碼。</p>
+        <div class="kpi">
+          <span>主動淨變動</span>
+          <strong>{{ formatLots(marketTotals.activeLots) }}</strong>
+          <em>張</em>
         </div>
-      </article>
-
-      <article class="panel">
-        <div class="panel-title negative">
-          <TrendingDown :size="18" />
-          <h2>真正主動減碼</h2>
+        <div class="kpi">
+          <span>ETF 異動交集</span>
+          <strong>{{ formatNumber(marketTotals.etfTouches) }}</strong>
+          <em>筆</em>
         </div>
-        <div class="signal-table">
-          <div class="signal-head">
-            <span>股票</span>
-            <span>表面張數</span>
-            <span>主動張數</span>
-            <span>比例</span>
-            <span>權重</span>
-            <span>分數</span>
-          </div>
-          <div v-for="row in activeDecreaseRows" :key="row.stockId" class="signal-row">
-            <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
-            <span>{{ formatLots(row.diffLots) }}</span>
-            <span class="decrease-number">{{ formatLots(row.activeDiffLots) }}</span>
-            <span>{{ formatPct(row.activeDiffPct) }}</span>
-            <span>{{ formatPct(row.diffWeightPoint) }}</span>
-            <span class="score">{{ row.activeSignalScore ?? "-" }}</span>
-            <div class="magnitude negative-bg" :style="{ width: barWidth(row.activeDiffLots) }"></div>
-          </div>
-          <p v-if="!activeDecreaseRows.length" class="empty-row">此日沒有符合門檻的主動減碼。</p>
-        </div>
-      </article>
-    </section>
-
-    <section v-if="activeView === 'operations'" class="list-strip">
-      <article class="list-panel">
-        <h2>新增持股</h2>
-        <div class="tag-list">
-          <span v-for="row in changes.newHoldings" :key="row.stockId" class="tag">{{ row.stockId }} {{ row.stockName }}</span>
-          <span v-if="!changes.newHoldings.length" class="muted">無</span>
-        </div>
-      </article>
-      <article class="list-panel">
-        <h2>清倉持股</h2>
-        <div class="tag-list">
-          <span v-for="row in changes.exitedHoldings" :key="row.stockId" class="tag danger">{{ row.stockId }} {{ row.stockName }}</span>
-          <span v-if="!changes.exitedHoldings.length" class="muted">無</span>
-        </div>
-      </article>
-    </section>
-
-    <section v-if="activeView === 'holdings'" class="summary-cards holdings-overview" aria-label="Holdings overview">
-      <div class="kpi">
-        <span>影響個股</span>
-        <strong>{{ formatNumber(stockImpacts.length) }}</strong>
-        <em>檔，依跨 ETF 影響排序</em>
       </div>
-      <div class="kpi">
-        <span>主動淨變動</span>
-        <strong>{{ formatLots(stockImpacts.reduce((sum, row) => sum + row.totalActiveDiffLots, 0)) }}</strong>
-        <em>張，跨所有追蹤 ETF</em>
-      </div>
-    </section>
 
-    <section v-if="activeView === 'premium'" class="premium-panel">
       <div class="table-title">
         <div>
-          <h2><LineChart :size="18" /> 折溢價歷史</h2>
-          <p>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</p>
-        </div>
-      </div>
-
-      <div class="premium-chart" :class="{ empty: !premiumValues.length }">
-        <div class="premium-zero"></div>
-        <div
-          v-for="row in premiumRows.slice().reverse()"
-          :key="row.tradeDate"
-          v-show="row.premiumDiscount !== null"
-          class="premium-bar"
-          :class="{ positive: (row.premiumDiscount ?? 0) >= 0, negative: (row.premiumDiscount ?? 0) < 0 }"
-          :style="premiumBarStyle(row.premiumDiscount)"
-          :title="`${formatDateLabel(row.tradeDate)} ${formatPct(row.premiumDiscount, 2)}`"
-        ></div>
-        <p v-if="!premiumValues.length">目前已保存 NAV 歷史，但尚未同步市價，因此折溢價待補。</p>
-      </div>
-
-      <div class="premium-table">
-        <div class="premium-head">
-          <span>日期</span>
-          <span>股價</span>
-          <span>淨值</span>
-          <span>折溢價</span>
-        </div>
-        <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
-          <span>{{ formatDateLabel(row.tradeDate) }}</span>
-          <span>{{ formatNumber(row.marketPrice, 2) }}</span>
-          <span>{{ formatNumber(row.nav, 2) }}</span>
-          <span :class="{ 'increase-number': (row.premiumDiscount ?? 0) > 0, 'decrease-number': (row.premiumDiscount ?? 0) < 0 }">
-            {{ formatPct(row.premiumDiscount, 2) }}
-          </span>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="activeView === 'holdings'" class="holdings-panel">
-      <div class="table-title">
-        <div>
-          <h2><Database :size="18" /> 個股影響總表</h2>
-          <p>{{ selectedDate }}，共 {{ displayedHoldings.length }} 檔受影響個股</p>
+          <h2><BarChart3 :size="18" /> 個股影響排名</h2>
+          <p>依主動張數與權重變動排序，共 {{ displayedImpacts.length }} 檔</p>
         </div>
         <label class="search-box">
           <Search :size="16" />
-          <input v-model="query" type="search" placeholder="搜尋股票代號、名稱或 ETF" />
+          <input v-model="marketQuery" type="search" placeholder="搜尋股票代號、名稱或 ETF" />
         </label>
       </div>
 
-      <div class="holdings-table">
+      <div class="holdings-table impact-table">
         <div class="holdings-head">
           <span>股票</span>
           <span>主動淨變動</span>
@@ -590,7 +426,7 @@ onMounted(() => {
           <span>影響 ETF</span>
           <span>主要來源</span>
         </div>
-        <div v-for="row in displayedHoldings" :key="row.stockId" class="holding-row">
+        <div v-for="row in displayedImpacts" :key="row.stockId" class="holding-row">
           <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
             {{ formatLots(row.totalActiveDiffLots) }}
@@ -604,10 +440,236 @@ onMounted(() => {
           </span>
           <span>
             {{ row.primaryImpactEtf?.etfCode ?? "-" }}
-            <small class="impact-split">{{ formatLots(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? null) }}</small>
+            <small class="impact-split">{{ row.primaryImpactEtf ? etfLabel(row.primaryImpactEtf.etfCode) : "-" }}</small>
           </span>
         </div>
+        <p v-if="!displayedImpacts.length" class="empty-row">此日期尚無跨 ETF 異動資料。</p>
       </div>
+    </section>
+
+    <section class="section-panel report-panel">
+      <div class="section-heading report-heading">
+        <div>
+          <span class="eyebrow">單檔 ETF</span>
+          <h2><ListChecks :size="19" /> 操作日報</h2>
+          <p>基金選擇、當日增減碼、折溢價與持股總表都集中在這裡。</p>
+        </div>
+        <div class="toolbar report-controls">
+          <label class="control wide-control">
+            <span>ETF</span>
+            <select v-model="selectedEtfCode" aria-label="ETF" @change="loadDashboard">
+              <option v-for="etf in etfOptions" :key="etf.etfCode" :value="etf.etfCode">
+                {{ etf.etfCode }} {{ etf.name }}
+              </option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="report-identity">
+        <b>{{ selectedEtf?.etfCode }}</b>
+        <span>{{ selectedEtf?.name }}</span>
+        <small>{{ selectedEtf?.issuer }}｜{{ selectedDate }}</small>
+      </div>
+
+      <section class="summary-cards" aria-label="ETF summary">
+        <div class="kpi">
+          <span>基金規模</span>
+          <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
+          <em>較前日 {{ formatPct(summary?.netCreationUnits ? (summary.netCreationUnits / (summary.totalUnits ?? 1)) * 100 : 0, 2) }}</em>
+        </div>
+        <div class="kpi">
+          <span>折溢價 / NAV</span>
+          <strong>{{ formatPct(summary?.premiumDiscount ?? null, 2) }}</strong>
+          <em>股價 {{ formatNumber(summary?.marketPrice ?? null, 2) }}｜淨值 {{ formatNumber(summary?.nav ?? null, 2) }}</em>
+        </div>
+        <div class="kpi">
+          <span>資產配置</span>
+          <strong>{{ formatPct(summary?.stockRatio ?? null, 1) }}</strong>
+          <em>股票｜現金 {{ formatPct(summary?.cashRatio ?? null, 1) }}</em>
+        </div>
+      </section>
+
+      <section class="operation-cards">
+        <div class="kpi">
+          <span>新增</span>
+          <strong>{{ operationCounts.new }}</strong>
+          <em>檔</em>
+        </div>
+        <div class="kpi delete-card">
+          <span>刪除</span>
+          <strong>{{ operationCounts.delete }}</strong>
+          <em>檔</em>
+        </div>
+        <div class="kpi add-card">
+          <span>加碼</span>
+          <strong>{{ operationCounts.increase }}</strong>
+          <em>檔</em>
+        </div>
+        <div class="kpi cut-card">
+          <span>減碼</span>
+          <strong>{{ operationCounts.decrease }}</strong>
+          <em>檔</em>
+        </div>
+      </section>
+
+      <section class="operation-panel">
+        <div class="operation-title">
+          <div>
+            <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
+          </div>
+          <span>規模校正後主動訊號 <Info :size="15" /></span>
+        </div>
+
+        <div class="operation-table">
+          <div class="operation-head">
+            <span>標的</span>
+            <span>狀態</span>
+            <span>持股變動</span>
+            <span>變動幅度</span>
+            <span>目前權重<br />變動%</span>
+          </div>
+          <div v-for="row in operationRows" :key="`${row.operationStatus}-${row.stockId}`" class="operation-row">
+            <span class="operation-stock">
+              <b>{{ row.stockName }}</b>
+              <small>{{ row.stockId }}</small>
+            </span>
+            <span class="status-pill" :class="row.operationStatus">{{ operationLabel(row.operationStatus) }}</span>
+            <span :class="['operation-number', row.operationStatus]">{{ formatLots(row.diffLots) }}</span>
+            <span>{{ formatPlainPct(row.diffPct, 1) }}</span>
+            <span class="weight-stack">
+              <b>{{ formatWeight(row.currentWeight) }}</b>
+              <small>{{ formatPct(row.diffWeightPoint, 2) }}</small>
+            </span>
+          </div>
+          <p v-if="!operationRows.length" class="empty-row">此日期尚無可計算的異動資料。</p>
+        </div>
+      </section>
+
+      <details class="history-disclosure">
+        <summary>
+          <span><LineChart :size="18" /> 折溢價歷史</span>
+          <small>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</small>
+        </summary>
+
+        <div class="premium-chart" :class="{ empty: !premiumValues.length }">
+          <div class="premium-zero"></div>
+          <div
+            v-for="row in premiumRows.slice().reverse()"
+            :key="row.tradeDate"
+            v-show="row.premiumDiscount !== null"
+            class="premium-bar"
+            :class="{ positive: (row.premiumDiscount ?? 0) >= 0, negative: (row.premiumDiscount ?? 0) < 0 }"
+            :style="premiumBarStyle(row.premiumDiscount)"
+            :title="`${formatDateLabel(row.tradeDate)} ${formatPct(row.premiumDiscount, 2)}`"
+          ></div>
+          <p v-if="!premiumValues.length">目前已保存 NAV 歷史，但尚未同步市價，因此折溢價待補。</p>
+        </div>
+
+        <div class="premium-table">
+          <div class="premium-head">
+            <span>日期</span>
+            <span>股價</span>
+            <span>淨值</span>
+            <span>折溢價</span>
+          </div>
+          <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
+            <span>{{ formatDateLabel(row.tradeDate) }}</span>
+            <span>{{ formatNumber(row.marketPrice, 2) }}</span>
+            <span>{{ formatNumber(row.nav, 2) }}</span>
+            <span :class="{ 'increase-number': (row.premiumDiscount ?? 0) > 0, 'decrease-number': (row.premiumDiscount ?? 0) < 0 }">
+              {{ formatPct(row.premiumDiscount, 2) }}
+            </span>
+          </div>
+        </div>
+      </details>
+
+      <section class="signal-grid">
+        <article class="panel">
+          <div class="panel-title positive">
+            <TrendingUp :size="18" />
+            <h2>真正主動加碼</h2>
+          </div>
+          <div class="signal-table">
+            <div class="signal-head">
+              <span>股票</span>
+              <span>表面張數</span>
+              <span>主動張數</span>
+              <span>比例</span>
+              <span>權重</span>
+              <span>分數</span>
+            </div>
+            <div v-for="row in activeIncreaseRows" :key="row.stockId" class="signal-row">
+              <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
+              <span>{{ formatLots(row.diffLots) }}</span>
+              <span class="increase-number">{{ formatLots(row.activeDiffLots) }}</span>
+              <span>{{ formatPct(row.activeDiffPct) }}</span>
+              <span>{{ formatPct(row.diffWeightPoint) }}</span>
+              <span class="score">{{ row.activeSignalScore ?? "-" }}</span>
+              <div class="magnitude positive-bg" :style="{ width: barWidth(row.activeDiffLots) }"></div>
+            </div>
+            <p v-if="!activeIncreaseRows.length" class="empty-row">此日沒有符合門檻的主動加碼。</p>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title negative">
+            <TrendingDown :size="18" />
+            <h2>真正主動減碼</h2>
+          </div>
+          <div class="signal-table">
+            <div class="signal-head">
+              <span>股票</span>
+              <span>表面張數</span>
+              <span>主動張數</span>
+              <span>比例</span>
+              <span>權重</span>
+              <span>分數</span>
+            </div>
+            <div v-for="row in activeDecreaseRows" :key="row.stockId" class="signal-row">
+              <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
+              <span>{{ formatLots(row.diffLots) }}</span>
+              <span class="decrease-number">{{ formatLots(row.activeDiffLots) }}</span>
+              <span>{{ formatPct(row.activeDiffPct) }}</span>
+              <span>{{ formatPct(row.diffWeightPoint) }}</span>
+              <span class="score">{{ row.activeSignalScore ?? "-" }}</span>
+              <div class="magnitude negative-bg" :style="{ width: barWidth(row.activeDiffLots) }"></div>
+            </div>
+            <p v-if="!activeDecreaseRows.length" class="empty-row">此日沒有符合門檻的主動減碼。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="holdings-panel">
+        <div class="table-title">
+          <div>
+            <h2><Database :size="18" /> 持股總表</h2>
+            <p>{{ selectedDate }}，{{ selectedEtf?.etfCode }} 共 {{ displayedHoldings.length }} 檔</p>
+          </div>
+          <label class="search-box">
+            <Search :size="16" />
+            <input v-model="holdingQuery" type="search" placeholder="搜尋股票代號或名稱" />
+          </label>
+        </div>
+
+        <div class="holdings-table">
+          <div class="holdings-head">
+            <span>股票</span>
+            <span>持股張數</span>
+            <span>市值</span>
+            <span>目前權重</span>
+            <span>股數</span>
+          </div>
+          <div v-for="row in displayedHoldings" :key="row.stockId" class="holding-row">
+            <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
+            <span>{{ formatNumber(row.lots, 0) }}</span>
+            <span>{{ formatMoney(row.marketValue) }}</span>
+            <span>{{ formatWeight(row.weight) }}</span>
+            <span>{{ formatNumber(row.shares, 0) }}</span>
+          </div>
+          <p v-if="!displayedHoldings.length" class="empty-row">此日期尚無持股資料。</p>
+        </div>
+      </section>
     </section>
 
     <footer class="disclaimer">

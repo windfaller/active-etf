@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
+import { configuredEtfs } from "../config/etfs.js";
 import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
@@ -127,6 +128,61 @@ const server = createServer(async (req, res) => {
         const tradeDate = dateParam ? assertTradeDate(dateParam) : undefined;
         const result = await runCalculateDailyChangesJob(etfCode, tradeDate);
         sendJson(res, 200, { ok: result !== null, job: "calculateDailyChanges", result });
+        return;
+      }
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "etfs") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const action = parts[3];
+
+      if (action === "sync-holdings") {
+        const results = [];
+        for (const etf of configuredEtfs.filter((item) => item.enabled)) {
+          try {
+            results.push({
+              etfCode: etf.etfCode,
+              ok: true,
+              result: await runSyncDailyHoldingsJob(etf.etfCode)
+            });
+          } catch (error) {
+            results.push({
+              etfCode: etf.etfCode,
+              ok: false,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+        sendJson(res, 200, { ok: results.every((result) => result.ok), job: "syncDailyHoldingsAll", results });
+        return;
+      }
+
+      if (action === "calculate-changes") {
+        const dateParam = requestUrl.searchParams.get("date");
+        const tradeDate = dateParam ? assertTradeDate(dateParam) : undefined;
+        const results = [];
+        for (const etf of configuredEtfs.filter((item) => item.enabled)) {
+          try {
+            const result = await runCalculateDailyChangesJob(etf.etfCode, tradeDate);
+            results.push({
+              etfCode: etf.etfCode,
+              ok: result !== null,
+              result
+            });
+          } catch (error) {
+            results.push({
+              etfCode: etf.etfCode,
+              ok: false,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+        sendJson(res, 200, { ok: results.every((result) => result.ok), job: "calculateDailyChangesAll", results });
         return;
       }
     }

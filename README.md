@@ -1,6 +1,6 @@
 # 統一投信主動式 ETF 每日持股追蹤系統
 
-這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台股主動式 ETF 每日調倉雷達」。MVP 先追蹤統一投信 `00981A`，但 ETF 清單放在 `src/config/etfs.ts`，後續可擴充 `00403A`、`00988A` 或其他主動式 ETF。
+這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台股主動式 ETF 每日調倉雷達」。目前追蹤統一投信 `00981A`、`00988A`、`00403A`，ETF 清單集中放在 `src/config/etfs.ts`。
 
 本系統只整理公開資料並做研究分析，不構成投資建議。
 
@@ -70,8 +70,8 @@ app_build_command: "npm run build"
 Azure Static Web Apps managed Functions 只支援 HTTP triggers，因此本專案在 SWA 模式不註冊 Timer Trigger。排程請用 Logic App / Automation / GitHub Actions 呼叫：
 
 ```txt
-POST /api/jobs/etf/00981A/sync-holdings
-POST /api/jobs/etf/00981A/calculate-changes?date=YYYY-MM-DD
+POST /api/jobs/etfs/sync-holdings
+POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD
 ```
 
 必須在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
@@ -103,6 +103,7 @@ node dist-api/src/cli/manualSync.js 00981A
 ```
 
 手動 sync 會呼叫統一投信官方 `GetPCF` JSON endpoint，保存 raw snapshot，並 upsert `etf_daily_holdings` 與 `etf_daily_summary`。
+其他已設定 ETF 也可把 CLI 參數改成 `00988A` 或 `00403A`。
 
 ## 回填與計算變化
 
@@ -148,13 +149,17 @@ pnpm test
 - `GET /api/etf/{etfCode}/holdings?date=YYYY-MM-DD`
 - `GET /api/etf/{etfCode}/changes?date=YYYY-MM-DD`
 - `GET /api/etf/{etfCode}/summary?date=YYYY-MM-DD`
+- `GET /api/etf/{etfCode}/summary-history?limit=90`
 - `GET /api/etf/active/ranking?date=YYYY-MM-DD`
+- `GET /api/market/stock-impact?date=YYYY-MM-DD`
 - `POST /api/jobs/etf/{etfCode}/sync-holdings`
 - `POST /api/jobs/etf/{etfCode}/calculate-changes?date=YYYY-MM-DD`
+- `POST /api/jobs/etfs/sync-holdings`
+- `POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD`
 
 詳細規格見 `docs/api-spec.md`。
 
-兩個 admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發這兩個 API。
+admin POST API 與 Timer Trigger 共用同一批 job 邏輯；SWA managed Functions 環境請由 Logic App 排程觸發批次 API。
 
 若本機沒有 Azure Functions Core Tools，可以先用 dev API 驗證 MongoDB 查詢：
 
