@@ -6,6 +6,8 @@ import { parseEzmoneyHoldings } from "../parser/ezmoneyHoldingParser.js";
 import { detectEzmoneyPcfTradeDate, parseEzmoneyPcf } from "../parser/ezmoneyPcfParser.js";
 import { EzmoneyClient } from "../source/ezmoneyClient.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
+import { syncTwseClosingPrice } from "./twseClosingPriceSync.js";
+import { logger } from "../../utils/logger.js";
 
 export interface SyncEzmoneyPcfOptions {
   queryDate?: string;
@@ -79,6 +81,16 @@ export async function syncEzmoneyPcf(
       );
     })
   );
+
+  try {
+    await syncTwseClosingPrice(db, etf, tradeDate, summary.nav);
+  } catch (error) {
+    logger.warn("Closing price sync skipped", {
+      etfCode: etf.etfCode,
+      tradeDate,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
 
   return {
     snapshotId: snapshot.snapshotId,
