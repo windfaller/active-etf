@@ -111,6 +111,7 @@ const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const marketQuery = ref("");
 const holdingQuery = ref("");
 const isLoading = ref(false);
+const hasLoaded = ref(false);
 const errorMessage = ref("");
 const holdings = ref<Holding[]>([]);
 const summary = ref<Summary | null>(null);
@@ -174,6 +175,10 @@ const marketTotals = computed(() => ({
   activeLots: stockImpacts.value.reduce((sum, row) => sum + row.totalActiveDiffLots, 0),
   etfTouches: stockImpacts.value.reduce((sum, row) => sum + row.etfCount, 0)
 }));
+const loadingText = computed(() =>
+  hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。"
+);
+const showInitialSkeleton = computed(() => isLoading.value && !hasLoaded.value);
 
 function isNewLike(row: Change): boolean {
   return row.status === "new" || (row.prevShares === 0 && row.currentShares > 0);
@@ -342,6 +347,7 @@ async function loadDashboard(): Promise<void> {
       error instanceof Error ? error.message : "資料讀取失敗，請確認 API server 是否啟動。";
   } finally {
     isLoading.value = false;
+    hasLoaded.value = true;
   }
 }
 
@@ -380,7 +386,12 @@ onMounted(() => {
       <span>{{ errorMessage }}</span>
     </section>
 
-    <section class="section-panel market-panel">
+    <section v-if="isLoading" class="loading-banner" role="status" aria-live="polite">
+      <RefreshCw :size="16" class="spinning" />
+      <span>{{ loadingText }}</span>
+    </section>
+
+    <section class="section-panel market-panel" :class="{ 'is-updating': isLoading && hasLoaded }" :aria-busy="isLoading">
       <div class="section-heading">
         <div>
           <span class="eyebrow">市場總覽</span>
@@ -389,7 +400,14 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="market-kpis">
+      <div v-if="showInitialSkeleton" class="market-kpis">
+        <div v-for="item in 3" :key="`market-skeleton-${item}`" class="kpi skeleton-card">
+          <span></span>
+          <strong></strong>
+          <em></em>
+        </div>
+      </div>
+      <div v-else class="market-kpis">
         <div class="kpi">
           <span>影響個股</span>
           <strong>{{ formatNumber(marketTotals.impactedStocks) }}</strong>
@@ -426,7 +444,16 @@ onMounted(() => {
           <span>影響 ETF</span>
           <span>主要來源</span>
         </div>
-        <div v-for="row in displayedImpacts" :key="row.stockId" class="holding-row">
+        <template v-if="showInitialSkeleton">
+          <div v-for="item in 5" :key="`impact-row-skeleton-${item}`" class="holding-row skeleton-row">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </template>
+        <div v-for="row in displayedImpacts" v-else :key="row.stockId" class="holding-row">
           <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
             {{ formatLots(row.totalActiveDiffLots) }}
@@ -443,11 +470,11 @@ onMounted(() => {
             <small class="impact-split">{{ row.primaryImpactEtf ? etfLabel(row.primaryImpactEtf.etfCode) : "-" }}</small>
           </span>
         </div>
-        <p v-if="!displayedImpacts.length" class="empty-row">此日期尚無跨 ETF 異動資料。</p>
+        <p v-if="!isLoading && !displayedImpacts.length" class="empty-row">此日期尚無跨 ETF 異動資料。</p>
       </div>
     </section>
 
-    <section class="section-panel report-panel">
+    <section class="section-panel report-panel" :class="{ 'is-updating': isLoading && hasLoaded }" :aria-busy="isLoading">
       <div class="section-heading report-heading">
         <div>
           <span class="eyebrow">單檔 ETF</span>
@@ -472,7 +499,14 @@ onMounted(() => {
         <small>{{ selectedEtf?.issuer }}｜{{ selectedDate }}</small>
       </div>
 
-      <section class="summary-cards" aria-label="ETF summary">
+      <section v-if="showInitialSkeleton" class="summary-cards" aria-label="ETF summary loading">
+        <div v-for="item in 3" :key="`summary-skeleton-${item}`" class="kpi skeleton-card">
+          <span></span>
+          <strong></strong>
+          <em></em>
+        </div>
+      </section>
+      <section v-else class="summary-cards" aria-label="ETF summary">
         <div class="kpi">
           <span>基金規模</span>
           <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
@@ -490,7 +524,14 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="operation-cards">
+      <section v-if="showInitialSkeleton" class="operation-cards">
+        <div v-for="item in 4" :key="`operation-skeleton-${item}`" class="kpi skeleton-card">
+          <span></span>
+          <strong></strong>
+          <em></em>
+        </div>
+      </section>
+      <section v-else class="operation-cards">
         <div class="kpi">
           <span>新增</span>
           <strong>{{ operationCounts.new }}</strong>
@@ -529,7 +570,16 @@ onMounted(() => {
             <span>變動幅度</span>
             <span>目前權重<br />變動%</span>
           </div>
-          <div v-for="row in operationRows" :key="`${row.operationStatus}-${row.stockId}`" class="operation-row">
+          <template v-if="showInitialSkeleton">
+            <div v-for="item in 5" :key="`operation-row-skeleton-${item}`" class="operation-row skeleton-row">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </template>
+          <div v-for="row in operationRows" v-else :key="`${row.operationStatus}-${row.stockId}`" class="operation-row">
             <span class="operation-stock">
               <b>{{ row.stockName }}</b>
               <small>{{ row.stockId }}</small>
@@ -542,7 +592,7 @@ onMounted(() => {
               <small>{{ formatPct(row.diffWeightPoint, 2) }}</small>
             </span>
           </div>
-          <p v-if="!operationRows.length" class="empty-row">此日期尚無可計算的異動資料。</p>
+          <p v-if="!isLoading && !operationRows.length" class="empty-row">此日期尚無可計算的異動資料。</p>
         </div>
       </section>
 
@@ -660,14 +710,23 @@ onMounted(() => {
             <span>目前權重</span>
             <span>股數</span>
           </div>
-          <div v-for="row in displayedHoldings" :key="row.stockId" class="holding-row">
+          <template v-if="showInitialSkeleton">
+            <div v-for="item in 8" :key="`holding-row-skeleton-${item}`" class="holding-row skeleton-row">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </template>
+          <div v-for="row in displayedHoldings" v-else :key="row.stockId" class="holding-row">
             <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
             <span>{{ formatNumber(row.lots, 0) }}</span>
             <span>{{ formatMoney(row.marketValue) }}</span>
             <span>{{ formatWeight(row.weight) }}</span>
             <span>{{ formatNumber(row.shares, 0) }}</span>
           </div>
-          <p v-if="!displayedHoldings.length" class="empty-row">此日期尚無持股資料。</p>
+          <p v-if="!isLoading && !displayedHoldings.length" class="empty-row">此日期尚無持股資料。</p>
         </div>
       </section>
     </section>

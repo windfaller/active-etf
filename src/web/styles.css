@@ -183,12 +183,35 @@ input:focus {
   border-radius: 8px;
 }
 
+.loading-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  color: #254568;
+  background: #eef6ff;
+  border: 1px solid #cfe2f5;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(53, 79, 106, 0.08);
+  font-size: 13px;
+  font-weight: 720;
+}
+
 .section-panel {
   margin-bottom: 18px;
   background: #ffffff;
   border: 1px solid #e2e6ea;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.section-panel.is-updating {
+  opacity: 0.72;
+  transition: opacity 0.18s ease;
 }
 
 .section-heading {
@@ -287,6 +310,50 @@ input:focus {
   font-size: 14px;
   font-style: normal;
   font-weight: 650;
+}
+
+.skeleton-card span,
+.skeleton-card strong,
+.skeleton-card em,
+.skeleton-row span {
+  display: block;
+  color: transparent;
+  background: linear-gradient(90deg, #eef1f4 25%, #f8fafb 37%, #eef1f4 63%);
+  background-size: 400% 100%;
+  border-radius: 6px;
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-card span {
+  width: 54%;
+  height: 14px;
+}
+
+.skeleton-card strong {
+  width: 72%;
+  height: 38px;
+  margin-top: 14px;
+}
+
+.skeleton-card em {
+  width: 44%;
+  height: 14px;
+  margin-top: 12px;
+}
+
+.skeleton-row span {
+  width: 82%;
+  height: 16px;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
 }
 
 .operation-cards .kpi {

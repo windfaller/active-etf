@@ -8,7 +8,8 @@ export const nomuraEtfs: EtfInfo[] = [
     providerId: "nomura",
     currency: "TWD",
     enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    implementationStatus: "verified",
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
   },
   {
     etfCode: "00985A",
@@ -17,7 +18,8 @@ export const nomuraEtfs: EtfInfo[] = [
     providerId: "nomura",
     currency: "TWD",
     enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    implementationStatus: "verified",
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
   },
   {
     etfCode: "00999A",
@@ -26,6 +28,7 @@ export const nomuraEtfs: EtfInfo[] = [
     providerId: "nomura",
     currency: "TWD",
     enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    implementationStatus: "verified",
+    notes: "Official ETFWEB Fund/GetFundAssets JSON endpoint is verified; production sync wiring is intentionally pending."
   }
 ];
