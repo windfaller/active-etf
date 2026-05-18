@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   Activity,
   AlertCircle,
@@ -95,17 +95,9 @@ interface StockImpact {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
-const availableDates = [
-  "2026-05-15",
-  "2026-05-14",
-  "2026-05-13",
-  "2026-05-12",
-  "2026-05-11",
-  "2026-05-08",
-  "2026-05-07"
-];
 
-const selectedDate = ref("2026-05-15");
+const availableDates = ref<string[]>([]);
+const selectedDate = ref("");
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const marketQuery = ref("");
 const holdingQuery = ref("");
@@ -344,7 +336,22 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<void> {
+  const response = await getJson<{ dates: string[] }>(`/api/etf/${etfCode}/dates?limit=180`);
+  availableDates.value = response.dates;
+  if (!availableDates.value.length) {
+    selectedDate.value = "";
+    return;
+  }
+
+  if (!selectedDate.value || !availableDates.value.includes(selectedDate.value)) {
+    selectedDate.value = availableDates.value[0];
+  }
+}
+
 async function loadDashboard(): Promise<void> {
+  if (!selectedDate.value) return;
+
   isLoading.value = true;
   errorMessage.value = "";
 
@@ -374,7 +381,15 @@ async function loadDashboard(): Promise<void> {
 }
 
 onMounted(() => {
-  void loadDashboard();
+  void (async () => {
+    await loadAvailableDates();
+    await loadDashboard();
+  })();
+});
+
+watch(selectedEtfCode, async (etfCode) => {
+  await loadAvailableDates(etfCode);
+  await loadDashboard();
 });
 </script>
 
@@ -520,7 +535,7 @@ onMounted(() => {
         <div class="toolbar report-controls">
           <label class="control wide-control">
             <span>ETF</span>
-            <select v-model="selectedEtfCode" aria-label="ETF" @change="loadDashboard">
+            <select v-model="selectedEtfCode" aria-label="ETF">
               <option v-for="etf in etfOptions" :key="etf.etfCode" :value="etf.etfCode">
                 {{ etf.etfCode }} {{ etf.name }}
               </option>
