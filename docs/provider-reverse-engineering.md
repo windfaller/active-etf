@@ -8,7 +8,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | --- | --- | --- | --- |
 | 統一投信 `uniPresident` | `00981A`, `00403A`, `00988A` | Verified | Official Ezmoney `GetPCF` JSON endpoint. `00988A` is already supported from the previous build and remains enabled to avoid removing existing functionality. |
 | 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. Production daily refresh is enabled. |
-| 群益投信 `capital` | `00982A`, `00992A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
+| 群益投信 `capital` | `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified for both ETFs. Production daily refresh is enabled. |
 | 國泰投信 `cathay` | `00400A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | 摩根投信 `jpmorgan` | `00401A` | Pending | The user prompt listed `allianz` in the folder plan, but the first-stage ETF is 摩根; implementation uses `jpmorgan`. |
 | 中信投信 `ctbc` | `00983A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
@@ -59,6 +59,25 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Entries.Data.Table[]` with `股票` holdings rows: stock code, stock name, shares and weight
   - allocation rows for stocks, futures, cash and receivables
 - Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Nomura holdings/NAV sync.
+
+### Capital CFWeb ETF Buyback
+
+- Product page: `https://www.capitalfund.com.tw/etf/product/detail/399/buyback`
+- API base discovered from the official app config: `https://www.capitalfund.com.tw/CFWeb`
+- Angular API call discovered from the official bundle: `POST /api/etf/buyback`
+- Method: `POST`
+- URL: `https://www.capitalfund.com.tw/CFWeb/api/etf/buyback`
+- Body: `{ "fundId": "399", "date": "2026/05/18" }`
+- Confirmed fund IDs:
+  - `00982A`: `399`, latest `pcf.date2` verified as `2026-05-15`, 57 stock rows
+  - `00992A`: `500`, latest `pcf.date2` verified as `2026-05-15`, 46 stock rows
+- Response type: JSON
+- Contains:
+  - `data.pcf` for NAV, AUM, total units, creation unit deltas, stock ratio and snapshot date
+  - `data.stocks[]` for stock code, stock name, shares and weight
+  - `data.assets[]` for cash and other allocation rows
+- Important date rule: request `date` is the buyback/announcement date, while the actual holdings snapshot date is `data.pcf.date2`. Historical sync queries the next business day and validates `pcf.date2` before saving.
+- Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Capital holdings/NAV sync.
 
 ## Provider Enablement Checklist
 

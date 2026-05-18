@@ -6,7 +6,6 @@ import {
   BarChart3,
   Calendar,
   Database,
-  Info,
   Layers,
   LineChart,
   ListChecks,
@@ -185,6 +184,16 @@ const loadingText = computed(() =>
   hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。"
 );
 const showInitialSkeleton = computed(() => isLoading.value && !hasLoaded.value);
+const helpTexts = {
+  impactRanking: "影響分數 = 主動淨變動張數的絕對值，加上權重變動幅度的加權；分數越高代表這檔股票在多檔 ETF 的調倉影響越大。",
+  activeLots: "主動淨變動使用規模校正後張數。若 ETF 規模變大，持股自然增加的部分會先扣除。",
+  premium: "折溢價 = (收盤股價 - 每單位淨值) / 每單位淨值。正值是溢價，負值是折價。",
+  premiumChart: "每一根柱代表一個交易日的折溢價百分比；紅色在零軸上方是溢價，綠色在零軸下方是折價。",
+  holdingLots: "持股變動張數 = 今日持股股數與前一個交易日持股股數的差額 / 1000。",
+  scaleAdjusted: "排除 ETF 規模變大或變小造成的被動股數變化後，估算經理人主動調倉量。",
+  rawLots: "表面張數是不做規模校正的持股張數變化，也就是今日股數減前日股數再除以 1000。",
+  adjustedLots: "校正張數會先用 ETF 總受益權單位變化估算應有持股，再用實際持股扣掉應有持股。"
+} as const;
 
 function isNewLike(row: Change): boolean {
   return row.status === "new" || (row.prevShares === 0 && row.currentShares > 0);
@@ -427,7 +436,11 @@ onMounted(() => {
           <em>檔</em>
         </div>
         <div class="kpi">
-          <span>主動淨變動</span>
+          <span class="term-with-help">
+            主動淨變動
+            <button class="help-button" type="button" aria-label="主動淨變動說明">?</button>
+            <span class="help-popover" role="tooltip">{{ helpTexts.activeLots }}</span>
+          </span>
           <strong>{{ formatLots(marketTotals.activeLots) }}</strong>
           <em>張</em>
         </div>
@@ -440,8 +453,14 @@ onMounted(() => {
 
       <div class="table-title">
         <div>
-          <h2><BarChart3 :size="18" /> 個股影響排名</h2>
-          <p>依影響分數排序：主動張數絕對值與權重變動幅度加權，共 {{ displayedImpacts.length }} 檔</p>
+          <h2>
+            <BarChart3 :size="18" /> 個股影響排名
+            <span class="term-with-help">
+              <button class="help-button" type="button" aria-label="個股影響排名說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.impactRanking }}</span>
+            </span>
+          </h2>
+          <p>依影響分數排序，共 {{ displayedImpacts.length }} 檔</p>
         </div>
         <label class="search-box">
           <Search :size="16" />
@@ -452,7 +471,11 @@ onMounted(() => {
       <div class="holdings-table impact-table">
         <div class="holdings-head">
           <span>股票</span>
-          <span>主動淨變動</span>
+          <span class="term-with-help">
+            主動淨變動
+            <button class="help-button" type="button" aria-label="主動淨變動說明">?</button>
+            <span class="help-popover" role="tooltip">{{ helpTexts.activeLots }}</span>
+          </span>
           <span>權重變動</span>
           <span>影響 ETF</span>
           <span>主要來源</span>
@@ -526,7 +549,11 @@ onMounted(() => {
           <em>較前日 {{ formatPct(summary?.netCreationUnits ? (summary.netCreationUnits / (summary.totalUnits ?? 1)) * 100 : 0, 2) }}</em>
         </div>
         <div class="kpi">
-          <span>折溢價 / NAV</span>
+          <span class="term-with-help">
+            折溢價 / NAV
+            <button class="help-button" type="button" aria-label="折溢價說明">?</button>
+            <span class="help-popover" role="tooltip">{{ helpTexts.premium }}</span>
+          </span>
           <strong>{{ formatPct(summary?.premiumDiscount ?? null, 2) }}</strong>
           <em>股價 {{ formatNumber(summary?.marketPrice ?? null, 2) }}｜淨值 {{ formatNumber(summary?.nav ?? null, 2) }}</em>
         </div>
@@ -539,7 +566,13 @@ onMounted(() => {
 
       <details class="history-disclosure premium-disclosure" open>
         <summary>
-          <span><LineChart :size="18" /> 折溢價走勢（橫軸：交易日）</span>
+          <span>
+            <LineChart :size="18" /> 折溢價走勢（橫軸：交易日）
+            <span class="term-with-help">
+              <button class="help-button" type="button" aria-label="折溢價走勢說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.premiumChart }}</span>
+            </span>
+          </span>
           <small>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</small>
         </summary>
 
@@ -568,7 +601,11 @@ onMounted(() => {
             <span>日期</span>
             <span>股價</span>
             <span>淨值</span>
-            <span>折溢價</span>
+            <span class="term-with-help">
+              折溢價
+              <button class="help-button" type="button" aria-label="折溢價說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.premium }}</span>
+            </span>
           </div>
           <div v-for="row in premiumRows" :key="row.tradeDate" class="premium-row">
             <span>{{ formatDateLabel(row.tradeDate) }}</span>
@@ -616,14 +653,22 @@ onMounted(() => {
           <div>
             <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
           </div>
-          <span>規模校正後主動訊號 <Info :size="15" /></span>
+          <span class="term-with-help">
+            規模校正後主動訊號
+            <button class="help-button" type="button" aria-label="規模校正後主動訊號說明">?</button>
+            <span class="help-popover align-right" role="tooltip">{{ helpTexts.scaleAdjusted }}</span>
+          </span>
         </div>
 
         <div class="operation-table">
           <div class="operation-head">
             <span>標的</span>
             <span>狀態</span>
-            <span>持股變動<br />張數</span>
+            <span class="term-with-help">
+              持股變動<br />張數
+              <button class="help-button" type="button" aria-label="持股變動張數說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.holdingLots }}</span>
+            </span>
             <span>變動幅度</span>
             <span>目前權重<br />變動%</span>
           </div>
@@ -657,13 +702,27 @@ onMounted(() => {
         <article class="panel">
           <div class="panel-title positive">
             <TrendingUp :size="18" />
-            <h2>規模校正加碼</h2>
+            <h2>
+              規模校正加碼
+              <span class="term-with-help">
+                <button class="help-button" type="button" aria-label="規模校正加碼說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.scaleAdjusted }}</span>
+              </span>
+            </h2>
           </div>
           <div class="signal-table">
             <div class="signal-head">
               <span>股票</span>
-              <span>表面張數<br />張</span>
-              <span>校正張數<br />張</span>
+              <span class="term-with-help">
+                表面張數<br />張
+                <button class="help-button" type="button" aria-label="表面張數說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.rawLots }}</span>
+              </span>
+              <span class="term-with-help">
+                校正張數<br />張
+                <button class="help-button" type="button" aria-label="校正張數說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.adjustedLots }}</span>
+              </span>
               <span>比例</span>
               <span>權重</span>
               <span>分數</span>
@@ -684,13 +743,27 @@ onMounted(() => {
         <article class="panel">
           <div class="panel-title negative">
             <TrendingDown :size="18" />
-            <h2>規模校正減碼</h2>
+            <h2>
+              規模校正減碼
+              <span class="term-with-help">
+                <button class="help-button" type="button" aria-label="規模校正減碼說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.scaleAdjusted }}</span>
+              </span>
+            </h2>
           </div>
           <div class="signal-table">
             <div class="signal-head">
               <span>股票</span>
-              <span>表面張數<br />張</span>
-              <span>校正張數<br />張</span>
+              <span class="term-with-help">
+                表面張數<br />張
+                <button class="help-button" type="button" aria-label="表面張數說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.rawLots }}</span>
+              </span>
+              <span class="term-with-help">
+                校正張數<br />張
+                <button class="help-button" type="button" aria-label="校正張數說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.adjustedLots }}</span>
+              </span>
               <span>比例</span>
               <span>權重</span>
               <span>分數</span>

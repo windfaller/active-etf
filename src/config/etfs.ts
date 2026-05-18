@@ -95,6 +95,38 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00982A",
+    fundCode: "399",
+    name: "主動群益台灣強棒",
+    issuer: "群益投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "capital",
+      infoUrl: "https://www.capitalfund.com.tw/etf/product/detail/399/basic",
+      pcfUrl: "https://www.capitalfund.com.tw/etf/product/detail/399/buyback"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00992A",
+    fundCode: "500",
+    name: "主動群益科技創新",
+    issuer: "群益投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "capital",
+      infoUrl: "https://www.capitalfund.com.tw/etf/product/detail/500/basic",
+      pcfUrl: "https://www.capitalfund.com.tw/etf/product/detail/500/buyback"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 

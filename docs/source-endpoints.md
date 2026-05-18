@@ -4,7 +4,7 @@ This file records observed and verified source endpoints. Do not promote a candi
 
 ## Reverse Engineering Status
 
-Date checked: 2026-05-17
+Date checked: 2026-05-18
 
 - `https://www.ezmoney.com.tw/ETF/Fund/Info?fundCode=49YTW`
   - Result from Playwright Chromium: HTTP 200.
@@ -54,6 +54,37 @@ Payload:
   "specificDate": false
 }
 ```
+
+## 群益 holdings and summary
+
+URL: `https://www.capitalfund.com.tw/CFWeb/api/etf/buyback`
+
+Method: POST
+
+Confirmed products:
+
+- `00982A`: `fundId` `399`
+- `00992A`: `fundId` `500`
+
+Headers:
+
+```txt
+Accept: application/json
+Content-Type: application/json
+Referer: https://www.capitalfund.com.tw/etf/product/detail/399/buyback
+User-Agent: browser user-agent
+```
+
+Payload:
+
+```json
+{
+  "fundId": "399",
+  "date": "2026/05/18"
+}
+```
+
+Status: verified primary source for 群益 holdings and PCF summary. The request date is the buyback/announcement date; the holdings trade date must be read from `data.pcf.date2`.
 
 Response sample:
 

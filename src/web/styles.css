@@ -312,6 +312,83 @@ input:focus {
   font-weight: 650;
 }
 
+.term-with-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+.kpi .term-with-help,
+.operation-head .term-with-help,
+.signal-head .term-with-help,
+.premium-head .term-with-help {
+  display: inline-flex;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.help-button {
+  display: inline-grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: #52606c;
+  background: #f4f7f9;
+  border: 1px solid #c8d1da;
+  border-radius: 50%;
+  cursor: help;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.help-button:focus {
+  border-color: #07847d;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(7, 132, 125, 0.14);
+}
+
+.help-popover {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  z-index: 20;
+  width: min(280px, calc(100vw - 40px));
+  padding: 10px 11px;
+  color: #26313b;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(32, 37, 43, 0.14);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translateY(-50%);
+  transition: opacity 0.12s ease;
+  white-space: normal;
+}
+
+.help-popover.align-right {
+  right: calc(100% + 8px);
+  left: auto;
+}
+
+.term-with-help:hover .help-popover,
+.term-with-help:focus-within .help-popover {
+  opacity: 1;
+}
+
 .skeleton-card span,
 .skeleton-card strong,
 .skeleton-card em,
@@ -864,6 +941,14 @@ input:focus {
   line-height: 1.6;
 }
 
+.term-with-help > .help-popover {
+  position: absolute;
+  display: block;
+  color: #26313b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 @media (max-width: 1040px) {
   .topbar,
   .section-heading,
@@ -1091,5 +1176,14 @@ input:focus {
 
   .search-box {
     width: 100%;
+  }
+
+  .help-popover,
+  .help-popover.align-right {
+    top: calc(100% + 8px);
+    right: auto;
+    left: 0;
+    width: min(260px, calc(100vw - 36px));
+    transform: none;
   }
 }

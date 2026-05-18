@@ -7,16 +7,20 @@ export const capitalEtfs: EtfInfo[] = [
     issuer: "群益投信",
     providerId: "capital",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "399",
+    notes: "Official CFWeb /api/etf/buyback endpoint, fundId 399"
   },
   {
     etfCode: "00992A",
-    name: "群益台灣精選強棒主動式ETF",
+    name: "群益台灣科技創新主動式ETF",
     issuer: "群益投信",
     providerId: "capital",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "500",
+    notes: "Official CFWeb /api/etf/buyback endpoint, fundId 500"
   }
 ];
