@@ -7,7 +7,9 @@ export const yuantaEtfs: EtfInfo[] = [
     issuer: "元大投信",
     providerId: "yuanta",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "00990A",
+    notes: "Official Yuanta ETFAPI PCF/Daily bridge endpoint"
   }
 ];

@@ -86,6 +86,31 @@ Payload:
 
 Status: verified primary source for 群益 holdings and PCF summary. The request date is the buyback/announcement date; the holdings trade date must be read from `data.pcf.date2`.
 
+## 元大 holdings and summary
+
+URL: `https://etfapi.yuantaetfs.com/ectranslation/api/bridge`
+
+Method: GET
+
+Confirmed products:
+
+- `00990A`: `ticker` `00990A`
+
+Required query parameters:
+
+```txt
+APIType=ETFAPI
+CompanyName=YUANTAFUNDS
+FuncId=PCF/Daily
+AppName=ETF
+Device=3
+Platform=ETF
+ticker=00990A
+ndate=YYYYMMDD
+```
+
+Status: verified primary source for 元大 holdings and PCF summary. The endpoint returns complete `FundWeights.StockWeights` JSON; do not parse only the collapsed HTML rows.
+
 Response sample:
 
 ```json

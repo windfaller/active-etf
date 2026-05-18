@@ -13,7 +13,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 摩根投信 `jpmorgan` | `00401A` | Pending | The user prompt listed `allianz` in the folder plan, but the first-stage ETF is 摩根; implementation uses `jpmorgan`. |
 | 中信投信 `ctbc` | `00983A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | 台新投信 `taishin` | `00986A`, `00987A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
-| 元大投信 `yuanta` | `00990A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
+| 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | 第一金投信 `first` | `00994A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
 | Allianz `allianz` | none | Out of first-stage scope | Folder exists only because the architecture prompt included it. |
@@ -78,6 +78,30 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `data.assets[]` for cash and other allocation rows
 - Important date rule: request `date` is the buyback/announcement date, while the actual holdings snapshot date is `data.pcf.date2`. Historical sync queries the next business day and validates `pcf.date2` before saving.
 - Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Capital holdings/NAV sync.
+
+### Yuanta ETFAPI PCF/Daily
+
+- Product page: `https://www.yuantaetfs.com/tradeInfo/pcf/00990A`
+- Nuxt API call discovered from the official bundle: `$getAPI("ETFAPI", "PCF/Daily", ..., "/api/bridge")`
+- Method: `GET`
+- URL: `https://etfapi.yuantaetfs.com/ectranslation/api/bridge`
+- Required query parameters include:
+  - `APIType=ETFAPI`
+  - `CompanyName=YUANTAFUNDS`
+  - `FuncId=PCF/Daily`
+  - `AppName=ETF`
+  - `Device=3`
+  - `Platform=ETF`
+  - `ticker=00990A`
+  - `ndate=YYYYMMDD` for historical date queries
+- Confirmed ETF codes:
+  - `00990A`: latest and historical responses returned complete `FundWeights.StockWeights` rows, including 53 stock rows for `2026-05-15`
+- Response type: JSON
+- Contains:
+  - `PCF` for NAV, AUM, total units, unit delta and trade/announcement dates
+  - `FundWeights.StockWeights[]` for stock code, stock name, shares and weights
+  - `Cash.CashPosition[]` for cash and other allocation rows
+- Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Yuanta holdings/NAV sync.
 
 ## Provider Enablement Checklist
 

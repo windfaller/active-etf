@@ -127,6 +127,22 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00990A",
+    fundCode: "00990A",
+    name: "主動元大AI新經濟",
+    issuer: "元大投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "yuanta",
+      infoUrl: "https://www.yuantaetfs.com/product/detail/00990A",
+      pcfUrl: "https://www.yuantaetfs.com/tradeInfo/pcf/00990A"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 
