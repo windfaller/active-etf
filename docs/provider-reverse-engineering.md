@@ -14,7 +14,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 中信投信 `ctbc` | `00983A` | Verified and enabled | Official CTBC Vue app calls `home/AuthToken` then `etf/Buyback`; holdings, NAV, AUM, total units, creation unit delta and allocation rows were verified. Production daily refresh is enabled. |
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
-| 復華投信 `fh` | `00991A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
+| 復華投信 `fh` | `00991A` | Verified and enabled | Official Fuh Hwa JSON endpoints `/api/assets` and `/api/ETFPcf` were captured from `etf_detail.js` / `util_footer.js`; complete holdings, NAV, AUM, total units, allocation rows and PCF unit delta were verified. Production daily refresh is enabled. |
 | 第一金投信 `first` | `00994A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
 | Allianz `allianz` | none | Out of first-stage scope | Folder exists only because the architecture prompt included it. |
 

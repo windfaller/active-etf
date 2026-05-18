@@ -21,7 +21,8 @@ export const etfDailySummarySchema = z.object({
     "ctbc",
     "jpmorgan",
     "first",
-    "cathay"
+    "cathay",
+    "fh"
   ]),
   rawSnapshotId: z.string(),
   createdAt: z.date(),

@@ -292,6 +292,54 @@ Notes:
 - `GetIndexStockWeights?FundCode=EA` returns stock weights but not shares, so it is not used as the primary holdings source.
 - Market closing price is filled by the shared TWSE closing price sync.
 
+## 復華 holdings and summary
+
+Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`
+
+The official page loads `/js/etf_detail.js`, which calls shared API helpers from `/js/util_footer.js`. The verified API helpers map to:
+
+```txt
+getAssets -> GET /api/assets
+getETFPcf -> GET /api/ETFPcf
+```
+
+Holdings URL:
+
+```txt
+https://www.fhtrust.com.tw/api/assets?fundID=ETF23&qDate=YYYY/MM/DD
+```
+
+PCF URL:
+
+```txt
+https://www.fhtrust.com.tw/api/ETFPcf?fundID=ETF23&pcfDate=YYYYMMDD
+```
+
+Confirmed product:
+
+- `00991A`: `fundID` `ETF23`
+
+Status: verified primary JSON source for 復華 00991A holdings and summary. `qDate=2026/05/15` returned a full `detail[]` list with 52 rows including 50 stock holdings and other asset rows. If a requested `qDate` is not published yet, `/api/assets` returns a 200 JSON shell with null `dDate` and null `detail`, so the provider retries previous dates.
+
+Important date rule: `/api/assets` is the holdings snapshot date. `/api/ETFPcf` is the PCF announcement date and can be the next business day for the same asset snapshot. For example, assets `qDate=2026/05/15` match PCF `pcfDate=20260518`, whose NAV and total units mirror the 2026/05/15 assets row.
+
+Field mapping:
+
+```txt
+assets.result[0].dDate -> etf_daily_holdings.tradeDate / etf_daily_summary.tradeDate
+assets.result[0].pcf_FundNav -> etf_daily_summary.fundSize
+assets.result[0].pcf_FundQissue -> etf_daily_summary.totalUnits
+assets.result[0].pcf_Fundpnav -> etf_daily_summary.nav
+assets.result[0].result item "股票" / fundSize * 100 -> etf_daily_summary.stockRatio
+assets.result[0].result item "扣除應付買入證券款後現金餘額(NTD)" / fundSize * 100 -> etf_daily_summary.cashRatio
+pcf.result[0].qDiff -> etf_daily_summary.netCreationUnits
+detail[].stockid -> etf_daily_holdings.stockId
+detail[].stockname -> etf_daily_holdings.stockName
+detail[].qshare -> etf_daily_holdings.shares
+detail[].prate_addaccint -> etf_daily_holdings.weight
+detail[].mvalue -> etf_daily_holdings.marketValue
+```
+
 ## 中信 holdings and summary
 
 Auth URL: `https://www.ctbcinvestments.com.tw/API/home/AuthToken?token=www.ctbcinvestments.com`

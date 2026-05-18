@@ -3,11 +3,13 @@ import type { EtfInfo } from "../types.js";
 export const fhEtfs: EtfInfo[] = [
   {
     etfCode: "00991A",
-    name: "復華台灣主動式ETF",
+    fundCode: "ETF23",
+    name: "主動復華未來50",
     issuer: "復華投信",
     providerId: "fh",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    notes: "Official Fuh Hwa JSON endpoints: /api/assets and /api/ETFPcf"
   }
 ];
