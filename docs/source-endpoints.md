@@ -326,6 +326,64 @@ Notes:
 - `GetIndexStockWeights?FundCode=EA` returns stock weights but not shares, so it is not used as the primary holdings source.
 - Market closing price is filled by the shared TWSE closing price sync.
 
+## 安聯 holdings and summary
+
+Site page: `https://etf.allianzgi.com.tw/list-trade`
+
+Anti-forgery URL: `https://etf.allianzgi.com.tw/webapi/api/AntiForgery/GetAntiForgeryToken`
+
+Data URL: `https://etf.allianzgi.com.tw/webapi/api/Fund/GetFundTradeInfo`
+
+Method: GET for anti-forgery token, POST for trade info.
+
+Confirmed products:
+
+- `00984A`: `FundNo` `E0001`
+- `00993A`: `FundNo` `E0002`
+
+Headers for trade info:
+
+```txt
+Accept: application/json
+Content-Type: application/json
+Referer: https://etf.allianzgi.com.tw/list-trade
+X-XSRF-TOKEN: token from AntiForgery/GetAntiForgeryToken
+Cookie: cookies from AntiForgery/GetAntiForgeryToken
+User-Agent: browser user-agent
+```
+
+Payload:
+
+```json
+{
+  "FundNo": "E0002",
+  "Date": "2026-05-18T00:00:00.000Z"
+}
+```
+
+Status: verified primary source for 安聯 holdings and PCF summary. `Date` is the PCF announcement date, while the actual holdings/NAV snapshot date is `Entries.CNavDt`.
+
+Field mapping:
+
+```txt
+Entries.CNavDt -> etf_daily_holdings.tradeDate / etf_daily_summary.tradeDate
+Entries.CAnceTotalAv -> etf_daily_summary.fundSize
+Entries.CAnceTotalIssues -> etf_daily_summary.totalUnits
+Entries.CAnceIssuesDiff -> etf_daily_summary.netCreationUnits
+Entries.CAnceNav -> etf_daily_summary.nav
+DynamicTableData[TableTitle contains 股票] title percentage -> etf_daily_summary.stockRatio
+stock table "股票代號" -> etf_daily_holdings.stockId
+stock table "股票名稱" -> etf_daily_holdings.stockName
+stock table "股數" -> etf_daily_holdings.shares
+stock table "權重(%)" -> etf_daily_holdings.weight
+fundSize * weight / 100 -> etf_daily_holdings.marketValue
+```
+
+Notes:
+
+- The official `GetFundOverview` endpoint maps `00984A -> E0001`, `00993A -> E0002`; it also currently returns `00402A -> E0003`, which should be reviewed by the discovery/onboarding flow before enabling.
+- Market closing price is filled by the shared TWSE closing price sync.
+
 ## 復華 holdings and summary
 
 Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`

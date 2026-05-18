@@ -1,6 +1,6 @@
 # 台灣主動式 ETF 每日持股追蹤系統
 
-這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台灣主動式 ETF Intelligence Platform」。目前 production sync 追蹤已驗證來源的統一投信 `00981A`、`00988A`、`00403A`、野村投信 `00980A`、`00985A`、`00999A`、群益投信 `00997A`、`00982A`、`00992A`、元大投信 `00990A`、中信投信 `00995A`、`00983A`、台新投信 `00986A`、`00987A`、國泰投信 `00400A`、摩根投信 `00989A`、`00401A`、復華投信 `00991A`，以及第一金投信 `00994A`。Provider registry 已納入第一階段其他投信 ETF，但在沒有 reverse engineer 到真正 endpoint 前保持 disabled，避免污染資料。
+這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台灣主動式 ETF Intelligence Platform」。目前 production sync 追蹤已驗證來源的統一投信 `00981A`、`00988A`、`00403A`、野村投信 `00980A`、`00985A`、`00999A`、群益投信 `00997A`、`00982A`、`00992A`、元大投信 `00990A`、中信投信 `00995A`、`00983A`、台新投信 `00986A`、`00987A`、國泰投信 `00400A`、安聯投信 `00984A`、`00993A`、摩根投信 `00989A`、`00401A`、復華投信 `00991A`，以及第一金投信 `00994A`。Provider registry 已納入第一階段其他投信 ETF，但在沒有 reverse engineer 到真正 endpoint 前保持 disabled，避免污染資料。
 
 本系統只整理公開資料並做研究分析，不構成投資建議。
 
@@ -44,7 +44,7 @@ allianz/
 - `normalizer.ts`
 - `types.ts`
 
-目前 `uniPresident`、`nomura`、`capital`、`yuanta`、`ctbc`、`taishin`、`cathay`、`jpmorgan`、`fh` 與 `first` 是 verified provider，會被 production daily refresh 使用。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
+目前 `uniPresident`、`nomura`、`capital`、`yuanta`、`ctbc`、`taishin`、`cathay`、`allianz`、`jpmorgan`、`fh` 與 `first` 是 verified provider，會被 production daily refresh 使用。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
 
 ## 安裝方式
 

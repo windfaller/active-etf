@@ -241,6 +241,38 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00984A",
+    fundCode: "E0001",
+    name: "主動安聯台灣高息",
+    issuer: "安聯投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianz",
+      infoUrl: "https://etf.allianzgi.com.tw/etf-info/E0001",
+      pcfUrl: "https://etf.allianzgi.com.tw/list-trade"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00993A",
+    fundCode: "E0002",
+    name: "主動安聯台灣",
+    issuer: "安聯投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianz",
+      infoUrl: "https://etf.allianzgi.com.tw/etf-info/E0002",
+      pcfUrl: "https://etf.allianzgi.com.tw/list-trade"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00989A",
     fundCode: "TW00000989A5",
     name: "主動摩根美國科技",

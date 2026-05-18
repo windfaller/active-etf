@@ -10,13 +10,13 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. TWSE currently lists `00999A` as `主動野村臺灣高息`. Production daily refresh is enabled. |
 | 群益投信 `capital` | `00997A`, `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified. Production daily refresh is enabled. |
 | 國泰投信 `cathay` | `00400A` | Verified and enabled | Official Cathay `DownloadETFWeightExcel` XLSX endpoint uses `FundCode=EA&SearchDate=YYYY-MM-DD`; holdings, NAV, AUM, total units, stock value and cash value were verified. Production daily refresh is enabled. |
+| 安聯投信 `allianz` | `00984A`, `00993A` | Verified and enabled | Official Allianz Angular app calls `AntiForgery/GetAntiForgeryToken` then `Fund/GetFundTradeInfo`; holdings, NAV, AUM, total units, creation unit delta and stock allocation rows were verified. Production daily refresh is enabled. |
 | 摩根投信 `jpmorgan` | `00989A`, `00401A` | Verified and enabled | Official product pages expose ETF supplement PCF XLSX files. The files are fetched with browser Excel headers and parsed as OOXML; production daily refresh is enabled. |
 | 中信投信 `ctbc` | `00995A`, `00983A` | Verified and enabled | Official CTBC Vue app calls `home/AuthToken` then `etf/Buyback`; holdings, NAV, AUM, total units, creation unit delta and allocation rows were verified. Production daily refresh is enabled. |
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Verified and enabled | Official Fuh Hwa JSON endpoints `/api/assets` and `/api/ETFPcf` were captured from `etf_detail.js` / `util_footer.js`; complete holdings, NAV, AUM, total units, allocation rows and PCF unit delta were verified. Production daily refresh is enabled. |
 | 第一金投信 `first` | `00994A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
-| Allianz `allianz` | none | Out of first-stage scope | Folder exists only because the architecture prompt included it. |
 
 ## Verified Endpoints
 
@@ -170,6 +170,26 @@ This project does not guess provider APIs. A provider can be enabled for product
   - stock table `股票代號` / `股票名稱` / `股數` / `持股權重` -> normalized holdings
 - Important date rule: current calendar date can return an empty workbook before Cathay publishes data. The implementation retries prior dates and saves the trade date detected inside the XLSX.
 - Limitation: this endpoint does not provide market closing price or creation unit delta. Premium/discount is calculated by the shared TWSE closing price sync after Cathay NAV sync.
+
+### Allianz GetFundTradeInfo
+
+- Site page: `https://etf.allianzgi.com.tw/list-trade`
+- Angular API base discovered from the official bundle: `/webapi/api`
+- Anti-forgery method: `GET https://etf.allianzgi.com.tw/webapi/api/AntiForgery/GetAntiForgeryToken`
+- Data method: `POST https://etf.allianzgi.com.tw/webapi/api/Fund/GetFundTradeInfo`
+- Body: `{ "FundNo": "E0002", "Date": "2026-05-18T00:00:00.000Z" }`
+- Required request note: POST calls require both the `X-XSRF-TOKEN` header and cookies returned by `AntiForgery/GetAntiForgeryToken`.
+- Confirmed ETF codes:
+  - `00984A`: `FundNo=E0001`; live smoke for request `2026-05-18` returned `CNavDt=2026-05-15`, 109 stock rows, NAV `14.68`, total units `451,958,000`.
+  - `00993A`: `FundNo=E0002`; live smoke for request `2026-05-18` returned `CNavDt=2026-05-15`, 51 stock rows, NAV `12.68`, total units `896,091,000`.
+- Response type: JSON
+- Contains:
+  - `Entries.CPcfdate` for PCF announcement date
+  - `Entries.CNavDt` for actual holdings/NAV snapshot date
+  - `Entries.CAnceTotalAv`, `CAnceTotalIssues`, `CAnceIssuesDiff`, `CAnceNav`
+  - `Entries.DynamicTableData[]`, where the table title containing `股票` holds stock code, stock name, shares and weight rows
+- Important date rule: the request `Date` is the PCF announcement date, while the saved `tradeDate` is `CNavDt`. Historical sync queries the next business day and validates `CNavDt` before saving.
+- Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Allianz holdings/NAV sync.
 
 ### First Securities Investment Trust FundDetail WebAPI
 
