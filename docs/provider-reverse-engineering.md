@@ -15,7 +15,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
-| 第一金投信 `first` | `00994A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
+| 第一金投信 `first` | `00994A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
 | Allianz `allianz` | none | Out of first-stage scope | Folder exists only because the architecture prompt included it. |
 
 ## Verified Endpoints
@@ -142,6 +142,24 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Market Value Base / Estimated NAV * 100` -> weight
 - Limitation: this official PCF file uses English constituent descriptions and does not include creation unit delta or market closing price. Premium/discount is calculated by the shared TWSE closing price sync after JPMorgan NAV sync.
 - Limitation: this source does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Taishin holdings/NAV sync.
+
+### First Securities Investment Trust FundDetail WebAPI
+
+- Product page: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+- Official page JavaScript reviewed: the `申購買回清單` tab calls `WebAPI.aspx/Get_BuySellA` for summary rows and `WebAPI.aspx/Get_hd` for holding/allocation rows.
+- Method: `POST`
+- URLs:
+  - `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellA`
+  - `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`
+- Body: `{ "pStrFundID": "182", "pStrDate": "YYYY-MM-DD" }`
+- Confirmed ETF codes:
+  - `00994A`: official page maps it to fund ID `182`; latest run returned holdings trade date `2026-05-15` and 41 stock rows.
+- Response type: ASP.NET JSON envelope, where `d` is a JSON string.
+- Contains:
+  - `Get_BuySellA` rows for fund size, NAV, total units, unit delta and creation/redemption summary
+  - `Get_hd` rows grouped by asset type; `group = "1"` contains stock code, name, weight and shares
+- Important date rule: the request date is the announcement/search date. For PCF-style current data, `Get_hd` can return the prior business day's holdings snapshot, so the implementation detects the saved trade date from the holdings `sdate`.
+- Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after First NAV sync.
 
 ### CTBC ETF Buyback
 

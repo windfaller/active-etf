@@ -341,3 +341,59 @@ component row "Shares or PAR Amount" -> etf_daily_holdings.shares
 component row "Market Value Base" -> etf_daily_holdings.marketValue
 component row "Market Value Base" / "Estimated NAV" * 100 -> etf_daily_holdings.weight
 ```
+
+## 第一金 holdings and summary
+
+Product page: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+
+Confirmed product:
+
+- `00994A`: `pStrFundID` `182`
+
+Summary URL: `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellA`
+
+Holdings URL: `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`
+
+Method: POST
+
+Headers:
+
+```txt
+Accept: application/json, text/javascript, */*; q=0.01
+Content-Type: application/json; charset=utf-8
+X-Requested-With: XMLHttpRequest
+Referer: https://www.fsitc.com.tw/FundDetail.aspx?ID=182
+User-Agent: browser user-agent
+```
+
+Payload:
+
+```json
+{
+  "pStrFundID": "182",
+  "pStrDate": "2026-05-18"
+}
+```
+
+Status: verified primary source for 第一金 holdings and PCF summary. The ASP.NET response has a `d` field containing a JSON string. `Get_hd` `group = "1"` rows are Taiwan stock holdings.
+
+Field mapping:
+
+```txt
+Get_hd[].sdate -> detected holdings tradeDate
+Get_hd[group=1].A -> etf_daily_holdings.stockId
+Get_hd[group=1].B -> etf_daily_holdings.stockName
+Get_hd[group=1].D -> etf_daily_holdings.shares
+Get_hd[group=1].D / 1000 -> etf_daily_holdings.lots
+Get_hd[group=1].C -> etf_daily_holdings.weight
+
+Get_BuySellA[A contains 基金淨資產價值].B -> etf_daily_summary.fundSize
+Get_BuySellA[A contains 每受益權單位淨資產價值].B -> etf_daily_summary.nav
+Get_BuySellA[A contains 已發行受益權單位總數].B -> etf_daily_summary.totalUnits
+Get_BuySellA[A contains 與前日已發行單位差異數].B -> etf_daily_summary.netCreationUnits
+sum(Get_hd[group=1].C) -> etf_daily_summary.stockRatio
+```
+
+Need cookie: no observed cookie requirement for direct browser-header POST.
+
+Need csrf token: no observed CSRF token.

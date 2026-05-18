@@ -209,6 +209,22 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00994A",
+    fundCode: "182",
+    name: "主動第一金台股優",
+    issuer: "第一金投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "first",
+      infoUrl: "https://www.fsitc.com.tw/FundDetail.aspx?ID=182",
+      pcfUrl: "https://www.fsitc.com.tw/WebAPI.aspx/Get_hd"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 
