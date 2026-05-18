@@ -3,6 +3,7 @@ import { configuredEtfs } from "../../config/etfs.js";
 import type { ActiveEtfDiscovery } from "../../models/ActiveEtfDiscovery.js";
 import { defaultCrawlerHeaders, fetchSource } from "../source/httpClient.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
+import { broadcastTelegramMessage } from "../notify/telegramSubscriberService.js";
 import { parseTwseActiveEtfProducts, type TwseActiveEtfProduct } from "./twseActiveEtfParser.js";
 
 const twseProductsUrl = "https://wwwc.twse.com.tw/zh/ETFortune-institute/ajaxProducts";
@@ -111,27 +112,6 @@ function formatDiscoveryMessage(newlyDetected: ActiveEtfDiscovery[], allUntracke
   return lines.join("\n");
 }
 
-async function sendTelegramText(text: string): Promise<void> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!botToken || !chatId) {
-    throw new Error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required");
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Telegram send failed: ${response.status} ${await response.text()}`);
-  }
-}
-
 export async function runActiveEtfDiscovery(
   db: Db,
   options: { notify?: boolean } = {}
@@ -181,25 +161,28 @@ export async function runActiveEtfDiscovery(
     .sort({ listingDate: -1, etfCode: 1 })
     .toArray();
 
-  const telegramConfigured = Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
   const notification = {
-    attempted: Boolean(options.notify && newlyDetected.length && telegramConfigured),
+    attempted: false,
     sent: false,
-    reason:
-      options.notify && newlyDetected.length && !telegramConfigured
-        ? "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not configured"
-        : undefined
+    reason: undefined as string | undefined
   };
 
-  if (notification.attempted) {
+  if (options.notify && newlyDetected.length) {
     try {
-      await sendTelegramText(formatDiscoveryMessage(newlyDetected, allUntracked));
-      await collection.updateMany(
-        { etfCode: { $in: newlyDetected.map((item) => item.etfCode) } },
-        { $set: { lastNotifiedAt: new Date() } }
-      );
-      notification.sent = true;
+      const broadcast = await broadcastTelegramMessage(db, formatDiscoveryMessage(newlyDetected, allUntracked), {
+        subscription: "discovery"
+      });
+      notification.attempted = broadcast.attempted;
+      notification.sent = broadcast.sent;
+      notification.reason = broadcast.reason;
+      if (broadcast.sent) {
+        await collection.updateMany(
+          { etfCode: { $in: newlyDetected.map((item) => item.etfCode) } },
+          { $set: { lastNotifiedAt: new Date() } }
+        );
+      }
     } catch (error) {
+      notification.attempted = true;
       notification.reason = error instanceof Error ? error.message : String(error);
     }
   }

@@ -72,6 +72,18 @@ Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TW
 
 Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), stores a raw snapshot, upserts `active_etf_discoveries`, compares official products with currently tracked ETFs, and optionally sends a Telegram notification for newly detected untracked ETFs. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
+## Admin Telegram Set Webhook
+
+`POST /api/jobs/telegram/set-webhook`
+
+Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.chicoo.co/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
+
+## Telegram Webhook
+
+`POST /api/telegram/webhook`
+
+Telegram Bot API callback endpoint. Telegram must send the `x-telegram-bot-api-secret-token` header matching `TELEGRAM_WEBHOOK_SECRET`. Message updates are stored in `telegram_subscribers`; `/start`, `/subscribe`, `/unsubscribe`, `/toggle`, `/discover_on`, `/discover_off`, `/digest_on`, `/digest_off`, and `/status` update notification state.
+
 ## Get Consecutive Signals
 
 `GET /api/etf/{etfCode}/consecutive?days=5`

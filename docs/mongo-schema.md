@@ -97,3 +97,31 @@ Important fields:
 - `firstDetectedAt`
 - `lastSeenAt`
 - `lastNotifiedAt`
+
+### `telegram_subscribers`
+
+Telegram users, chats, groups, and their notification preferences. A row is created or updated when Telegram sends a message to `/api/telegram/webhook`, including `/start`.
+
+Unique key:
+
+- `chatId`
+
+Important fields:
+
+- `chatId`
+- `chatType`
+- `telegramUserId`
+- `username`
+- `firstName`
+- `lastName`
+- `languageCode`
+- `chatTitle`
+- `enabled`
+- `allowed`
+- `blockedReason`
+- `subscriptions.discovery`
+- `subscriptions.dailyDigest`
+- `lastCommand`
+- `lastMessageAt`
+- `createdAt`
+- `updatedAt`

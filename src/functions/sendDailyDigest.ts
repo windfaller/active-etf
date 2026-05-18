@@ -16,7 +16,7 @@ export async function sendDailyDigest(_timer: Timer, _context: InvocationContext
     .find({ etfCode: etf.etfCode, tradeDate })
     .toArray();
 
-  const service = new TelegramService();
+  const service = new TelegramService(db);
   await service.sendDailyDigest({
     etfCode: etf.etfCode,
     etfName: etf.name,

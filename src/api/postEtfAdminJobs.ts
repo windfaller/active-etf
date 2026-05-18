@@ -4,6 +4,7 @@ import { getDb } from "../db/mongo.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
+import { setTelegramWebhook, telegramWebhookUrl } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
@@ -156,6 +157,14 @@ export async function postDiscoverActiveEtfs(request: HttpRequest, _context: Inv
   return jsonResponse({ ok: true, job: "discoverActiveEtfs", result });
 }
 
+export async function postTelegramSetWebhook(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const result = await setTelegramWebhook();
+  return jsonResponse({ ok: true, job: "telegramSetWebhook", webhookUrl: telegramWebhookUrl(), result });
+}
+
 app.http("postEtfSyncHoldings", {
   methods: ["POST"],
   route: "jobs/etf/{etfCode}/sync-holdings",
@@ -196,4 +205,11 @@ app.http("postDiscoverActiveEtfs", {
   route: "jobs/discover-active-etfs",
   authLevel: "anonymous",
   handler: postDiscoverActiveEtfs
+});
+
+app.http("postTelegramSetWebhook", {
+  methods: ["POST"],
+  route: "jobs/telegram/set-webhook",
+  authLevel: "anonymous",
+  handler: postTelegramSetWebhook
 });

@@ -74,7 +74,11 @@ PATH=/usr/local/bin:$PATH npm install
 MONGODB_URI=
 MONGODB_DB_NAME=taiwan_active_etf
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_ALLOWED_USER_IDS=
+TELEGRAM_ALLOWED_CHAT_IDS=
 TELEGRAM_CHAT_ID=
+PUBLIC_BASE_URL=https://active-etf.chicoo.co
 ADMIN_JOB_TOKEN=
 ENABLE_TIMER_TRIGGERS=false
 REDIS_GOGOWINNERS_HOST=
@@ -86,6 +90,8 @@ ENABLE_BACKUP_SOURCES=true
 ```
 
 Azure Functions 本機也可用 `local.settings.json` 管理相同設定。Redis 是每日 API response cache；若未設定 Redis，API 會自動回到直接查 MongoDB。
+
+Telegram 多用戶通知使用 webhook。`PUBLIC_BASE_URL` 預設為 `https://active-etf.chicoo.co`，`TELEGRAM_WEBHOOK_SECRET` 會用來驗證 Telegram header。若 `TELEGRAM_ALLOWED_USER_IDS` 與 `TELEGRAM_ALLOWED_CHAT_IDS` 都留空，任何對 bot 發送 `/start` 的用戶或群組都能訂閱；若有填 allowlist，只有清單內的 user id 或 chat id 會收到通知。`TELEGRAM_CHAT_ID` 僅作為尚未有訂閱者時的舊版 fallback。
 
 ## 本機執行
 
@@ -118,6 +124,14 @@ x-admin-token: <ADMIN_JOB_TOKEN>
 ```
 
 `daily-refresh` 會先執行證交所 e 添富主動式 ETF 偵測，再跑既有持股同步與計算；未追蹤的新上市 ETF 會寫入 `active_etf_discoveries`，若設定 Telegram 變數且偵測到新項目，會主動通知。
+
+設定 Telegram webhook 可呼叫一次：
+
+```txt
+POST /api/jobs/telegram/set-webhook
+```
+
+同樣必須帶 `x-admin-token`。成功後 Telegram 會把 `/start`、`/subscribe`、`/unsubscribe`、`/toggle`、`/discover_on`、`/discover_off`、`/digest_on`、`/digest_off`、`/status` 等訊息送到 `https://active-etf.chicoo.co/api/telegram/webhook`。用戶基本資料與通知狀態會存入 `telegram_subscribers`。
 
 ## 部署獨立 Azure Functions App
 
@@ -197,6 +211,8 @@ pnpm test
 - `POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD`
 - `POST /api/jobs/daily-refresh`
 - `POST /api/jobs/discover-active-etfs?notify=true`
+- `POST /api/jobs/telegram/set-webhook`
+- `POST /api/telegram/webhook`
 
 詳細規格見 `docs/api-spec.md`。
 Mongo schema 見 `docs/mongo-schema.md`。

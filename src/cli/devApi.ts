@@ -11,6 +11,12 @@ import { getOrSetDailyCache, invalidateDailyCache } from "../services/cache/dail
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
+import {
+  handleTelegramUpdate,
+  setTelegramWebhook,
+  type TelegramUpdate,
+  telegramWebhookUrl
+} from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
 
@@ -37,6 +43,22 @@ function adminAuthError(req: IncomingMessage): { status: number; message: string
   if (!expected) return { status: 500, message: "ADMIN_JOB_TOKEN is required" };
   if (req.headers["x-admin-token"] !== expected) return { status: 401, message: "Unauthorized" };
   return null;
+}
+
+function telegramAuthError(req: IncomingMessage): { status: number; message: string } | null {
+  const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!expected) return { status: 500, message: "TELEGRAM_WEBHOOK_SECRET is required" };
+  if (req.headers["x-telegram-bot-api-secret-token"] !== expected) return { status: 401, message: "Unauthorized" };
+  return null;
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return raw ? JSON.parse(raw) : {};
 }
 
 let dbPromise: Promise<Db> | null = null;
@@ -277,6 +299,31 @@ const server = createServer(async (req, res) => {
       const notify = requestUrl.searchParams.get("notify") === "true";
       const result = await runActiveEtfDiscovery(db, { notify });
       sendJson(res, 200, { ok: true, job: "discoverActiveEtfs", result });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "telegram" && parts[3] === "set-webhook") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const result = await setTelegramWebhook();
+      sendJson(res, 200, { ok: true, job: "telegramSetWebhook", webhookUrl: telegramWebhookUrl(), result });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "telegram" && parts[2] === "webhook") {
+      const authError = telegramAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const db = await getDevDb();
+      const result = await handleTelegramUpdate(db, (await readJsonBody(req)) as TelegramUpdate);
+      sendJson(res, 200, result);
       return;
     }
 

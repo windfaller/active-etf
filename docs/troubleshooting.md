@@ -32,3 +32,13 @@ POST /api/jobs/daily-refresh
 ```
 
 New ETF providers and new analysis steps should be added in code behind that endpoint.
+
+## Telegram users do not receive notifications
+
+Check these app settings first:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `PUBLIC_BASE_URL=https://active-etf.chicoo.co`
+
+Then call `POST /api/jobs/telegram/set-webhook` with `x-admin-token`. Ask the user to send `/start` to the bot; this should create or update a row in `telegram_subscribers`. If `TELEGRAM_ALLOWED_USER_IDS` or `TELEGRAM_ALLOWED_CHAT_IDS` is configured, the sender must be in one of those allowlists.
