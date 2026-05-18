@@ -30,6 +30,7 @@ type ProviderDailySource = Extract<
   | "jpmorgan"
   | "allianz"
   | "mega"
+  | "fubon"
   | "first"
   | "cathay"
   | "fh"
@@ -44,6 +45,7 @@ function providerSource(providerId: ProviderId): ProviderDailySource {
   if (providerId === "jpmorgan") return "jpmorgan";
   if (providerId === "allianz") return "allianz";
   if (providerId === "mega") return "mega";
+  if (providerId === "fubon") return "fubon";
   if (providerId === "first") return "first";
   if (providerId === "cathay") return "cathay";
   if (providerId === "fh") return "fh";

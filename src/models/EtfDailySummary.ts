@@ -22,6 +22,7 @@ export const etfDailySummarySchema = z.object({
     "jpmorgan",
     "allianz",
     "mega",
+    "fubon",
     "first",
     "cathay",
     "fh"

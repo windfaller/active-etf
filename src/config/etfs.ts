@@ -193,6 +193,38 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00982D",
+    fundCode: "00982D",
+    name: "主動富邦動態入息",
+    issuer: "富邦投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "fubon",
+      infoUrl: "https://www.fubon.com/asset-management/ph/activebond/index.html",
+      pcfUrl: "https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00982D"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00983D",
+    fundCode: "00983D",
+    name: "主動富邦複合收益",
+    issuer: "富邦投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "fubon",
+      infoUrl: "https://www.fubon.com/asset-management/ph/activebond/index.html",
+      pcfUrl: "https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00983D"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00986A",
     fundCode: "00986A",
     name: "主動台新龍頭成長",

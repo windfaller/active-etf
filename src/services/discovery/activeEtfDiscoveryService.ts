@@ -36,6 +36,7 @@ function providerSuggestion(issuer: string): string | null {
   if (/第一金/u.test(issuer)) return "first";
   if (/安聯/u.test(issuer)) return "allianz";
   if (/兆豐/u.test(issuer)) return "mega";
+  if (/富邦/u.test(issuer)) return "fubon";
   return null;
 }
 

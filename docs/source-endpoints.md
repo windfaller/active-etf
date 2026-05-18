@@ -416,6 +416,37 @@ Notes:
 - The Mega product page is current-snapshot only; historical backfill for `00996A` is limited unless a separate official historical holdings file is found later.
 - Market closing price is filled by the shared TWSE closing price sync.
 
+## 富邦 holdings and summary
+
+Official assets pages:
+
+- `00982D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00982D`
+- `00983D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00983D`
+
+Status: verified official HTML fallback source for 富邦 `00982D` and `00983D`. The public assets page renders the current snapshot server-side, including data date, NAV, fund size, total units, bond holdings, fund holdings, market value and weights. These are active fixed-income ETFs, so holdings are normalized into the shared schema with bond ISINs or ETF tickers in `stockId`.
+
+Field mapping:
+
+```txt
+"資料日期：YYYY/MM/DD" -> tradeDate
+"基金淨資產(新台幣)" -> etf_daily_summary.fundSize
+"基金在外流通單位數(單位)" -> etf_daily_summary.totalUnits
+"基金每單位淨值(新台幣)" -> etf_daily_summary.nav
+債券 table "債券代碼" -> etf_daily_holdings.stockId
+債券 table "債券名稱" -> etf_daily_holdings.stockName
+債券 table "面額" -> etf_daily_holdings.shares
+基金 table "基金代碼" -> etf_daily_holdings.stockId
+基金 table "基金名稱" -> etf_daily_holdings.stockName
+基金 table "單位數" -> etf_daily_holdings.shares
+table "金額" -> etf_daily_holdings.marketValue
+table "權重(%)" -> etf_daily_holdings.weight
+```
+
+Notes:
+
+- `lots` remains `shares / 1000` only for shared-schema compatibility; for bond ETFs this is not a Taiwan board-lot measure.
+- Market closing price is filled by the shared TWSE closing price sync.
+
 ## 復華 holdings and summary
 
 Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`

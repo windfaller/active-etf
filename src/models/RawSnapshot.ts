@@ -15,6 +15,7 @@ export const rawSnapshotSchema = z.object({
     "jpmorgan",
     "allianz",
     "mega",
+    "fubon",
     "first",
     "cathay",
     "fh",

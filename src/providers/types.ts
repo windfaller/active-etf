@@ -12,7 +12,8 @@ export type ProviderId =
   | "fh"
   | "first"
   | "allianz"
-  | "mega";
+  | "mega"
+  | "fubon";
 
 export type ProviderImplementationStatus = "verified" | "pending_reverse_engineering";
 
