@@ -11,7 +11,18 @@ export const etfDailySummarySchema = z.object({
   netCreationUnits: z.number().nullable(),
   cashRatio: z.number().nullable(),
   stockRatio: z.number().nullable(),
-  source: z.enum(["ezmoney", "backup", "nomura", "capital", "yuanta", "taishin", "ctbc", "jpmorgan", "first"]),
+  source: z.enum([
+    "ezmoney",
+    "backup",
+    "nomura",
+    "capital",
+    "yuanta",
+    "taishin",
+    "ctbc",
+    "jpmorgan",
+    "first",
+    "cathay"
+  ]),
   rawSnapshotId: z.string(),
   createdAt: z.date(),
   updatedAt: z.date()

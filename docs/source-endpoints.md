@@ -251,6 +251,47 @@ stock table "持股權重" -> etf_daily_holdings.weight
 stock table "股票合計" -> etf_daily_summary.stockRatio
 ```
 
+## 國泰 holdings and summary
+
+URL: `https://cwapi.cathaysite.com.tw/api/ETF/DownloadETFWeightExcel`
+
+Method: GET
+
+Confirmed products:
+
+- `00400A`: `FundCode` `EA`
+
+Required query parameters:
+
+```txt
+FundCode=EA
+SearchDate=YYYY-MM-DD
+```
+
+Status: verified primary source for 國泰 00400A holdings and summary. `SearchDate=2026-05-15` returned an OOXML workbook with stock code, stock name, shares and holding weight. Requests for an unpublished current date can return a 200 response with an empty body, so the provider retries previous dates and stores the date detected from the workbook title row.
+
+Fields mapping:
+
+```txt
+Workbook row "YYYY/MM/DD基金持股權重" -> etf_daily_holdings.tradeDate / etf_daily_summary.tradeDate
+Summary "基金淨資產價值" -> etf_daily_summary.fundSize
+Summary "基金在外流通單位數" -> etf_daily_summary.totalUnits
+Summary "基金每單位淨值" -> etf_daily_summary.nav
+Summary "現金" / fundSize * 100 -> etf_daily_summary.cashRatio
+Summary "股票" / fundSize * 100 -> etf_daily_summary.stockRatio
+Stock table "股票代號" -> etf_daily_holdings.stockId
+Stock table "股票名稱" -> etf_daily_holdings.stockName
+Stock table "股數" -> etf_daily_holdings.shares
+Stock table "持股權重" -> etf_daily_holdings.weight
+fundSize * weight / 100 -> etf_daily_holdings.marketValue
+```
+
+Notes:
+
+- The verified endpoint parameter is `SearchDate`; generic `date`, `DataDate`, `TradeDate` and similar candidates returned no holdings.
+- `GetIndexStockWeights?FundCode=EA` returns stock weights but not shares, so it is not used as the primary holdings source.
+- Market closing price is filled by the shared TWSE closing price sync.
+
 ## 中信 holdings and summary
 
 Auth URL: `https://www.ctbcinvestments.com.tw/API/home/AuthToken?token=www.ctbcinvestments.com`

@@ -3,11 +3,13 @@ import type { EtfInfo } from "../types.js";
 export const cathayEtfs: EtfInfo[] = [
   {
     etfCode: "00400A",
-    name: "國泰台灣領袖50主動式ETF",
+    name: "主動國泰動能高息",
     issuer: "國泰投信",
     providerId: "cathay",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "EA",
+    notes: "Official Cathay ETF XLSX endpoint uses FundCode=EA and SearchDate=YYYY-MM-DD."
   }
 ];

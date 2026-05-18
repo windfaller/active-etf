@@ -193,6 +193,22 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00400A",
+    fundCode: "EA",
+    name: "主動國泰動能高息",
+    issuer: "國泰投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "cathay",
+      infoUrl: "https://www.cathaysite.com.tw/fund-details/EEA",
+      pcfUrl: "https://cwapi.cathaysite.com.tw/api/ETF/DownloadETFWeightExcel?FundCode=EA"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00401A",
     fundCode: "TW00000401A1",
     name: "主動摩根台灣鑫收益",
