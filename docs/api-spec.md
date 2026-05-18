@@ -70,7 +70,7 @@ Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TW
 
 `POST /api/jobs/discover-active-etfs?notify=true`
 
-Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), stores a raw snapshot, upserts `active_etf_discoveries`, compares official products with currently tracked ETFs, and optionally sends a Telegram notification for newly detected untracked ETFs. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), stores a raw snapshot, upserts `active_etf_discoveries`, compares official products with currently tracked ETFs, and optionally sends a Telegram onboarding notification for newly detected untracked ETFs. Onboarding alerts are sent only to `TELEGRAM_ETF_ONBOARDING_CHAT_IDS` and include a `taiwan-active-etf-onboarding` prompt for manual Codex follow-up. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 ## Admin Telegram Set Webhook
 

@@ -3,7 +3,7 @@ import { configuredEtfs } from "../../config/etfs.js";
 import type { ActiveEtfDiscovery } from "../../models/ActiveEtfDiscovery.js";
 import { defaultCrawlerHeaders, fetchSource } from "../source/httpClient.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
-import { broadcastTelegramMessage } from "../notify/telegramSubscriberService.js";
+import { sendTelegramMessageToChatIds } from "../notify/telegramSubscriberService.js";
 import { parseTwseActiveEtfProducts, type TwseActiveEtfProduct } from "./twseActiveEtfParser.js";
 
 const twseProductsUrl = "https://wwwc.twse.com.tw/zh/ETFortune-institute/ajaxProducts";
@@ -90,9 +90,46 @@ function buildDiscovery(
   };
 }
 
-function formatDiscoveryMessage(newlyDetected: ActiveEtfDiscovery[], allUntracked: ActiveEtfDiscovery[]): string {
+function parseChatIds(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function onboardingPrompt(newlyDetected: ActiveEtfDiscovery[]): string {
+  const etfLines = newlyDetected
+    .map((item) => {
+      const providerHint = item.suggestedProviderId ? `建議 providerId: ${item.suggestedProviderId}` : "需要新增 provider";
+      return `- ${item.etfCode} ${item.stockName}｜${item.issuer}｜上市日 ${item.listingDate}｜${providerHint}`;
+    })
+    .join("\n");
+
+  return [
+    "請使用 taiwan-active-etf-onboarding skill，處理以下新偵測到的台灣主動式 ETF：",
+    "",
+    etfLines,
+    "",
+    "要求：",
+    "- 不要猜 API。",
+    "- 必須 reverse engineer 真正 JSON/XHR/API/CSV/XLSX endpoint。",
+    "- 優先 JSON，其次 CSV、XLSX、hidden table endpoint，HTML parser 只能當最後手段。",
+    "- 必須保存 raw snapshot。",
+    "- 新 provider 必須 fail in isolation，不得影響目前頁面與既有 ETF 資料。",
+    "- 不要啟用新 ETF，直到 holdings 與 summary/NAV 都用真實 response 驗證。",
+    "",
+    "完成後請跑：",
+    "PATH=/usr/local/bin:$PATH npm test -- --run",
+    "PATH=/usr/local/bin:$PATH npm run functions:build",
+    "PATH=/usr/local/bin:$PATH npm run build",
+    "",
+    "最後 commit 並 push 到 origin/main。"
+  ].join("\n");
+}
+
+export function formatDiscoveryMessage(newlyDetected: ActiveEtfDiscovery[], allUntracked: ActiveEtfDiscovery[]): string {
   const lines = [
-    "台灣主動式 ETF 偵測通知",
+    "台灣主動式 ETF onboarding 通知",
     `新發現未追蹤：${newlyDetected.length} 檔`,
     `目前未追蹤總數：${allUntracked.length} 檔`,
     ""
@@ -108,7 +145,13 @@ function formatDiscoveryMessage(newlyDetected: ActiveEtfDiscovery[], allUntracke
     lines.push("", "註：沒有新發現，但仍有未追蹤清單待處理。");
   }
 
-  lines.push("", "下一步：先 reverse engineer 官網持股/PCF endpoint，再啟用 provider。");
+  lines.push(
+    "",
+    "請手動觸發 Codex skill 處理；目前只通知 onboarding 管理者，不會廣播給一般訂閱者。",
+    "",
+    "可直接貼給 Codex 的 prompt：",
+    onboardingPrompt(newlyDetected.length ? newlyDetected : allUntracked.slice(0, 12))
+  );
   return lines.join("\n");
 }
 
@@ -169,12 +212,13 @@ export async function runActiveEtfDiscovery(
 
   if (options.notify && newlyDetected.length) {
     try {
-      const broadcast = await broadcastTelegramMessage(db, formatDiscoveryMessage(newlyDetected, allUntracked), {
-        subscription: "discovery"
-      });
+      const targetChatIds = parseChatIds(process.env.TELEGRAM_ETF_ONBOARDING_CHAT_IDS);
+      const broadcast = await sendTelegramMessageToChatIds(targetChatIds, formatDiscoveryMessage(newlyDetected, allUntracked));
       notification.attempted = broadcast.attempted;
       notification.sent = broadcast.sent;
-      notification.reason = broadcast.reason;
+      notification.reason =
+        broadcast.reason ??
+        (!targetChatIds.length ? "TELEGRAM_ETF_ONBOARDING_CHAT_IDS is not configured" : undefined);
       if (broadcast.sent) {
         await collection.updateMany(
           { etfCode: { $in: newlyDetected.map((item) => item.etfCode) } },

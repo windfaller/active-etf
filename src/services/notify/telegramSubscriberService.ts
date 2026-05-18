@@ -130,6 +130,35 @@ async function sendTelegramMessage(chatId: string, text: string): Promise<void> 
   }
 }
 
+export async function sendTelegramMessageToChatIds(chatIds: string[], text: string): Promise<TelegramBroadcastResult> {
+  const uniqueChatIds = [...new Set(chatIds.map((chatId) => chatId.trim()).filter(Boolean))];
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    return { attempted: false, sent: false, recipientCount: 0, reason: "TELEGRAM_BOT_TOKEN is not configured" };
+  }
+
+  if (!uniqueChatIds.length) {
+    return { attempted: false, sent: false, recipientCount: 0, reason: "No Telegram chat IDs configured" };
+  }
+
+  const errors: string[] = [];
+  for (const chatId of uniqueChatIds) {
+    try {
+      await sendTelegramMessage(chatId, text);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return {
+    attempted: true,
+    sent: errors.length === 0,
+    recipientCount: uniqueChatIds.length,
+    errors: errors.length ? errors : undefined,
+    reason: errors.length ? "One or more Telegram sends failed" : undefined
+  };
+}
+
 function helpText(subscriber: TelegramSubscriber): string {
   const status = subscriber.enabled ? "通知已開啟" : "通知已暫停";
   const discovery = subscriber.subscriptions.discovery ? "開" : "關";
@@ -407,22 +436,7 @@ export async function broadcastTelegramMessage(
     return { attempted: false, sent: false, recipientCount: 0, reason: "No enabled Telegram subscribers" };
   }
 
-  const errors: string[] = [];
-  for (const chatId of chatIds) {
-    try {
-      await sendTelegramMessage(chatId, text);
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  return {
-    attempted: true,
-    sent: errors.length === 0,
-    recipientCount: chatIds.length,
-    errors: errors.length ? errors : undefined,
-    reason: errors.length ? "One or more Telegram sends failed" : undefined
-  };
+  return sendTelegramMessageToChatIds(chatIds, text);
 }
 
 export function telegramWebhookUrl(): string {
