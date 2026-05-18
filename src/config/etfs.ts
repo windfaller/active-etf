@@ -191,6 +191,24 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00401A",
+    fundCode: "TW00000401A1",
+    name: "主動摩根台灣鑫收益",
+    issuer: "摩根投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "jpmorgan",
+      infoUrl:
+        "https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1",
+      pcfUrl:
+        "https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 

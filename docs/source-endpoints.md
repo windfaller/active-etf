@@ -299,3 +299,45 @@ Data.Detail[Code=STOCK].Data[].qty_ -> etf_daily_holdings.shares
 Data.Detail[Code=STOCK].Data[].weights_ -> etf_daily_holdings.weight
 Data.Detail[Code=STOCK].Data[].amount_ -> etf_daily_holdings.marketValue
 ```
+
+## 摩根 holdings and summary
+
+Product page:
+`https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1`
+
+PCF XLSX URL:
+`https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx`
+
+Method: GET
+
+Confirmed products:
+
+- `00401A`: ISIN `TW00000401A1`
+
+Headers:
+
+```txt
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,*/*
+Referer: https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1
+User-Agent: browser user-agent
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+```
+
+Status: verified official XLSX source for 摩根 holdings and PCF summary. The product page embeds this URL in its `documents` JSON payload as `ETF估值檔案 *`. Generic direct requests returned Akamai Access Denied during validation; the browser/Excel headers above returned the OOXML workbook.
+
+Field mapping:
+
+```txt
+summary row "Valuation Date" -> etf_daily_summary.tradeDate
+summary row "Estimated NAV per Share" -> etf_daily_summary.nav
+summary row "Estimated NAV" -> etf_daily_summary.fundSize
+summary row "Outstanding Shares" -> etf_daily_summary.totalUnits
+component row "Constituent Type" == "Equity" and four-digit "Constituent Ticker" -> included holding
+component row "Constituent Ticker" -> etf_daily_holdings.stockId
+component row "Constituent Description" -> etf_daily_holdings.stockName
+component row "Shares or PAR Amount" -> etf_daily_holdings.shares
+component row "Market Value Base" -> etf_daily_holdings.marketValue
+component row "Market Value Base" / "Estimated NAV" * 100 -> etf_daily_holdings.weight
+```

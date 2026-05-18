@@ -1,6 +1,6 @@
 # 台灣主動式 ETF 每日持股追蹤系統
 
-這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台灣主動式 ETF Intelligence Platform」。目前 production sync 追蹤已驗證來源的統一投信 `00981A`、`00988A`、`00403A`、野村投信 `00980A`、`00985A`、`00999A`、群益投信 `00982A`、`00992A`、元大投信 `00990A`、中信投信 `00983A`，以及台新投信 `00986A`、`00987A`。Provider registry 已納入第一階段其他投信 ETF，但在沒有 reverse engineer 到真正 endpoint 前保持 disabled，避免污染資料。
+這個專案用 TypeScript、Azure Functions 與 MongoDB 建立「台灣主動式 ETF Intelligence Platform」。目前 production sync 追蹤已驗證來源的統一投信 `00981A`、`00988A`、`00403A`、野村投信 `00980A`、`00985A`、`00999A`、群益投信 `00982A`、`00992A`、元大投信 `00990A`、中信投信 `00983A`、台新投信 `00986A`、`00987A`，以及摩根投信 `00401A`。Provider registry 已納入第一階段其他投信 ETF，但在沒有 reverse engineer 到真正 endpoint 前保持 disabled，避免污染資料。
 
 本系統只整理公開資料並做研究分析，不構成投資建議。
 
@@ -44,7 +44,7 @@ allianz/
 - `normalizer.ts`
 - `types.ts`
 
-目前 `uniPresident`、`nomura`、`capital`、`yuanta`、`ctbc` 與 `taishin` 是 verified provider，會被 production daily refresh 使用。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
+目前 `uniPresident`、`nomura`、`capital`、`yuanta`、`ctbc`、`taishin` 與 `jpmorgan` 是 verified provider，會被 production daily refresh 使用。其他 provider 是 `pending_reverse_engineering`，不會被 production sync 使用。
 
 ## 安裝方式
 

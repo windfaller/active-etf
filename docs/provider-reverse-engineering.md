@@ -10,7 +10,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. Production daily refresh is enabled. |
 | 群益投信 `capital` | `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified for both ETFs. Production daily refresh is enabled. |
 | 國泰投信 `cathay` | `00400A` | Pending | Do not enable until official holdings and summary endpoints are captured. |
-| 摩根投信 `jpmorgan` | `00401A` | Pending | The user prompt listed `allianz` in the folder plan, but the first-stage ETF is 摩根; implementation uses `jpmorgan`. |
+| 摩根投信 `jpmorgan` | `00401A` | Verified and enabled | Official product page exposes the ETF supplement PCF XLSX file. The file is fetched with browser Excel headers and parsed as OOXML; production daily refresh is enabled. |
 | 中信投信 `ctbc` | `00983A` | Verified and enabled | Official CTBC Vue app calls `home/AuthToken` then `etf/Buyback`; holdings, NAV, AUM, total units, creation unit delta and allocation rows were verified. Production daily refresh is enabled. |
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
@@ -118,6 +118,29 @@ This project does not guess provider APIs. A provider can be enabled for product
   - PCF summary table for NAV, fund size, total units and unit delta
   - stock table with code, name, shares and weight
 - Important source note: the official PCF page and its `Pcf.js` only perform page navigation for date/ETF changes; no JSON, CSV or XLSX endpoint was present in the captured code. The implementation therefore uses the allowed HTML fallback and validates the table headers before parsing.
+
+### JPMorgan ETF Supplement PCF XLSX
+
+- Product page: `https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1`
+- Official document source: the product page embeds the `documents` payload for ISIN `TW00000401A1`.
+- Method: `GET`
+- URL: `https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx`
+- Required request note: direct generic requests can be rejected by Akamai. The verified fetch uses a normal browser user-agent, the product page as `Referer`, and Excel `Accept` headers.
+- Confirmed ETF codes:
+  - `00401A`: XLSX valuation date `2026-05-18`, 73 components, 62 Taiwan equity rows.
+- Response type: XLSX / OOXML
+- Contains:
+  - summary row with fund ticker, fund name, valuation date, component count, estimated NAV, estimated NAV per share and outstanding shares
+  - component rows with ISIN, ticker, type, description, shares, prices and market value
+- Field mapping:
+  - `Valuation Date` -> trade date
+  - `Estimated NAV per Share` -> NAV
+  - `Estimated NAV` -> fund size
+  - `Outstanding Shares` -> total units
+  - `Constituent Type = Equity` and four-digit `Constituent Ticker` -> Taiwan stock holdings
+  - `Shares or PAR Amount` -> shares
+  - `Market Value Base / Estimated NAV * 100` -> weight
+- Limitation: this official PCF file uses English constituent descriptions and does not include creation unit delta or market closing price. Premium/discount is calculated by the shared TWSE closing price sync after JPMorgan NAV sync.
 - Limitation: this source does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Taishin holdings/NAV sync.
 
 ### CTBC ETF Buyback

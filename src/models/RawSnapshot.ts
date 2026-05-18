@@ -2,7 +2,18 @@ import { z } from "zod";
 
 export const rawSnapshotSchema = z.object({
   snapshotId: z.string(),
-  source: z.enum(["ezmoney", "twse", "moneydj", "wantgoo", "nomura", "capital", "yuanta", "taishin", "ctbc"]),
+  source: z.enum([
+    "ezmoney",
+    "twse",
+    "moneydj",
+    "wantgoo",
+    "nomura",
+    "capital",
+    "yuanta",
+    "taishin",
+    "ctbc",
+    "jpmorgan"
+  ]),
   etfCode: z.string(),
   fundCode: z.string().optional(),
   dataType: z.enum(["holdings", "summary", "pcf", "nav", "html", "api_response"]),

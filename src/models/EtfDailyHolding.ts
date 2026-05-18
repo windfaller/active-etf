@@ -9,7 +9,7 @@ export const etfDailyHoldingSchema = z.object({
   lots: z.number(),
   weight: z.number().nullable(),
   marketValue: z.number().nullable(),
-  source: z.enum(["ezmoney", "backup", "nomura", "capital", "yuanta", "taishin", "ctbc"]),
+  source: z.enum(["ezmoney", "backup", "nomura", "capital", "yuanta", "taishin", "ctbc", "jpmorgan"]),
   rawSnapshotId: z.string(),
   createdAt: z.date(),
   updatedAt: z.date()
