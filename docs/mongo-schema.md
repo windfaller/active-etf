@@ -75,3 +75,25 @@ Unique key:
 
 - `tradeDate`
 - `sector`
+
+### `active_etf_discoveries`
+
+Official TWSE ETFortune active ETF registry comparison rows. This collection records listed active ETFs that are already tracked and newly discovered ETFs that still need provider mapping or reverse engineering.
+
+Unique key:
+
+- `etfCode`
+
+Important fields:
+
+- `stockName`
+- `listingDate`
+- `issuer`
+- `isTracked`
+- `configuredProviderId`
+- `suggestedProviderId`
+- `discoveryStatus`
+- `rawSnapshotId`
+- `firstDetectedAt`
+- `lastSeenAt`
+- `lastNotifiedAt`

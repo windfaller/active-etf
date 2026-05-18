@@ -29,6 +29,39 @@ Date checked: 2026-05-18
   - Local escalated `curl -I` hung and was terminated after roughly 36 seconds.
   - Status: candidate only, not production.
 
+## TWSE ETFortune active ETF discovery
+
+Page: `https://wwwc.twse.com.tw/zh/ETFortune-institute/products`
+
+URL: `https://wwwc.twse.com.tw/zh/ETFortune-institute/ajaxProducts`
+
+Method: POST
+
+Payload:
+
+```txt
+managerType=Active&sort=listingDate&orderBy=DESC
+```
+
+Status: verified primary source for listed Taiwan active ETF discovery. The endpoint was found from the official product screener form `data-productsurl="/zh/ETFortune-institute/ajaxProducts"` and `/rsrc/sites/etfortune-institute/js/products-filter.js`, which POSTs the serialized filter form.
+
+Field mapping:
+
+```txt
+stockNo -> ETF code
+stockName -> ETF display name
+listingDate -> listing date
+indexName -> underlying index
+totalAv -> asset value
+close1 -> closing price
+valueYTD -> YTD average traded value
+volumeYTD -> YTD average traded volume
+holders -> beneficiary count
+issuer -> issuer
+```
+
+The discovery job stores the complete raw JSON response in `raw_snapshots` with source `twse_etfortune`, then upserts `active_etf_discoveries`.
+
 ## 00981A holdings
 
 URL: `https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`

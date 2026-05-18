@@ -2,6 +2,7 @@ import { app, type HttpRequest, type InvocationContext } from "@azure/functions"
 import { configuredEtfs } from "../config/etfs.js";
 import { getDb } from "../db/mongo.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
+import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
@@ -96,6 +97,17 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
   const authError = validateAdminToken(request);
   if (authError) return authError;
 
+  const db = await getDb();
+  let discovery: unknown = null;
+  try {
+    discovery = await runActiveEtfDiscovery(db, { notify: true });
+  } catch (error) {
+    discovery = {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+
   const results = [];
   const refreshedTradeDates = new Set<string>();
   for (const etf of configuredEtfs.filter((item) => item.enabled)) {
@@ -118,7 +130,6 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
     }
   }
 
-  const db = await getDb();
   const aggregates = [];
   for (const tradeDate of refreshedTradeDates) {
     const [consensus, sectorFlow] = await Promise.all([
@@ -132,7 +143,17 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
     });
   }
 
-  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", results, aggregates });
+  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", discovery, results, aggregates });
+}
+
+export async function postDiscoverActiveEtfs(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const notify = request.query.get("notify") === "true";
+  const db = await getDb();
+  const result = await runActiveEtfDiscovery(db, { notify });
+  return jsonResponse({ ok: true, job: "discoverActiveEtfs", result });
 }
 
 app.http("postEtfSyncHoldings", {
@@ -168,4 +189,11 @@ app.http("postDailyRefresh", {
   route: "jobs/daily-refresh",
   authLevel: "anonymous",
   handler: postDailyRefresh
+});
+
+app.http("postDiscoverActiveEtfs", {
+  methods: ["POST"],
+  route: "jobs/discover-active-etfs",
+  authLevel: "anonymous",
+  handler: postDiscoverActiveEtfs
 });

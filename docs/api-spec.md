@@ -64,7 +64,13 @@ Runs the daily-change calculation job for every enabled ETF in `src/config/etfs.
 
 `POST /api/jobs/daily-refresh`
 
-Universal scheduler entrypoint. Runs holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, and sector-flow calculation for every enabled ETF. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, and sector-flow calculation for every enabled ETF. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
+## Admin Active ETF Discovery
+
+`POST /api/jobs/discover-active-etfs?notify=true`
+
+Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), stores a raw snapshot, upserts `active_etf_discoveries`, compares official products with currently tracked ETFs, and optionally sends a Telegram notification for newly detected untracked ETFs. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 ## Get Consecutive Signals
 

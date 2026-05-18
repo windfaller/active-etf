@@ -117,6 +117,8 @@ POST /api/jobs/daily-refresh
 x-admin-token: <ADMIN_JOB_TOKEN>
 ```
 
+`daily-refresh` 會先執行證交所 e 添富主動式 ETF 偵測，再跑既有持股同步與計算；未追蹤的新上市 ETF 會寫入 `active_etf_discoveries`，若設定 Telegram 變數且偵測到新項目，會主動通知。
+
 ## 部署獨立 Azure Functions App
 
 若要使用真正的 Timer Trigger，請部署到獨立 Azure Functions App，而不是 SWA managed Functions。
@@ -194,6 +196,7 @@ pnpm test
 - `POST /api/jobs/etfs/sync-holdings`
 - `POST /api/jobs/etfs/calculate-changes?date=YYYY-MM-DD`
 - `POST /api/jobs/daily-refresh`
+- `POST /api/jobs/discover-active-etfs?notify=true`
 
 詳細規格見 `docs/api-spec.md`。
 Mongo schema 見 `docs/mongo-schema.md`。

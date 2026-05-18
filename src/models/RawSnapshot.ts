@@ -15,7 +15,8 @@ export const rawSnapshotSchema = z.object({
     "jpmorgan",
     "first",
     "cathay",
-    "fh"
+    "fh",
+    "twse_etfortune"
   ]),
   etfCode: z.string(),
   fundCode: z.string().optional(),

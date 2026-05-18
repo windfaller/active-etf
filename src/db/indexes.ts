@@ -22,6 +22,8 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection("etf_consensus").createIndex({ tradeDate: -1, consensusScore: -1 }),
     db.collection("etf_consensus").createIndex({ tradeDate: 1, stockId: 1 }, { unique: true }),
     db.collection("etf_sector_flow").createIndex({ tradeDate: -1, flowScore: -1 }),
-    db.collection("etf_sector_flow").createIndex({ tradeDate: 1, sector: 1 }, { unique: true })
+    db.collection("etf_sector_flow").createIndex({ tradeDate: 1, sector: 1 }, { unique: true }),
+    db.collection("active_etf_discoveries").createIndex({ etfCode: 1 }, { unique: true }),
+    db.collection("active_etf_discoveries").createIndex({ discoveryStatus: 1, listingDate: -1 })
   ]);
 }

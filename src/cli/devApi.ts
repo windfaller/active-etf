@@ -9,6 +9,7 @@ import type { EtfDailySummary } from "../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { getOrSetDailyCache, invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
+import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { assertTradeDate } from "../utils/date.js";
@@ -214,6 +215,17 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      const db = await getDevDb();
+      let discovery: unknown = null;
+      try {
+        discovery = await runActiveEtfDiscovery(db, { notify: true });
+      } catch (error) {
+        discovery = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+
       const results = [];
       const refreshedTradeDates = new Set<string>();
       for (const etf of configuredEtfs.filter((item) => item.enabled)) {
@@ -239,7 +251,6 @@ const server = createServer(async (req, res) => {
 
       const aggregates = [];
       for (const tradeDate of refreshedTradeDates) {
-        const db = await getDevDb();
         const [consensus, sectorFlow] = await Promise.all([
           calculateConsensus(db, tradeDate),
           calculateSectorFlow(db, tradeDate)
@@ -251,7 +262,21 @@ const server = createServer(async (req, res) => {
         });
       }
 
-      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", results, aggregates });
+      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", discovery, results, aggregates });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "discover-active-etfs") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const db = await getDevDb();
+      const notify = requestUrl.searchParams.get("notify") === "true";
+      const result = await runActiveEtfDiscovery(db, { notify });
+      sendJson(res, 200, { ok: true, job: "discoverActiveEtfs", result });
       return;
     }
 
