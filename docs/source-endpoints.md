@@ -423,7 +423,7 @@ Official assets pages:
 - `00982D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00982D`
 - `00983D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00983D`
 
-Status: verified official HTML fallback source for 富邦 `00982D` and `00983D`. The public assets page renders the current snapshot server-side, including data date, NAV, fund size, total units, bond holdings, fund holdings, market value and weights. These are active fixed-income ETFs, so holdings are normalized into the shared schema with bond ISINs or ETF tickers in `stockId`.
+Status: verified official HTML fallback source for 富邦 `00982D` and `00983D`, but disabled for current equity-only production sync. The public assets page renders the current snapshot server-side, including data date, NAV, fund size, total units, bond holdings, fund holdings, market value and weights. These are active fixed-income ETFs, so holdings are normalized into the shared schema with bond ISINs or ETF tickers in `stockId` when re-enabled.
 
 Field mapping:
 
@@ -456,7 +456,7 @@ API endpoints:
 - Holdings: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/holdings`
 - Basket: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/basket`
 
-Status: verified primary JSON source for 聯博 `00984D`. The official React PCF page sets `shareClassId=TW00000984D0` and calls the two endpoints above. The provider stores a combined raw JSON payload containing both responses, so holdings and PCF summary share one raw snapshot.
+Status: verified primary JSON source for 聯博 `00984D`, but disabled for current equity-only production sync. The official React PCF page sets `shareClassId=TW00000984D0` and calls the two endpoints above. The provider stores a combined raw JSON payload containing both responses, so holdings and PCF summary share one raw snapshot when re-enabled.
 
 Field mapping:
 

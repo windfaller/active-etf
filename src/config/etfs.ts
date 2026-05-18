@@ -199,7 +199,7 @@ export const configuredEtfs: EtfMaster[] = [
     issuer: "富邦投信",
     type: "active_etf",
     currency: "TWD",
-    enabled: true,
+    enabled: false,
     source: {
       providerId: "fubon",
       infoUrl: "https://www.fubon.com/asset-management/ph/activebond/index.html",
@@ -215,7 +215,7 @@ export const configuredEtfs: EtfMaster[] = [
     issuer: "富邦投信",
     type: "active_etf",
     currency: "TWD",
-    enabled: true,
+    enabled: false,
     source: {
       providerId: "fubon",
       infoUrl: "https://www.fubon.com/asset-management/ph/activebond/index.html",
@@ -295,7 +295,7 @@ export const configuredEtfs: EtfMaster[] = [
     issuer: "聯博投信",
     type: "active_etf",
     currency: "TWD",
-    enabled: true,
+    enabled: false,
     source: {
       providerId: "allianceBernstein",
       infoUrl:
