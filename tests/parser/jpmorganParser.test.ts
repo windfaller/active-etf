@@ -133,6 +133,7 @@ const rows = [
     "Market Value Base"
   ],
   ["D", "TW0002330008", null, "6889106", "2330", "XTAI", "2330", "Equity", "TAIWAN SEMICONDUCTOR MFG CO. LTD", 1_000, "TWD", 900, 1, 950, 950, 1, null, 950_000],
+  ["D", "US02079K1079", null, "BYVY8G0", "GOOG", "XNAS", "GOOG", "Equity", "ALPHABET INC-CL C", 100, "USD", 150, 31, 155, 4_805, 31, null, 480_500],
   ["D", "TWTXO070DF62", null, null, "TXO", "XTAF", "TXO", "Option", "TWSE 05/20/26 C37400", 1, "TWD", 1, 1, 1, 1, 1, null, 1_000],
   ["D", "TW0002308004", null, "6260734", "2308", "XTAI", "2308", "Equity", "DELTA ELECTRONICS INC TWD10", 2_000, "TWD", 100, 1, 25, 25, 1, null, 50_000]
 ];
@@ -158,12 +159,17 @@ describe("jpmorgan provider parser", () => {
       totalUnits: 80_000,
       fundSize: 1_000_000
     });
-    expect(parsed.holdings).toHaveLength(2);
+    expect(parsed.holdings).toHaveLength(3);
     expect(parsed.holdings[0]).toMatchObject({
       stockId: "2330",
       shares: 1_000,
       lots: 1,
       weight: 95
+    });
+    expect(parsed.holdings[1]).toMatchObject({
+      stockId: "GOOG",
+      stockName: "ALPHABET INC-CL C",
+      shares: 100
     });
   });
 
@@ -184,8 +190,8 @@ describe("jpmorgan provider parser", () => {
       dataType: "summary"
     };
 
-    expect(parseJpmorganHoldings(rawBody)).toHaveLength(2);
-    expect(parseJpmorganSummary(rawBody).stockRatio).toBe(100);
+    expect(parseJpmorganHoldings(rawBody)).toHaveLength(3);
+    expect(parseJpmorganSummary(rawBody).stockRatio).toBeCloseTo(148.05);
     expect(normalizeJpmorganHoldings(holdingRaw)[0]).toMatchObject({
       etfCode: "00401A",
       tradeDate: "2026-05-18",

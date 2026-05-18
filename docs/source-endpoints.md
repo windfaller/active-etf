@@ -96,6 +96,7 @@ Method: POST
 
 Confirmed products:
 
+- `00997A`: `fundId` `502`
 - `00982A`: `fundId` `399`
 - `00992A`: `fundId` `500`
 
@@ -117,7 +118,7 @@ Payload:
 }
 ```
 
-Status: verified primary source for 群益 holdings and PCF summary. The request date is the buyback/announcement date; the holdings trade date must be read from `data.pcf.date2`.
+Status: verified primary source for 群益 holdings and PCF summary. The request date is the buyback/announcement date; the holdings trade date must be read from `data.pcf.date2`. `00997A` can include foreign equity tickers in addition to Taiwan stock codes.
 
 ## 元大 holdings and summary
 
@@ -383,6 +384,7 @@ Method: POST
 
 Confirmed products:
 
+- `00995A`: `FID` `E0036`
 - `00983A`: `FID` `E0034`
 
 Headers:
@@ -404,7 +406,7 @@ Payload:
 }
 ```
 
-Status: verified primary source for 中信 holdings and PCF summary. The official Vue SPA calls `home/AuthToken` with the public bootstrap token, then calls `etf/Buyback`.
+Status: verified primary source for 中信 holdings and PCF summary. The official Vue SPA calls `home/AuthToken` with the public bootstrap token, then calls `etf/Buyback`. `ETFCNOList` maps ETF code to `FID`, including `00995A -> E0036` and `00983A -> E0034`.
 
 Field mapping:
 
@@ -427,13 +429,20 @@ Data.Detail[Code=STOCK].Data[].amount_ -> etf_daily_holdings.marketValue
 Product page:
 `https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1`
 
+Product page:
+`https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-us-tech-leaders-active-etf-TW00000989A5`
+
 PCF XLSX URL:
 `https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx`
+
+PCF XLSX URL:
+`https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00989A_TW00000989A5.xlsx`
 
 Method: GET
 
 Confirmed products:
 
+- `00989A`: ISIN `TW00000989A5`
 - `00401A`: ISIN `TW00000401A1`
 
 Headers:
@@ -456,7 +465,7 @@ summary row "Valuation Date" -> etf_daily_summary.tradeDate
 summary row "Estimated NAV per Share" -> etf_daily_summary.nav
 summary row "Estimated NAV" -> etf_daily_summary.fundSize
 summary row "Outstanding Shares" -> etf_daily_summary.totalUnits
-component row "Constituent Type" == "Equity" and four-digit "Constituent Ticker" -> included holding
+component row "Constituent Type" == "Equity" -> included holding
 component row "Constituent Ticker" -> etf_daily_holdings.stockId
 component row "Constituent Description" -> etf_daily_holdings.stockName
 component row "Shares or PAR Amount" -> etf_daily_holdings.shares

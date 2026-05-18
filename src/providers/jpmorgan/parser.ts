@@ -181,7 +181,7 @@ export function parseJpmorganPcfRows(rows: string[][]): JpmorganPcfWorkbook {
       const constituentType = row[requiredIndex(holdingHeaders, "Constituent Type")]?.trim();
       const ticker = row[requiredIndex(holdingHeaders, "Constituent Ticker")]?.trim();
 
-      if (recordType !== "D" || constituentType !== "Equity" || !/^\d{4}$/.test(ticker)) {
+      if (recordType !== "D" || constituentType !== "Equity" || !ticker) {
         return null;
       }
 

@@ -6,16 +6,45 @@ import { normalizeJpmorganHoldings, normalizeJpmorganSummary } from "./normalize
 import { detectJpmorganPcfTradeDate } from "./parser.js";
 import { jpmorganEtfs } from "./types.js";
 
-const productUrl =
-  "https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1";
+interface JpmorganPcfEndpoint {
+  productUrl: string;
+  pcfXlsxUrl: string;
+}
 
-const pcfXlsxUrl =
-  "https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx";
+const endpointsByEtf = new Map<string, JpmorganPcfEndpoint>([
+  [
+    "00401A",
+    {
+      productUrl:
+        "https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1",
+      pcfXlsxUrl:
+        "https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx"
+    }
+  ],
+  [
+    "00989A",
+    {
+      productUrl:
+        "https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-us-tech-leaders-active-etf-TW00000989A5",
+      pcfXlsxUrl:
+        "https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00989A_TW00000989A5.xlsx"
+    }
+  ]
+]);
 
-async function fetchXlsx(url: string): Promise<SourceFetchResult> {
+function endpointForEtf(etfCode: string): JpmorganPcfEndpoint {
+  const endpoint = endpointsByEtf.get(etfCode);
+  if (!endpoint) {
+    throw new Error(`JPMorgan PCF XLSX endpoint is not configured for ${etfCode}`);
+  }
+
+  return endpoint;
+}
+
+async function fetchXlsx(endpoint: JpmorganPcfEndpoint): Promise<SourceFetchResult> {
   const method = "GET" as const;
   const headers = {
-    ...defaultCrawlerHeaders(productUrl),
+    ...defaultCrawlerHeaders(endpoint.productUrl),
     Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,*/*",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
@@ -27,7 +56,7 @@ async function fetchXlsx(url: string): Promise<SourceFetchResult> {
     const timeout = setTimeout(() => controller.abort(), Number(process.env.CRAWLER_TIMEOUT_MS ?? 30000));
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(endpoint.pcfXlsxUrl, {
         method,
         headers,
         signal: controller.signal,
@@ -41,7 +70,7 @@ async function fetchXlsx(url: string): Promise<SourceFetchResult> {
       }
 
       return {
-        url,
+        url: endpoint.pcfXlsxUrl,
         method,
         requestHeaders: headers,
         responseStatus: response.status,
@@ -56,7 +85,7 @@ async function fetchXlsx(url: string): Promise<SourceFetchResult> {
 }
 
 async function fetchPcf(etfCode: string): Promise<RawHoldingResponse> {
-  const fetchResult = await fetchXlsx(pcfXlsxUrl);
+  const fetchResult = await fetchXlsx(endpointForEtf(etfCode));
   const tradeDate = detectJpmorganPcfTradeDate(fetchResult.rawBody);
 
   return {

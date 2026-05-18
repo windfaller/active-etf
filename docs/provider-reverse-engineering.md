@@ -7,11 +7,11 @@ This project does not guess provider APIs. A provider can be enabled for product
 | Provider | ETF codes | Status | Source notes |
 | --- | --- | --- | --- |
 | 統一投信 `uniPresident` | `00981A`, `00403A`, `00988A` | Verified | Official Ezmoney `GetPCF` JSON endpoint. `00988A` is already supported from the previous build and remains enabled to avoid removing existing functionality. |
-| 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. Production daily refresh is enabled. |
-| 群益投信 `capital` | `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified for both ETFs. Production daily refresh is enabled. |
+| 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. TWSE currently lists `00999A` as `主動野村臺灣高息`. Production daily refresh is enabled. |
+| 群益投信 `capital` | `00997A`, `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified. Production daily refresh is enabled. |
 | 國泰投信 `cathay` | `00400A` | Verified and enabled | Official Cathay `DownloadETFWeightExcel` XLSX endpoint uses `FundCode=EA&SearchDate=YYYY-MM-DD`; holdings, NAV, AUM, total units, stock value and cash value were verified. Production daily refresh is enabled. |
-| 摩根投信 `jpmorgan` | `00401A` | Verified and enabled | Official product page exposes the ETF supplement PCF XLSX file. The file is fetched with browser Excel headers and parsed as OOXML; production daily refresh is enabled. |
-| 中信投信 `ctbc` | `00983A` | Verified and enabled | Official CTBC Vue app calls `home/AuthToken` then `etf/Buyback`; holdings, NAV, AUM, total units, creation unit delta and allocation rows were verified. Production daily refresh is enabled. |
+| 摩根投信 `jpmorgan` | `00989A`, `00401A` | Verified and enabled | Official product pages expose ETF supplement PCF XLSX files. The files are fetched with browser Excel headers and parsed as OOXML; production daily refresh is enabled. |
+| 中信投信 `ctbc` | `00995A`, `00983A` | Verified and enabled | Official CTBC Vue app calls `home/AuthToken` then `etf/Buyback`; holdings, NAV, AUM, total units, creation unit delta and allocation rows were verified. Production daily refresh is enabled. |
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Verified and enabled | Official Fuh Hwa JSON endpoints `/api/assets` and `/api/ETFPcf` were captured from `etf_detail.js` / `util_footer.js`; complete holdings, NAV, AUM, total units, allocation rows and PCF unit delta were verified. Production daily refresh is enabled. |
@@ -52,7 +52,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 - Confirmed ETF codes:
   - `00980A`: latest response date `2026/05/15`, 48 stock rows
   - `00985A`: latest response date `2026/05/15`, 50 stock rows
-  - `00999A`: latest response date `2026/05/15`, 61 stock rows
+  - `00999A`: latest response date `2026/05/15`, 61 stock rows; TWSE display name verified as `主動野村臺灣高息`
 - Response type: JSON
 - Contains:
   - `Entries.Data.FundAsset` for AUM, total units, NAV and NAV date
@@ -69,6 +69,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 - URL: `https://www.capitalfund.com.tw/CFWeb/api/etf/buyback`
 - Body: `{ "fundId": "399", "date": "2026/05/18" }`
 - Confirmed fund IDs:
+  - `00997A`: `502`, latest `pcf.date2` verified as `2026-05-14`; official response contains both foreign and Taiwan equity rows
   - `00982A`: `399`, latest `pcf.date2` verified as `2026-05-15`, 57 stock rows
   - `00992A`: `500`, latest `pcf.date2` verified as `2026-05-15`, 46 stock rows
 - Response type: JSON
@@ -122,13 +123,18 @@ This project does not guess provider APIs. A provider can be enabled for product
 
 ### JPMorgan ETF Supplement PCF XLSX
 
-- Product page: `https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1`
-- Official document source: the product page embeds the `documents` payload for ISIN `TW00000401A1`.
+- Product pages:
+  - `00401A`: `https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-taiwan-equity-high-income-active-etf-TW00000401A1`
+  - `00989A`: `https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-us-tech-leaders-active-etf-TW00000989A5`
+- Official document source: each product page embeds a `documents` payload with the ETF supplement PCF XLSX file.
 - Method: `GET`
-- URL: `https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx`
+- URLs:
+  - `00401A`: `https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00401A_TW00000401A1.xlsx`
+  - `00989A`: `https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00989A_TW00000989A5.xlsx`
 - Required request note: direct generic requests can be rejected by Akamai. The verified fetch uses a normal browser user-agent, the product page as `Referer`, and Excel `Accept` headers.
 - Confirmed ETF codes:
   - `00401A`: XLSX valuation date `2026-05-18`, 73 components, 62 Taiwan equity rows.
+  - `00989A`: official PCF XLSX endpoint verified as a valid OOXML workbook.
 - Response type: XLSX / OOXML
 - Contains:
   - summary row with fund ticker, fund name, valuation date, component count, estimated NAV, estimated NAV per share and outstanding shares
@@ -138,10 +144,10 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Estimated NAV per Share` -> NAV
   - `Estimated NAV` -> fund size
   - `Outstanding Shares` -> total units
-  - `Constituent Type = Equity` and four-digit `Constituent Ticker` -> Taiwan stock holdings
+  - `Constituent Type = Equity` -> holdings; tickers may be Taiwan numeric codes or foreign equity tickers such as US symbols
   - `Shares or PAR Amount` -> shares
   - `Market Value Base / Estimated NAV * 100` -> weight
-- Limitation: this official PCF file uses English constituent descriptions and does not include creation unit delta or market closing price. Premium/discount is calculated by the shared TWSE closing price sync after JPMorgan NAV sync.
+- Limitation: this official PCF file uses English constituent descriptions and does not include creation unit delta or market closing price. Foreign holdings do not have Taiwan board-lot semantics; the normalized `lots` field remains `shares / 1000` for cross-provider compatibility. Premium/discount is calculated by the shared TWSE closing price sync after JPMorgan NAV sync.
 
 ### Cathay ETF Weight XLSX
 
@@ -192,6 +198,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 - Data method: `POST https://www.ctbcinvestments.com.tw/API/etf/Buyback?token={authToken}`
 - Body: `{ "FID": "E0034", "StartDate": "YYYY-MM-DD" }`
 - Confirmed ETF codes:
+  - `00995A`: official ETF list maps it to `FID=E0036`, `FID_SNAME=主動中信台灣卓越`; buyback response returned complete stock rows.
   - `00983A`: official ETF list maps it to `FID=E0034`, `FID_SNAME=主動中信ARK創新`; buyback response returned complete stock rows.
 - Response type: JSON
 - Contains:

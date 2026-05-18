@@ -29,12 +29,12 @@ function discovery(input: Partial<ActiveEtfDiscovery> & Pick<ActiveEtfDiscovery,
 describe("active ETF discovery notifications", () => {
   it("includes a manual onboarding skill prompt for newly detected ETFs", () => {
     const message = formatDiscoveryMessage(
-      [discovery({ etfCode: "00999A", stockName: "野村全球航運龍頭主動式ETF", issuer: "野村投信" })],
-      [discovery({ etfCode: "00999A", stockName: "野村全球航運龍頭主動式ETF", issuer: "野村投信" })]
+      [discovery({ etfCode: "00999A", stockName: "主動野村臺灣高息", issuer: "野村投信" })],
+      [discovery({ etfCode: "00999A", stockName: "主動野村臺灣高息", issuer: "野村投信" })]
     );
 
     expect(message).toContain("taiwan-active-etf-onboarding");
-    expect(message).toContain("00999A 野村全球航運龍頭主動式ETF");
+    expect(message).toContain("00999A 主動野村臺灣高息");
     expect(message).toContain("不要猜 API");
     expect(message).toContain("必須 reverse engineer 真正 JSON/XHR/API/CSV/XLSX endpoint");
     expect(message).toContain("目前只通知 onboarding 管理者");

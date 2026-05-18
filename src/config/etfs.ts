@@ -84,7 +84,7 @@ export const configuredEtfs: EtfMaster[] = [
   {
     etfCode: "00999A",
     fundCode: "00999A",
-    name: "野村全球航運龍頭主動式ETF",
+    name: "主動野村臺灣高息",
     issuer: "野村投信",
     type: "active_etf",
     currency: "TWD",
@@ -92,6 +92,22 @@ export const configuredEtfs: EtfMaster[] = [
     source: {
       providerId: "nomura",
       infoUrl: "https://www.nomurafunds.com.tw/ETFWEB/product-description?fundNo=00999A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00997A",
+    fundCode: "502",
+    name: "主動群益美國增長",
+    issuer: "群益投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "capital",
+      infoUrl: "https://www.capitalfund.com.tw/etf/product/detail/502/basic",
+      pcfUrl: "https://www.capitalfund.com.tw/etf/product/detail/502/buyback"
     },
     createdAt: now,
     updatedAt: now
@@ -140,6 +156,22 @@ export const configuredEtfs: EtfMaster[] = [
       providerId: "yuanta",
       infoUrl: "https://www.yuantaetfs.com/product/detail/00990A",
       pcfUrl: "https://www.yuantaetfs.com/tradeInfo/pcf/00990A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00995A",
+    fundCode: "E0036",
+    name: "主動中信台灣卓越",
+    issuer: "中信投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "ctbc",
+      infoUrl: "https://www.ctbcinvestments.com.tw/ETF/00995A/Info",
+      pcfUrl: "https://www.ctbcinvestments.com.tw/ETF/Buyback"
     },
     createdAt: now,
     updatedAt: now
@@ -204,6 +236,24 @@ export const configuredEtfs: EtfMaster[] = [
       providerId: "cathay",
       infoUrl: "https://www.cathaysite.com.tw/fund-details/EEA",
       pcfUrl: "https://cwapi.cathaysite.com.tw/api/ETF/DownloadETFWeightExcel?FundCode=EA"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00989A",
+    fundCode: "TW00000989A5",
+    name: "主動摩根美國科技",
+    issuer: "摩根投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "jpmorgan",
+      infoUrl:
+        "https://am.jpmorgan.com/tw/zh/asset-management/twetf/products/jpmorgan-taiwan-us-tech-leaders-active-etf-TW00000989A5",
+      pcfUrl:
+        "https://am.jpmorgan.com/content/dam/jpm-am-aem/asiapacific/tw/zh/regulatory/etf-supplement/jpm_apac_tw_etf_pcf_updates_00989A_TW00000989A5.xlsx"
     },
     createdAt: now,
     updatedAt: now
