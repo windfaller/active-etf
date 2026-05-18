@@ -13,7 +13,8 @@ export type ProviderId =
   | "first"
   | "allianz"
   | "mega"
-  | "fubon";
+  | "fubon"
+  | "allianceBernstein";
 
 export type ProviderImplementationStatus = "verified" | "pending_reverse_engineering";
 

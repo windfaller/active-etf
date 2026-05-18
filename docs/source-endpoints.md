@@ -447,6 +447,37 @@ Notes:
 - `lots` remains `shares / 1000` only for shared-schema compatibility; for bond ETFs this is not a Taiwan board-lot measure.
 - Market closing price is filled by the shared TWSE closing price sync.
 
+## 聯博 holdings and summary
+
+Official PCF page: `https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000984D0.html`
+
+API endpoints:
+
+- Holdings: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/holdings`
+- Basket: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/basket`
+
+Status: verified primary JSON source for 聯博 `00984D`. The official React PCF page sets `shareClassId=TW00000984D0` and calls the two endpoints above. The provider stores a combined raw JSON payload containing both responses, so holdings and PCF summary share one raw snapshot.
+
+Field mapping:
+
+```txt
+basket.asOfDate -> tradeDate
+basket.nav -> etf_daily_summary.nav
+basket.aum -> etf_daily_summary.fundSize
+basket.shares -> etf_daily_summary.totalUnits
+basket.sharesChange -> etf_daily_summary.netCreationUnits
+holdings.domesticHoldings[].holdings[].holdingCode -> etf_daily_holdings.stockId
+holdings.domesticHoldings[].holdings[].holding -> etf_daily_holdings.stockName
+holdings.domesticHoldings[].holdings[].holdingShares -> etf_daily_holdings.shares
+holdings.domesticHoldings[].holdings[].holdingValue -> etf_daily_holdings.marketValue
+holdings.domesticHoldings[].holdings[].holdingPerc -> etf_daily_holdings.weight
+```
+
+Notes:
+
+- Futures rows can have an empty `holdingCode`; the provider assigns a deterministic category row id for shared-schema uniqueness.
+- Market closing price is filled by the shared TWSE closing price sync.
+
 ## 復華 holdings and summary
 
 Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`

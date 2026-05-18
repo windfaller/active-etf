@@ -289,6 +289,23 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00984D",
+    fundCode: "TW00000984D0",
+    name: "主動聯博全球非投",
+    issuer: "聯博投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianceBernstein",
+      infoUrl:
+        "https://www.abfunds.com.tw/zh-tw/funds/etf/active/fixed-income/abitl-select-global-high-yield-active-etf.-.TW00000984D0.html",
+      pcfUrl: "https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000984D0.html"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00993A",
     fundCode: "E0002",
     name: "主動安聯台灣",

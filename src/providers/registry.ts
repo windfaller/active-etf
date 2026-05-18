@@ -1,4 +1,5 @@
 import { allianzProvider } from "./allianz/provider.js";
+import { allianceBernsteinProvider } from "./allianceBernstein/provider.js";
 import { capitalProvider } from "./capital/provider.js";
 import { cathayProvider } from "./cathay/provider.js";
 import { ctbcProvider } from "./ctbc/provider.js";
@@ -27,7 +28,8 @@ export const providerRegistry = new Map<ProviderId, EtfProvider>(
     firstProvider,
     allianzProvider,
     megaProvider,
-    fubonProvider
+    fubonProvider,
+    allianceBernsteinProvider
   ].map((provider) => [provider.providerId, provider])
 );
 
