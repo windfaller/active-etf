@@ -1,4 +1,6 @@
 import type { Db } from "mongodb";
+import { configuredEtfs, getConfiguredEtf } from "../../config/etfs.js";
+import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { TelegramSubscriber } from "../../models/TelegramSubscriber.js";
 
 export type TelegramSubscriptionKind = "discovery" | "dailyDigest";
@@ -74,6 +76,10 @@ function commandFromText(text: string | undefined): string {
   return token.replace(/@.+$/u, "");
 }
 
+function commandArgsFromText(text: string | undefined): string[] {
+  return text?.trim().split(/\s+/u).slice(1) ?? [];
+}
+
 function subscriberFromMessage(message: TelegramMessage, command: string): TelegramSubscriber {
   const user = message.from;
   const chatId = String(message.chat.id);
@@ -143,8 +149,161 @@ function helpText(subscriber: TelegramSubscriber): string {
     "/discover_on 開啟新 ETF 偵測",
     "/discover_off 關閉新 ETF 偵測",
     "/digest_on 開啟每日摘要",
-    "/digest_off 關閉每日摘要"
+    "/digest_off 關閉每日摘要",
+    "/latest 取得最新跨 ETF 影響排行",
+    "/latest 00981A 取得單檔 ETF 最新調倉"
   ].join("\n");
+}
+
+function signed(value: number, digits = 0): string {
+  const fixed = value.toFixed(digits);
+  return value > 0 ? `+${fixed}` : fixed;
+}
+
+function lotsText(value: number | null | undefined): string {
+  return `${signed(value ?? 0, 0)}張`;
+}
+
+function weightText(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "權重 -";
+  return `權重 ${signed(value, 2)}pt`;
+}
+
+async function latestChangeDate(db: Db, etfCode?: string): Promise<string | null> {
+  const rows = await db
+    .collection<EtfHoldingChange>("etf_holding_changes")
+    .find(etfCode ? { etfCode } : {})
+    .sort({ tradeDate: -1 })
+    .limit(1)
+    .toArray();
+  return rows[0]?.tradeDate ?? null;
+}
+
+async function formatLatestMarketMessage(db: Db): Promise<string> {
+  const tradeDate = await latestChangeDate(db);
+  if (!tradeDate) return "目前還沒有任何已計算的持股變化資料。";
+
+  const changes = await db
+    .collection<EtfHoldingChange>("etf_holding_changes")
+    .find({ tradeDate, diffShares: { $ne: 0 } })
+    .toArray();
+  if (!changes.length) return `最新日期 ${tradeDate} 目前沒有持股變化資料。`;
+
+  const rowsByStock = new Map<
+    string,
+    {
+      stockId: string;
+      stockName: string;
+      etfCodes: Set<string>;
+      increaseEtfCount: number;
+      decreaseEtfCount: number;
+      totalActiveDiffLots: number;
+      totalDiffWeightPoint: number;
+      maxAbsActiveDiffLots: number;
+      maxAbsDiffWeightPoint: number;
+      impactScore: number;
+    }
+  >();
+
+  for (const change of changes) {
+    const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+    const diffWeightPoint = change.diffWeightPoint ?? 0;
+    const row =
+      rowsByStock.get(change.stockId) ??
+      ({
+        stockId: change.stockId,
+        stockName: change.stockName,
+        etfCodes: new Set<string>(),
+        increaseEtfCount: 0,
+        decreaseEtfCount: 0,
+        totalActiveDiffLots: 0,
+        totalDiffWeightPoint: 0,
+        maxAbsActiveDiffLots: 0,
+        maxAbsDiffWeightPoint: 0,
+        impactScore: 0
+      } satisfies NonNullable<ReturnType<typeof rowsByStock.get>>);
+
+    row.etfCodes.add(change.etfCode);
+    row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
+    row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
+    row.totalActiveDiffLots += activeDiffLots;
+    row.totalDiffWeightPoint += diffWeightPoint;
+    row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
+    row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
+    row.impactScore = Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100;
+    rowsByStock.set(change.stockId, row);
+  }
+
+  const topRows = [...rowsByStock.values()].sort((a, b) => b.impactScore - a.impactScore).slice(0, 10);
+
+  return [
+    "最新跨 ETF 個股影響排行",
+    `日期：${tradeDate}`,
+    "",
+    ...topRows.map((row, index) => {
+      const etfs = [...row.etfCodes].slice(0, 4).join("/");
+      return `${index + 1}. ${row.stockName} ${row.stockId}｜${lotsText(row.totalActiveDiffLots)}｜${weightText(
+        row.totalDiffWeightPoint
+      )}｜${row.etfCodes.size}檔 ${etfs}`;
+    }),
+    "",
+    "排序：依單一 ETF 最大主動張數變化與權重變化綜合估算。"
+  ].join("\n");
+}
+
+async function formatLatestEtfMessage(db: Db, etfCodeInput: string): Promise<string> {
+  const etfCode = etfCodeInput.toUpperCase();
+  const etf = getConfiguredEtf(etfCode);
+  if (!etf) {
+    const enabledCodes = configuredEtfs
+      .filter((item) => item.enabled)
+      .map((item) => item.etfCode)
+      .join(", ");
+    return `找不到 ETF ${etfCode}。目前可用：${enabledCodes}`;
+  }
+
+  const tradeDate = await latestChangeDate(db, etfCode);
+  if (!tradeDate) return `${etfCode} ${etf.name} 目前還沒有已計算的持股變化資料。`;
+
+  const changes = await db
+    .collection<EtfHoldingChange>("etf_holding_changes")
+    .find({ etfCode, tradeDate, diffShares: { $ne: 0 } })
+    .toArray();
+  const sorted = changes
+    .map((change) => ({ ...change, comparableLots: change.activeDiffLots ?? change.diffLots }))
+    .sort((a, b) => Math.abs(b.comparableLots) - Math.abs(a.comparableLots));
+  const increases = sorted.filter((change) => change.comparableLots > 0).slice(0, 5);
+  const decreases = sorted.filter((change) => change.comparableLots < 0).slice(0, 5);
+  const newHoldings = sorted.filter((change) => change.status === "new").slice(0, 5);
+  const exitedHoldings = sorted.filter((change) => change.status === "exit").slice(0, 5);
+
+  const formatRow = (change: (typeof sorted)[number]) =>
+    `${change.stockName} ${change.stockId}｜${lotsText(change.comparableLots)}｜${weightText(change.diffWeightPoint)}`;
+
+  return [
+    `${etfCode} ${etf.name}`,
+    `最新操作日報：${tradeDate}`,
+    "",
+    "主動加碼：",
+    ...(increases.length ? increases.map((change, index) => `${index + 1}. ${formatRow(change)}`) : ["- 無"]),
+    "",
+    "主動減碼：",
+    ...(decreases.length ? decreases.map((change, index) => `${index + 1}. ${formatRow(change)}`) : ["- 無"]),
+    "",
+    "新增持股：",
+    ...(newHoldings.length ? newHoldings.map((change) => `- ${change.stockName} ${change.stockId}`) : ["- 無"]),
+    "",
+    "清倉持股：",
+    ...(exitedHoldings.length ? exitedHoldings.map((change) => `- ${change.stockName} ${change.stockId}`) : ["- 無"])
+  ].join("\n");
+}
+
+async function latestMessage(db: Db, args: string[]): Promise<string> {
+  const etfCode = args[0]?.trim();
+  if (etfCode) {
+    return formatLatestEtfMessage(db, etfCode);
+  }
+  return formatLatestMarketMessage(db);
 }
 
 async function updateSubscriber(db: Db, message: TelegramMessage, command: string): Promise<TelegramSubscriber> {
@@ -209,6 +368,11 @@ export async function handleTelegramUpdate(db: Db, update: TelegramUpdate): Prom
   if (!subscriber.allowed) {
     await sendTelegramMessage(subscriber.chatId, "你目前沒有訂閱權限。");
     return { ok: true, message: "subscriber_not_allowed" };
+  }
+
+  if (["/latest", "/today", "/最新"].includes(command)) {
+    await sendTelegramMessage(subscriber.chatId, await latestMessage(db, commandArgsFromText(message.text)));
+    return { ok: true, message: command };
   }
 
   await sendTelegramMessage(subscriber.chatId, helpText(subscriber));

@@ -82,7 +82,7 @@ Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. 
 
 `POST /api/telegram/webhook`
 
-Telegram Bot API callback endpoint. Telegram must send the `x-telegram-bot-api-secret-token` header matching `TELEGRAM_WEBHOOK_SECRET`. Message updates are stored in `telegram_subscribers`; `/start`, `/subscribe`, `/unsubscribe`, `/toggle`, `/discover_on`, `/discover_off`, `/digest_on`, `/digest_off`, and `/status` update notification state.
+Telegram Bot API callback endpoint. Telegram must send the `x-telegram-bot-api-secret-token` header matching `TELEGRAM_WEBHOOK_SECRET`. Message updates are stored in `telegram_subscribers`; `/start`, `/subscribe`, `/unsubscribe`, `/toggle`, `/discover_on`, `/discover_off`, `/digest_on`, `/digest_off`, and `/status` update notification state. `/latest` returns the latest cross-ETF stock-impact ranking, and `/latest {etfCode}` returns the latest single-ETF daily change digest.
 
 ## Get Consecutive Signals
 

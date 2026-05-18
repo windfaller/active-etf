@@ -131,7 +131,7 @@ x-admin-token: <ADMIN_JOB_TOKEN>
 POST /api/jobs/telegram/set-webhook
 ```
 
-同樣必須帶 `x-admin-token`。成功後 Telegram 會把 `/start`、`/subscribe`、`/unsubscribe`、`/toggle`、`/discover_on`、`/discover_off`、`/digest_on`、`/digest_off`、`/status` 等訊息送到 `https://active-etf.chicoo.co/api/telegram/webhook`。用戶基本資料與通知狀態會存入 `telegram_subscribers`。
+同樣必須帶 `x-admin-token`。成功後 Telegram 會把 `/start`、`/subscribe`、`/unsubscribe`、`/toggle`、`/discover_on`、`/discover_off`、`/digest_on`、`/digest_off`、`/status`、`/latest` 等訊息送到 `https://active-etf.chicoo.co/api/telegram/webhook`。用戶基本資料與通知狀態會存入 `telegram_subscribers`。`/latest` 會回覆最新跨 ETF 個股影響排行，`/latest 00981A` 會回覆單檔 ETF 最新操作日報。
 
 ## 部署獨立 Azure Functions App
 

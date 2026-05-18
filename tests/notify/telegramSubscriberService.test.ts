@@ -113,4 +113,98 @@ describe("telegram subscriber service", () => {
       text: "hello"
     });
   });
+
+  it("replies with latest ETF changes from /latest etfCode", async () => {
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    const subscriberCollection = {
+      findOne: vi.fn(async () => ({
+        chatId: "456",
+        chatType: "private",
+        telegramUserId: 123,
+        isBot: false,
+        username: "chi",
+        firstName: "Chi",
+        lastName: null,
+        languageCode: "zh-hant",
+        chatTitle: null,
+        enabled: true,
+        allowed: true,
+        blockedReason: null,
+        subscriptions: { discovery: true, dailyDigest: true },
+        lastCommand: "/start",
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })),
+      updateOne: vi.fn(async () => ({}))
+    };
+    const changes = [
+      {
+        etfCode: "00981A",
+        tradeDate: "2026-05-15",
+        stockId: "2303",
+        stockName: "聯電",
+        diffShares: 9793000,
+        diffLots: 9793,
+        diffWeightPoint: 0.53,
+        activeDiffLots: 9793,
+        status: "increase"
+      },
+      {
+        etfCode: "00981A",
+        tradeDate: "2026-05-15",
+        stockId: "2357",
+        stockName: "華碩",
+        diffShares: -293000,
+        diffLots: -293,
+        diffWeightPoint: -0.09,
+        activeDiffLots: -293,
+        status: "decrease"
+      }
+    ];
+    const holdingChangeCollection = {
+      find: vi.fn((_query: unknown) => ({
+        sort: () => ({
+          limit: () => ({
+            toArray: async () => [changes[0]]
+          })
+        }),
+        toArray: async () => changes
+      }))
+    };
+    const db = {
+      collection: vi.fn((name: string) => (name === "telegram_subscribers" ? subscriberCollection : holdingChangeCollection))
+    } as unknown as Db;
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await handleTelegramUpdate(db, {
+      update_id: 2,
+      message: {
+        message_id: 11,
+        date: 1779091200,
+        text: "/latest 00981A",
+        from: {
+          id: 123,
+          is_bot: false,
+          first_name: "Chi",
+          username: "chi"
+        },
+        chat: {
+          id: 456,
+          type: "private",
+          first_name: "Chi",
+          username: "chi"
+        }
+      }
+    } satisfies TelegramUpdate);
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
+    const body = JSON.parse(init.body);
+    expect(result).toEqual({ ok: true, message: "/latest" });
+    expect(body.text).toContain("00981A 主動統一台股增長");
+    expect(body.text).toContain("最新操作日報：2026-05-15");
+    expect(body.text).toContain("聯電 2303");
+    expect(body.text).toContain("華碩 2357");
+  });
 });
