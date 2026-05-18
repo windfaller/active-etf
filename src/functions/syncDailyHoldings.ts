@@ -1,16 +1,21 @@
 import { app, type InvocationContext, type Timer } from "@azure/functions";
+import { configuredEtfs } from "../config/etfs.js";
 import { runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { logger } from "../utils/logger.js";
 
 export async function syncDailyHoldings(_timer: Timer, _context: InvocationContext): Promise<void> {
-  try {
-    await runSyncDailyHoldingsJob("00981A");
-  } catch (error) {
-    logger.error("Source fetch or parse failed", {
-      etfCode: "00981A",
-      dataType: "pcf",
-      error: error instanceof Error ? error.message : String(error)
-    });
+  const enabledEtfs = configuredEtfs.filter((etf) => etf.enabled);
+
+  for (const etf of enabledEtfs) {
+    try {
+      await runSyncDailyHoldingsJob(etf.etfCode);
+    } catch (error) {
+      logger.error("Source fetch or parse failed", {
+        etfCode: etf.etfCode,
+        dataType: "pcf",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 }
 
@@ -27,6 +32,11 @@ if (process.env.ENABLE_TIMER_TRIGGERS === "true") {
 
   app.timer("syncDailyHoldings2100", {
     schedule: "0 0 21 * * 1-5",
+    handler: syncDailyHoldings
+  });
+
+  app.timer("syncDailyHoldings0830Retry", {
+    schedule: "0 30 8 * * 1-5",
     handler: syncDailyHoldings
   });
 }

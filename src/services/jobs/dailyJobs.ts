@@ -37,6 +37,18 @@ async function latestPreviousTradeDate(etfCode: string, tradeDate: string): Prom
   return previous?.tradeDate ?? null;
 }
 
+async function latestTradeDate(etfCode: string): Promise<string | null> {
+  const db = await getDb();
+  const latest = await db
+    .collection<EtfDailyHolding>("etf_daily_holdings")
+    .find({ etfCode })
+    .sort({ tradeDate: -1 })
+    .limit(1)
+    .next();
+
+  return latest?.tradeDate ?? null;
+}
+
 export async function runSyncDailyHoldingsJob(etfCode = "00981A"): Promise<SyncDailyHoldingsJobResult> {
   const etf = getConfiguredEtf(etfCode);
   if (!etf) throw new Error(`${etfCode} is not configured`);
@@ -68,7 +80,7 @@ export async function runCalculateDailyChangesJob(
   if (!etf) throw new Error(`${etfCode} is not configured`);
 
   const db = await getDb();
-  const tradeDate = requestedTradeDate ?? todayInTaipei();
+  const tradeDate = requestedTradeDate ?? (await latestTradeDate(etf.etfCode)) ?? todayInTaipei();
   const prevTradeDate = await latestPreviousTradeDate(etf.etfCode, tradeDate);
 
   if (!prevTradeDate) {
