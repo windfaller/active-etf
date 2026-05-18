@@ -22,7 +22,17 @@ export interface SyncProviderDailyDataResult {
 
 type ProviderDailySource = Extract<
   RawSnapshot["source"],
-  "nomura" | "capital" | "yuanta" | "taishin" | "ctbc" | "jpmorgan" | "allianz" | "first" | "cathay" | "fh"
+  | "nomura"
+  | "capital"
+  | "yuanta"
+  | "taishin"
+  | "ctbc"
+  | "jpmorgan"
+  | "allianz"
+  | "mega"
+  | "first"
+  | "cathay"
+  | "fh"
 >;
 
 function providerSource(providerId: ProviderId): ProviderDailySource {
@@ -33,6 +43,7 @@ function providerSource(providerId: ProviderId): ProviderDailySource {
   if (providerId === "ctbc") return "ctbc";
   if (providerId === "jpmorgan") return "jpmorgan";
   if (providerId === "allianz") return "allianz";
+  if (providerId === "mega") return "mega";
   if (providerId === "first") return "first";
   if (providerId === "cathay") return "cathay";
   if (providerId === "fh") return "fh";

@@ -35,6 +35,7 @@ function providerSuggestion(issuer: string): string | null {
   if (/復華/u.test(issuer)) return "fh";
   if (/第一金/u.test(issuer)) return "first";
   if (/安聯/u.test(issuer)) return "allianz";
+  if (/兆豐/u.test(issuer)) return "mega";
   return null;
 }
 

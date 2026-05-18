@@ -273,6 +273,22 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00996A",
+    fundCode: "23",
+    name: "兆豐台灣豐收主動式ETF",
+    issuer: "兆豐投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "mega",
+      infoUrl: "https://www.megafunds.com.tw/MEGA/etf/etf_product.aspx?id=23",
+      pcfUrl: "https://www.megafunds.com.tw/MEGA/etf/trade_pcf.aspx"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00989A",
     fundCode: "TW00000989A5",
     name: "主動摩根美國科技",

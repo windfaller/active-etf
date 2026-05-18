@@ -5,6 +5,7 @@ import { ctbcProvider } from "./ctbc/provider.js";
 import { fhProvider } from "./fh/provider.js";
 import { firstProvider } from "./first/provider.js";
 import { jpmorganProvider } from "./jpmorgan/provider.js";
+import { megaProvider } from "./mega/provider.js";
 import { nomuraProvider } from "./nomura/provider.js";
 import { taishinProvider } from "./taishin/provider.js";
 import type { EtfInfo, EtfProvider, ProviderId } from "./types.js";
@@ -23,7 +24,8 @@ export const providerRegistry = new Map<ProviderId, EtfProvider>(
     jpmorganProvider,
     fhProvider,
     firstProvider,
-    allianzProvider
+    allianzProvider,
+    megaProvider
   ].map((provider) => [provider.providerId, provider])
 );
 

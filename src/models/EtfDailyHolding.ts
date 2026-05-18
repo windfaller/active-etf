@@ -19,6 +19,7 @@ export const etfDailyHoldingSchema = z.object({
     "ctbc",
     "jpmorgan",
     "allianz",
+    "mega",
     "first",
     "cathay",
     "fh"

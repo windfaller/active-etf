@@ -11,7 +11,8 @@ export type ProviderId =
   | "jpmorgan"
   | "fh"
   | "first"
-  | "allianz";
+  | "allianz"
+  | "mega";
 
 export type ProviderImplementationStatus = "verified" | "pending_reverse_engineering";
 

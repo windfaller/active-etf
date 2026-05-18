@@ -384,6 +384,38 @@ Notes:
 - The official `GetFundOverview` endpoint maps `00984A -> E0001`, `00993A -> E0002`; it also currently returns `00402A -> E0003`, which should be reviewed by the discovery/onboarding flow before enabling.
 - Market closing price is filled by the shared TWSE closing price sync.
 
+## 兆豐 holdings and summary
+
+Official product page: `https://www.megafunds.com.tw/MEGA/etf/etf_product.aspx?id=23`
+
+Official PCF page: `https://www.megafunds.com.tw/MEGA/etf/trade_pcf.aspx`
+
+Confirmed product:
+
+- `00996A`: `id=23`, PCF `fund_id=23`
+
+Status: verified official HTML fallback source for 兆豐 `00996A`. The public product page renders the current holdings, NAV, AUM, total units and stock allocation percentage server-side. The official JavaScript only controls UI tab behavior and did not expose a JSON/XHR holdings API. The PCF page is an ASP.NET Web Forms page; posting its hidden fields with `category_id=16` and `fund_id=23` returns the 00996A PCF summary, but the complete stock table is linked back to the product page.
+
+Field mapping:
+
+```txt
+產品頁 "資料來源：兆豐投信，YYYY/MM/DD" -> tradeDate
+"淨資產價值" -> etf_daily_summary.fundSize
+"在外流通單位數" -> etf_daily_summary.totalUnits
+"每單位淨值" -> etf_daily_summary.nav
+"股票 ( N% )" -> etf_daily_summary.stockRatio
+基金配置 / 股票 table "股票代號" -> etf_daily_holdings.stockId
+基金配置 / 股票 table "股票名稱" -> etf_daily_holdings.stockName
+基金配置 / 股票 table "股數" -> etf_daily_holdings.shares
+基金配置 / 股票 table "持股權重" -> etf_daily_holdings.weight
+fundSize * weight / 100 -> etf_daily_holdings.marketValue
+```
+
+Notes:
+
+- The Mega product page is current-snapshot only; historical backfill for `00996A` is limited unless a separate official historical holdings file is found later.
+- Market closing price is filled by the shared TWSE closing price sync.
+
 ## 復華 holdings and summary
 
 Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`
