@@ -214,3 +214,88 @@ Need csrf token: unknown
 Notes:
 
 - Treat as candidate evidence only. Do not depend on the `webuat` host for production without confirmation.
+
+## 台新 holdings and summary
+
+URL pattern: `https://www.tsit.com.tw/ETF/Home/Pcf/{etfCode}?FundType=ALL&DataDate=YYYY-MM-DD`
+
+Method: GET
+
+Confirmed products:
+
+- `00986A`
+- `00987A`
+
+Headers:
+
+```txt
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Referer: https://www.tsit.com.tw/ETF/Home/Pcf
+User-Agent: browser user-agent
+```
+
+Status: verified official fallback source for 台新 holdings and PCF summary. The official PCF page renders complete server-side HTML; `/ETF/JS/Pcf.js` only navigates to the ETF/date URL and did not expose JSON/CSV/XLSX endpoints during capture.
+
+Field mapping:
+
+```txt
+input#PUB_DATE or input#DATA_DATE -> tradeDate
+PCF summary row "基金淨資產價值(元)" -> etf_daily_summary.fundSize
+PCF summary row "每受益權單位淨資產價值(元)" -> etf_daily_summary.nav
+PCF summary row "已發行受益權單位總數" -> etf_daily_summary.totalUnits
+PCF summary row "與前日已發行單位差異數" -> etf_daily_summary.netCreationUnits
+stock table "代號" -> etf_daily_holdings.stockId; TW tickers drop the " TT" suffix
+stock table "名稱" -> etf_daily_holdings.stockName
+stock table "股數" -> etf_daily_holdings.shares
+stock table "持股權重" -> etf_daily_holdings.weight
+stock table "股票合計" -> etf_daily_summary.stockRatio
+```
+
+## 中信 holdings and summary
+
+Auth URL: `https://www.ctbcinvestments.com.tw/API/home/AuthToken?token=www.ctbcinvestments.com`
+
+Data URL: `https://www.ctbcinvestments.com.tw/API/etf/Buyback?token={authToken}`
+
+Method: POST
+
+Confirmed products:
+
+- `00983A`: `FID` `E0034`
+
+Headers:
+
+```txt
+Accept: application/json
+Content-Type: application/json; charset=utf-8
+Origin: https://www.ctbcinvestments.com.tw
+Referer: https://www.ctbcinvestments.com.tw/ETF/Buyback
+User-Agent: browser user-agent
+```
+
+Payload:
+
+```json
+{
+  "FID": "E0034",
+  "StartDate": "2026-05-18"
+}
+```
+
+Status: verified primary source for 中信 holdings and PCF summary. The official Vue SPA calls `home/AuthToken` with the public bootstrap token, then calls `etf/Buyback`.
+
+Field mapping:
+
+```txt
+Data.Data[0].NAV_DATE or Data.Data[0].淨值日期 -> tradeDate
+Data.Data[0].基金淨資產價值 -> etf_daily_summary.fundSize
+Data.Data[0].每受益權單位淨資產價值 -> etf_daily_summary.nav
+Data.Data[0].已發行受益權單位總數 -> etf_daily_summary.totalUnits
+Data.Data[0].與前日已發行單位差異數 -> etf_daily_summary.netCreationUnits
+Data.Detail[Code=STOCK].Sum -> etf_daily_summary.stockRatio
+Data.Detail[Code=STOCK].Data[].code_ -> etf_daily_holdings.stockId
+Data.Detail[Code=STOCK].Data[].name_ -> etf_daily_holdings.stockName
+Data.Detail[Code=STOCK].Data[].qty_ -> etf_daily_holdings.shares
+Data.Detail[Code=STOCK].Data[].weights_ -> etf_daily_holdings.weight
+Data.Detail[Code=STOCK].Data[].amount_ -> etf_daily_holdings.marketValue
+```

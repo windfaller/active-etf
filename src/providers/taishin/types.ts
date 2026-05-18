@@ -7,8 +7,10 @@ export const taishinEtfs: EtfInfo[] = [
     issuer: "台新投信",
     providerId: "taishin",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "00986A",
+    notes: "Official Taishin PCF page renders complete server-side holdings and PCF summary HTML."
   },
   {
     etfCode: "00987A",
@@ -16,7 +18,9 @@ export const taishinEtfs: EtfInfo[] = [
     issuer: "台新投信",
     providerId: "taishin",
     currency: "TWD",
-    enabled: false,
-    implementationStatus: "pending_reverse_engineering"
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "00987A",
+    notes: "Official Taishin PCF page renders complete server-side holdings and PCF summary HTML."
   }
 ];

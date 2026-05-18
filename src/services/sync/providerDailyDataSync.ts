@@ -20,12 +20,14 @@ export interface SyncProviderDailyDataResult {
   holdingsCount: number;
 }
 
-type ProviderDailySource = Extract<RawSnapshot["source"], "nomura" | "capital" | "yuanta">;
+type ProviderDailySource = Extract<RawSnapshot["source"], "nomura" | "capital" | "yuanta" | "taishin" | "ctbc">;
 
 function providerSource(providerId: ProviderId): ProviderDailySource {
   if (providerId === "nomura") return "nomura";
   if (providerId === "capital") return "capital";
   if (providerId === "yuanta") return "yuanta";
+  if (providerId === "taishin") return "taishin";
+  if (providerId === "ctbc") return "ctbc";
   throw new Error(`Provider source is not mapped for raw snapshots: ${providerId}`);
 }
 

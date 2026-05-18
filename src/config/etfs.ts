@@ -143,6 +143,54 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00983A",
+    fundCode: "E0034",
+    name: "主動中信ARK創新",
+    issuer: "中信投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "ctbc",
+      infoUrl: "https://www.ctbcinvestments.com.tw/ETF/00983A/Info",
+      pcfUrl: "https://www.ctbcinvestments.com.tw/ETF/Buyback"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00986A",
+    fundCode: "00986A",
+    name: "主動台新龍頭成長",
+    issuer: "台新投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "taishin",
+      infoUrl: "https://www.tsit.com.tw/ETF/Home/ETFSeriesDetail/00986A",
+      pcfUrl: "https://www.tsit.com.tw/ETF/Home/Pcf/00986A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00987A",
+    fundCode: "00987A",
+    name: "主動台新優勢成長",
+    issuer: "台新投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "taishin",
+      infoUrl: "https://www.tsit.com.tw/ETF/Home/ETFSeriesDetail/00987A",
+      pcfUrl: "https://www.tsit.com.tw/ETF/Home/Pcf/00987A"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 
