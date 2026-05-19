@@ -437,13 +437,37 @@ function coverageStatusLabel(row: EtfCoverageRow): string {
   return "已納入";
 }
 
-function marketLabel(row: StockImpact): string {
+function marketPriceLabel(row: StockImpact): string {
   if (!row.market) return "-";
-  return `${formatNumber(row.market.closePrice, 2)} / ${formatSignedNumber(row.market.changePercent, 2)}%`;
+  return `${row.market.market} ${formatNumber(row.market.closePrice, 2)}`;
+}
+
+function marketChangeClass(row: StockImpact): string {
+  const value = row.market?.changePercent ?? 0;
+  if (value > 0) return "increase-number";
+  if (value < 0) return "decrease-number";
+  return "";
+}
+
+function marketChangeLabel(row: StockImpact): string {
+  if (!row.market) return "-";
+  return formatSignedNumber(row.market.changePercent, 2) + "%";
 }
 
 function sectorLabel(row: StockImpact): string {
   return row.sector || "其他";
+}
+
+function sectorClass(row: StockImpact): string {
+  const sector = sectorLabel(row);
+  if (sector === "半導體" || sector === "ASIC" || sector === "半導體設備" || sector === "記憶體") return "semiconductor";
+  if (sector === "AI Server" || sector === "電源") return "server";
+  if (sector === "PCB") return "pcb";
+  if (sector === "CPO" || sector === "光通訊") return "optical";
+  if (sector === "散熱") return "thermal";
+  if (sector === "金融") return "financial";
+  if (sector === "航運") return "shipping";
+  return "other";
 }
 
 async function getJson<T>(path: string): Promise<T> {
@@ -688,9 +712,10 @@ watch(selectedEtfCode, async (etfCode) => {
             <b>{{ row.stockId }}</b>
             <span>{{ row.stockName }}</span>
           </span>
-          <span>
-            <b class="sector-pill">{{ sectorLabel(row) }}</b>
-            <small class="impact-split">{{ row.market?.market ?? "-" }} {{ marketLabel(row) }}</small>
+          <span class="sector-market-cell">
+            <b class="sector-pill" :class="sectorClass(row)">{{ sectorLabel(row) }}</b>
+            <small class="market-price-line">{{ marketPriceLabel(row) }}</small>
+            <small class="market-change-line" :class="marketChangeClass(row)">{{ marketChangeLabel(row) }}</small>
           </span>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
             {{ formatLots(row.totalActiveDiffLots) }}

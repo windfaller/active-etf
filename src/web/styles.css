@@ -1197,6 +1197,75 @@ input:focus {
   font-weight: 800;
 }
 
+.sector-pill.semiconductor {
+  color: #365586;
+  background: #edf4fb;
+  border-color: #cdddef;
+}
+
+.sector-pill.server {
+  color: #6c4e0c;
+  background: #fff5d8;
+  border-color: #ead997;
+}
+
+.sector-pill.pcb {
+  color: #276b5c;
+  background: #eef8f4;
+  border-color: #b9e0d4;
+}
+
+.sector-pill.optical {
+  color: #6a4f93;
+  background: #f2edf9;
+  border-color: #dccff0;
+}
+
+.sector-pill.thermal {
+  color: #8f4a2e;
+  background: #fff0e8;
+  border-color: #efc9b7;
+}
+
+.sector-pill.financial {
+  color: #5b6470;
+  background: #f1f4f6;
+  border-color: #d7dee5;
+}
+
+.sector-pill.shipping {
+  color: #1f6780;
+  background: #e9f7fb;
+  border-color: #c7e8f1;
+}
+
+.sector-pill.other {
+  color: #52606c;
+  background: #f5f7f9;
+  border-color: #dce2e8;
+}
+
+.sector-market-cell,
+.market-price-line,
+.market-change-line {
+  display: block;
+}
+
+.market-price-line {
+  margin-top: 4px;
+  color: #6f7983;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.market-change-line {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
 .disclaimer {
   padding: 14px 2px 0;
   font-size: 12px;
