@@ -4,7 +4,15 @@
     "noEmit": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "preserve",
     "types": ["vite/client", "node"]
   },
-  "include": ["src/web/**/*.ts", "src/web/**/*.vue", "src/web/**/*.d.ts", "vite.config.ts"]
+  "include": [
+    "src/web/**/*.ts",
+    "src/web/**/*.vue",
+    "src/web/**/*.d.ts",
+    "src/ads/**/*.ts",
+    "src/components/ads/**/*.tsx",
+    "vite.config.ts"
+  ]
 }

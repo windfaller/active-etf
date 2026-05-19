@@ -14,6 +14,7 @@ import {
   TrendingUp
 } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
+import AdSlot from "../components/ads/AdSlot";
 
 type NullableNumber = number | null;
 type MainTab = "market" | "etf";
@@ -1081,6 +1082,13 @@ watch(selectedEtfCode, async (etfCode) => {
           <p v-if="!isLoading && !displayedHoldings.length" class="empty-row">此日期尚無持股資料。</p>
         </div>
       </section>
+
+      <AdSlot
+        v-if="activeEtfPage === 'report'"
+        slot="article-inline"
+        :page="`/etf/${selectedEtfCode}`"
+        :etf-code="selectedEtfCode"
+      />
     </section>
 
     <footer class="disclaimer">
