@@ -18,6 +18,7 @@ import {
 import { configuredEtfs } from "../config/etfs";
 
 type NullableNumber = number | null;
+type MainTab = "market" | "etf";
 
 interface Holding {
   stockId: string;
@@ -170,6 +171,7 @@ const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
 const availableDates = ref<string[]>([]);
 const selectedDate = ref("");
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
+const activeMainTab = ref<MainTab>("market");
 const marketQuery = ref("");
 const holdingQuery = ref("");
 const isLoading = ref(false);
@@ -554,7 +556,13 @@ watch(selectedEtfCode, async (etfCode) => {
       <span>{{ loadingText }}</span>
     </section>
 
-    <section class="section-panel market-panel" :class="{ 'is-updating': isLoading && hasLoaded }" :aria-busy="isLoading">
+    <section
+      id="market-panel"
+      v-show="activeMainTab === 'market'"
+      class="section-panel market-panel"
+      :class="{ 'is-updating': isLoading && hasLoaded }"
+      :aria-busy="isLoading"
+    >
       <div class="section-heading">
         <div>
           <span class="eyebrow">市場總覽</span>
@@ -704,7 +712,13 @@ watch(selectedEtfCode, async (etfCode) => {
       </div>
     </section>
 
-    <section class="section-panel report-panel" :class="{ 'is-updating': isLoading && hasLoaded }" :aria-busy="isLoading">
+    <section
+      id="report-panel"
+      v-show="activeMainTab === 'etf'"
+      class="section-panel report-panel"
+      :class="{ 'is-updating': isLoading && hasLoaded }"
+      :aria-busy="isLoading"
+    >
       <div class="section-heading report-heading">
         <div>
           <span class="eyebrow">單檔 ETF</span>
@@ -1022,5 +1036,26 @@ watch(selectedEtfCode, async (etfCode) => {
     <footer class="disclaimer">
       本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。ETF 持股揭露可能有時間差，請以投信與交易所公告為準。
     </footer>
+
+    <nav class="bottom-tabs" aria-label="主要頁籤">
+      <button
+        type="button"
+        :class="{ active: activeMainTab === 'market' }"
+        aria-controls="market-panel"
+        @click="activeMainTab = 'market'"
+      >
+        <Layers :size="19" />
+        <span>市場總覽</span>
+      </button>
+      <button
+        type="button"
+        :class="{ active: activeMainTab === 'etf' }"
+        aria-controls="report-panel"
+        @click="activeMainTab = 'etf'"
+      >
+        <ListChecks :size="19" />
+        <span>單檔 ETF</span>
+      </button>
+    </nav>
   </main>
 </template>
