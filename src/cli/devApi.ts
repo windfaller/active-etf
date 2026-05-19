@@ -212,6 +212,154 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && parts[1] === "dashboard") {
+      const etfCode = required(requestUrl.searchParams.get("etfCode"), "etfCode");
+      const date = assertTradeDate(required(requestUrl.searchParams.get("date"), "date"));
+      const body = await getOrSetDailyCache(["dashboard", etfCode, date], async () => {
+        const db = await getDevDb();
+        const enabledEtfs = configuredEtfs.filter((item) => item.enabled);
+        const etfCodes = enabledEtfs.map((item) => item.etfCode);
+        const [holdings, summary, etfChanges, summaries, allChanges, latestRows, availableRows] = await Promise.all([
+          db
+            .collection<EtfDailyHolding>("etf_daily_holdings")
+            .find({ etfCode, tradeDate: date })
+            .sort({ weight: -1, marketValue: -1 })
+            .toArray(),
+          db.collection<EtfDailySummary>("etf_daily_summary").findOne({ etfCode, tradeDate: date }),
+          db.collection<EtfHoldingChange>("etf_holding_changes").find({ etfCode, tradeDate: date }).toArray(),
+          db.collection<EtfDailySummary>("etf_daily_summary").find({ etfCode }).sort({ tradeDate: -1 }).limit(90).toArray(),
+          db.collection<EtfHoldingChange>("etf_holding_changes").find({ tradeDate: date, diffShares: { $ne: 0 } }).toArray(),
+          db
+            .collection<EtfDailySummary>("etf_daily_summary")
+            .aggregate<{ etfCode: string; latestTradeDate: string; updatedAt: Date }>([
+              { $match: { etfCode: { $in: etfCodes } } },
+              { $sort: { tradeDate: -1 } },
+              { $group: { _id: "$etfCode", latestTradeDate: { $first: "$tradeDate" }, updatedAt: { $first: "$updatedAt" } } },
+              { $project: { _id: 0, etfCode: "$_id", latestTradeDate: 1, updatedAt: 1 } }
+            ])
+            .toArray(),
+          db
+            .collection<EtfDailySummary>("etf_daily_summary")
+            .find({ etfCode: { $in: etfCodes }, tradeDate: date }, { projection: { _id: 0, etfCode: 1 } })
+            .toArray()
+        ]);
+
+        const changes = {
+          etfCode,
+          date,
+          topIncreases: etfChanges.filter((change) => change.diffShares > 0).sort((a, b) => b.diffShares - a.diffShares),
+          topDecreases: etfChanges.filter((change) => change.diffShares < 0).sort((a, b) => a.diffShares - b.diffShares),
+          topActiveIncreases: etfChanges
+            .filter((change) => (change.activeDiffShares ?? 0) > 0)
+            .sort((a, b) => (b.activeDiffShares ?? 0) - (a.activeDiffShares ?? 0)),
+          topActiveDecreases: etfChanges
+            .filter((change) => (change.activeDiffShares ?? 0) < 0)
+            .sort((a, b) => (a.activeDiffShares ?? 0) - (b.activeDiffShares ?? 0)),
+          newHoldings: etfChanges.filter(
+            (change) => change.status === "new" || (change.prevShares === 0 && change.currentShares > 0)
+          ),
+          exitedHoldings: etfChanges.filter(
+            (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
+          )
+        };
+
+        const rowsByStock = new Map<string, any>();
+        for (const change of allChanges) {
+          const row =
+            rowsByStock.get(change.stockId) ??
+            {
+              stockId: change.stockId,
+              stockName: change.stockName,
+              etfCount: 0,
+              increaseEtfCount: 0,
+              decreaseEtfCount: 0,
+              totalDiffLots: 0,
+              totalActiveDiffLots: 0,
+              totalDiffWeightPoint: 0,
+              maxAbsActiveDiffLots: 0,
+              maxAbsDiffWeightPoint: 0,
+              impactScore: 0,
+              primaryImpactEtf: null,
+              etfs: []
+            };
+          const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+          const diffWeightPoint = change.diffWeightPoint ?? 0;
+          const etfImpact = {
+            etfCode: change.etfCode,
+            diffLots: change.diffLots,
+            activeDiffLots: change.activeDiffLots,
+            diffWeightPoint: change.diffWeightPoint,
+            currentWeight: change.currentWeight,
+            status: change.status
+          };
+          const primaryMagnitude = Math.abs(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? 0);
+
+          row.etfs.push(etfImpact);
+          row.etfCount += 1;
+          row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
+          row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
+          row.totalDiffLots += change.diffLots;
+          row.totalActiveDiffLots += activeDiffLots;
+          row.totalDiffWeightPoint += diffWeightPoint;
+          row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
+          row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
+          if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
+          rowsByStock.set(change.stockId, row);
+        }
+        const impacts = [...rowsByStock.values()]
+          .map((row) => ({
+            ...row,
+            impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
+          }))
+          .sort((a, b) => b.impactScore - a.impactScore);
+
+        const availableCodes = new Set(availableRows.map((row) => row.etfCode));
+        const latestByCode = new Map(latestRows.map((row) => [row.etfCode, row]));
+        const coverageEtfs = enabledEtfs.map((etf) => {
+          const latest = latestByCode.get(etf.etfCode);
+          const hasSelectedDate = availableCodes.has(etf.etfCode);
+          const latestTradeDate = latest?.latestTradeDate ?? null;
+          const status = hasSelectedDate
+            ? "available"
+            : latestTradeDate === null
+              ? "missing"
+              : latestTradeDate < date
+                ? "stale"
+                : "newer_available";
+          return {
+            etfCode: etf.etfCode,
+            name: etf.name,
+            issuer: etf.issuer,
+            providerId: etf.source.providerId ?? "ezmoney",
+            latestTradeDate,
+            hasSelectedDate,
+            status,
+            updatedAt: latest?.updatedAt ?? null
+          };
+        });
+
+        return {
+          etfCode,
+          date,
+          holdings,
+          summary,
+          changes,
+          summaries,
+          stockImpact: { date, impacts },
+          coverage: {
+            date,
+            trackedCount: coverageEtfs.length,
+            availableCount: coverageEtfs.filter((etf) => etf.hasSelectedDate).length,
+            staleCount: coverageEtfs.filter((etf) => etf.status === "stale" || etf.status === "missing").length,
+            etfs: coverageEtfs
+          }
+        };
+      });
+
+      sendJson(res, 200, body);
+      return;
+    }
+
     if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "etf") {
       const authError = adminAuthError(req);
       if (authError) {

@@ -111,6 +111,17 @@ interface EtfCoverageResponse {
   etfs: EtfCoverageRow[];
 }
 
+interface DashboardResponse {
+  holdings: Holding[];
+  summary: Summary | null;
+  changes: ChangesResponse;
+  summaries: Summary[];
+  stockImpact: {
+    impacts: StockImpact[];
+  };
+  coverage: EtfCoverageResponse;
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
@@ -391,29 +402,16 @@ async function loadDashboard(): Promise<void> {
 
   try {
     const etfCode = selectedEtfCode.value;
-    const [
-      holdingsResponse,
-      summaryResponse,
-      changesResponse,
-      summaryHistoryResponse,
-      stockImpactResponse,
-      coverageResponse
-    ] =
-      await Promise.all([
-        getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
-        getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
-        getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
-        getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`),
-        getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`),
-        getJson<EtfCoverageResponse>(`/api/etfs/coverage?date=${selectedDate.value}`)
-      ]);
+    const dashboard = await getJson<DashboardResponse>(
+      `/api/dashboard?etfCode=${encodeURIComponent(etfCode)}&date=${selectedDate.value}`
+    );
 
-    holdings.value = holdingsResponse.holdings;
-    summary.value = summaryResponse.summary;
-    summaryHistory.value = summaryHistoryResponse.summaries;
-    stockImpacts.value = stockImpactResponse.impacts;
-    coverage.value = coverageResponse;
-    changes.value = changesResponse;
+    holdings.value = dashboard.holdings;
+    summary.value = dashboard.summary;
+    summaryHistory.value = dashboard.summaries;
+    stockImpacts.value = dashboard.stockImpact.impacts;
+    coverage.value = dashboard.coverage;
+    changes.value = dashboard.changes;
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "資料讀取失敗，請確認 API server 是否啟動。";

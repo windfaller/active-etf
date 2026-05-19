@@ -1130,12 +1130,18 @@ input:focus {
   }
 
   .market-kpis .kpi {
-    min-height: 96px;
-    padding: 12px 10px;
+    min-height: 82px;
+    padding: 10px 8px;
   }
 
   .market-kpis .kpi strong {
-    font-size: clamp(24px, 8vw, 34px);
+    font-size: clamp(22px, 7vw, 30px);
+  }
+
+  .market-kpis .kpi em,
+  .summary-cards .kpi em {
+    margin-top: 7px;
+    font-size: 12px;
   }
 
   .summary-cards {
@@ -1145,7 +1151,8 @@ input:focus {
   }
 
   .summary-cards .kpi {
-    min-height: 104px;
+    min-height: 88px;
+    padding: 12px 14px;
   }
 
   .operation-cards {
@@ -1155,22 +1162,22 @@ input:focus {
   }
 
   .operation-cards .kpi {
-    min-height: 104px;
-    padding: 12px 8px 10px;
+    min-height: 84px;
+    padding: 10px 8px 8px;
     border-radius: 10px;
   }
 
   .operation-cards .kpi span {
-    font-size: clamp(16px, 4.7vw, 22px);
+    font-size: clamp(14px, 4vw, 18px);
   }
 
   .operation-cards .kpi strong {
-    margin-top: 22px;
-    font-size: clamp(30px, 9vw, 42px);
+    margin-top: 14px;
+    font-size: clamp(26px, 7vw, 34px);
   }
 
   .operation-cards .kpi em {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .report-identity {
@@ -1230,20 +1237,22 @@ input:focus {
   }
 
   .operation-row {
-    min-height: 82px;
-    font-size: 16px;
+    min-height: 58px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    font-size: 14px;
   }
 
   .operation-stock small,
   .weight-stack small {
-    font-size: clamp(13px, 3.8vw, 16px);
+    font-size: 12px;
   }
 
   .status-pill {
     min-width: 52px;
-    height: 30px;
+    height: 26px;
     padding: 0 8px;
-    font-size: clamp(14px, 3.9vw, 17px);
+    font-size: 13px;
   }
 
   .signal-grid {
@@ -1275,7 +1284,30 @@ input:focus {
     grid-template-columns: 0.8fr 1fr 1fr 1fr;
     min-width: 0;
     gap: 7px;
-    font-size: 15px;
+    font-size: 14px;
+  }
+
+  .premium-row {
+    min-height: 44px;
+    padding: 7px 12px;
+  }
+
+  .premium-head,
+  .holdings-head,
+  .signal-head {
+    padding: 7px 12px;
+  }
+
+  .holding-row,
+  .signal-row {
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .impact-split {
+    margin-top: 1px;
+    font-size: 11px;
   }
 
   .premium-head,
