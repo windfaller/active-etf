@@ -11,6 +11,7 @@ import {
   ListChecks,
   RefreshCw,
   Search,
+  Send,
   TrendingDown,
   TrendingUp
 } from "@lucide/vue";
@@ -122,6 +123,12 @@ interface DashboardResponse {
   coverage: EtfCoverageResponse;
 }
 
+interface TelegramInfo {
+  configured: boolean;
+  username: string | null;
+  subscribeUrl: string | null;
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
@@ -139,6 +146,7 @@ const summary = ref<Summary | null>(null);
 const summaryHistory = ref<Summary[]>([]);
 const stockImpacts = ref<StockImpact[]>([]);
 const coverage = ref<EtfCoverageResponse | null>(null);
+const telegramInfo = ref<TelegramInfo | null>(null);
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -210,6 +218,7 @@ const selectedEtfCoverage = computed(
   () => coverage.value?.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null
 );
 const selectedEtfLatestDate = computed(() => selectedEtfCoverage.value?.latestTradeDate ?? "-");
+const telegramSubscribeUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const loadingText = computed(() =>
   hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。"
 );
@@ -421,8 +430,17 @@ async function loadDashboard(): Promise<void> {
   }
 }
 
+async function loadTelegramInfo(): Promise<void> {
+  try {
+    telegramInfo.value = await getJson<TelegramInfo>("/api/telegram/info");
+  } catch {
+    telegramInfo.value = { configured: false, username: null, subscribeUrl: null };
+  }
+}
+
 onMounted(() => {
   void (async () => {
+    void loadTelegramInfo();
     await loadAvailableDates();
     await loadDashboard();
   })();
@@ -446,6 +464,18 @@ watch(selectedEtfCode, async (etfCode) => {
       </div>
 
       <div class="toolbar compact-toolbar">
+        <a
+          class="telegram-button"
+          :class="{ disabled: telegramInfo && !telegramInfo.configured }"
+          :href="telegramSubscribeUrl"
+          target="_blank"
+          rel="noreferrer"
+          :aria-disabled="telegramInfo && !telegramInfo.configured"
+        >
+          <Send :size="16" />
+          <span>Telegram 訂閱</span>
+        </a>
+
         <label class="control">
           <span><Calendar :size="14" /> 指定日期</span>
           <select v-model="selectedDate" aria-label="指定日期" @change="loadDashboard">

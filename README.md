@@ -77,6 +77,7 @@ PATH=/usr/local/bin:$PATH npm install
 MONGODB_URI=
 MONGODB_DB_NAME=taiwan_active_etf
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET=
 TELEGRAM_ALLOWED_USER_IDS=
 TELEGRAM_ALLOWED_CHAT_IDS=
@@ -95,7 +96,7 @@ ENABLE_BACKUP_SOURCES=true
 
 Azure Functions 本機也可用 `local.settings.json` 管理相同設定。Redis 是每日 API response cache；若未設定 Redis，API 會自動回到直接查 MongoDB。
 
-Telegram 多用戶通知使用 webhook。`PUBLIC_BASE_URL` 預設為 `https://active-etf.chicoo.co`，`TELEGRAM_WEBHOOK_SECRET` 會用來驗證 Telegram header。若 `TELEGRAM_ALLOWED_USER_IDS` 與 `TELEGRAM_ALLOWED_CHAT_IDS` 都留空，任何對 bot 發送 `/start` 的用戶或群組都能訂閱；若有填 allowlist，只有清單內的 user id 或 chat id 會收到通知。`TELEGRAM_ETF_ONBOARDING_CHAT_IDS` 是新主動式 ETF 偵測後的管理通知對象，會收到可直接貼給 Codex 的 `taiwan-active-etf-onboarding` prompt；這類通知不會廣播給一般訂閱者。`TELEGRAM_CHAT_ID` 僅作為尚未有訂閱者時的舊版 fallback。
+Telegram 多用戶通知使用 webhook。`PUBLIC_BASE_URL` 預設為 `https://active-etf.chicoo.co`，`TELEGRAM_WEBHOOK_SECRET` 會用來驗證 Telegram header。前端的 Telegram 訂閱按鈕會呼叫 `/api/telegram/info` 取得 bot link；可設定 `TELEGRAM_BOT_USERNAME`，若未設定則 server 會用 `TELEGRAM_BOT_TOKEN` 呼叫 Telegram `getMe` 取得 username。若 `TELEGRAM_ALLOWED_USER_IDS` 與 `TELEGRAM_ALLOWED_CHAT_IDS` 都留空，任何對 bot 發送 `/start` 的用戶或群組都能訂閱；若有填 allowlist，只有清單內的 user id 或 chat id 會收到通知。`TELEGRAM_ETF_ONBOARDING_CHAT_IDS` 是新主動式 ETF 偵測後的管理通知對象，會收到可直接貼給 Codex 的 `taiwan-active-etf-onboarding` prompt；這類通知不會廣播給一般訂閱者。`TELEGRAM_CHAT_ID` 僅作為尚未有訂閱者時的舊版 fallback。
 
 ## 本機執行
 

@@ -542,6 +542,16 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && parts[1] === "telegram" && parts[2] === "info") {
+      const configuredUsername = process.env.TELEGRAM_BOT_USERNAME?.replace(/^@/u, "") ?? null;
+      sendJson(res, 200, {
+        configured: Boolean(configuredUsername || process.env.TELEGRAM_BOT_TOKEN),
+        username: configuredUsername,
+        subscribeUrl: configuredUsername ? `https://t.me/${configuredUsername}?start=subscribe` : null
+      });
+      return;
+    }
+
     if (req.method !== "GET") {
       sendJson(res, 405, { error: "Method not allowed" });
       return;

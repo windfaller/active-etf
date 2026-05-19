@@ -7,5 +7,6 @@ import "../api/getEtfSummary.js";
 import "../api/getEtfSummaryHistory.js";
 import "../api/getMarketStockImpact.js";
 import "../api/getDashboard.js";
+import "../api/getTelegramInfo.js";
 import "../api/postEtfAdminJobs.js";
 import "../api/postTelegramWebhook.js";
