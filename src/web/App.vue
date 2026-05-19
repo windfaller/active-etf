@@ -442,6 +442,10 @@ function marketLabel(row: StockImpact): string {
   return `${formatNumber(row.market.closePrice, 2)} / ${formatSignedNumber(row.market.changePercent, 2)}%`;
 }
 
+function sectorLabel(row: StockImpact): string {
+  return row.sector || "其他";
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -685,7 +689,7 @@ watch(selectedEtfCode, async (etfCode) => {
             <span>{{ row.stockName }}</span>
           </span>
           <span>
-            <b class="sector-pill">{{ row.sector }}</b>
+            <b class="sector-pill">{{ sectorLabel(row) }}</b>
             <small class="impact-split">{{ row.market?.market ?? "-" }} {{ marketLabel(row) }}</small>
           </span>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
