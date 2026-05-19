@@ -17,6 +17,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: #f4f5f6;
+  overflow-x: hidden;
 }
 
 button,
@@ -1328,6 +1329,7 @@ input:focus {
   justify-content: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
   color: #66717d;
   background: transparent;
   border: 0;
@@ -1335,6 +1337,13 @@ input:focus {
   cursor: pointer;
   font-size: 14px;
   font-weight: 800;
+}
+
+.bottom-tabs button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bottom-tabs button.active {
@@ -1397,6 +1406,9 @@ input:focus {
 
 @media (max-width: 760px) {
   .app-shell {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
     padding: 0 0 92px;
     background: #f4f5f6;
   }
@@ -1442,13 +1454,17 @@ input:focus {
   }
 
   .bottom-tabs {
+    right: 0;
     bottom: 0;
-    width: 100%;
+    left: 0;
+    width: auto;
+    max-width: none;
     padding: 7px 14px max(7px, env(safe-area-inset-bottom));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: 16px 16px 0 0;
+    transform: none;
   }
 
   .bottom-tabs button {
