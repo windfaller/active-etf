@@ -32,10 +32,12 @@
 
 .ad-card--visual {
   display: block;
-  width: min(100%, 960px);
+  width: min(100%, 920px);
   margin: 0 auto;
   min-height: 0;
-  background: #071421;
+  background:
+    radial-gradient(circle at 82% 12%, rgba(54, 207, 255, 0.14), transparent 34%),
+    linear-gradient(135deg, #050e19 0%, #071a2a 54%, #0a273c 100%);
 }
 
 .ad-card__image,
@@ -51,9 +53,11 @@
 }
 
 .ad-card--visual .ad-card__image {
-  height: auto;
+  height: clamp(138px, 24vw, 220px);
   min-height: 0;
-  aspect-ratio: 10 / 3;
+  aspect-ratio: auto;
+  border-bottom: 1px solid rgba(91, 214, 240, 0.14);
+  object-position: center;
 }
 
 .ad-card__market-grid {
@@ -95,6 +99,11 @@
   padding: 14px 16px 14px 0;
 }
 
+.ad-card--visual .ad-card__content {
+  gap: 8px;
+  padding: 18px 22px 20px;
+}
+
 .ad-card__provider {
   color: currentColor;
   font-size: 11px;
@@ -110,11 +119,23 @@
   line-height: 1.2;
 }
 
+.ad-card--visual .ad-card__title {
+  font-size: 24px;
+  line-height: 1.18;
+}
+
 .ad-card__description {
   color: currentColor;
   font-size: 13px;
   line-height: 1.35;
   opacity: 0.78;
+}
+
+.ad-card--visual .ad-card__description {
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.45;
+  opacity: 0.86;
 }
 
 .ad-card__cta {
@@ -132,13 +153,31 @@
   font-weight: 780;
 }
 
-.ad-card__content--sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+.ad-card--visual .ad-card__cta {
+  margin-top: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+@media (min-width: 980px) {
+  .ad-card--visual.ad-card--slot-article-inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.85fr);
+    min-height: 240px;
+  }
+
+  .ad-card--visual.ad-card--slot-article-inline .ad-card__image {
+    height: 100%;
+    min-height: 240px;
+    border-right: 1px solid rgba(91, 214, 240, 0.14);
+    border-bottom: 0;
+    background: #071421;
+    object-fit: contain;
+  }
+
+  .ad-card--visual.ad-card--slot-article-inline .ad-card__content {
+    padding: 24px;
+  }
 }
 
 .ad-carousel {
@@ -170,20 +209,12 @@
   }
 
   .ad-card--visual .ad-card__image {
-    aspect-ratio: 10 / 3;
-  }
-
-  .ad-card--visual .ad-card__content--sr-only {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip: auto;
-    white-space: normal;
+    height: 132px;
   }
 
   .ad-card--visual .ad-card__content {
-    padding: 13px 14px 14px;
+    gap: 7px;
+    padding: 14px 14px 16px;
   }
 
   .ad-card--visual .ad-card__provider {
@@ -198,13 +229,26 @@
     font-size: 17px;
   }
 
+  .ad-card--visual .ad-card__title {
+    font-size: 20px;
+  }
+
   .ad-card__description {
     font-size: 13px;
+  }
+
+  .ad-card--visual .ad-card__description {
+    font-size: 14px;
   }
 
   .ad-card__cta {
     padding: 6px 9px;
     font-size: 12px;
+  }
+
+  .ad-card--visual .ad-card__cta {
+    padding: 7px 10px;
+    font-size: 13px;
   }
 }
 

@@ -26,6 +26,7 @@ export default defineComponent({
           class: [
             "ad-card",
             `ad-card--${props.ad.provider}`,
+            `ad-card--slot-${props.slotName}`,
             {
               "ad-card--compact": props.compact,
               "ad-card--visual": Boolean(props.ad.imageUrl)
@@ -54,7 +55,7 @@ export default defineComponent({
                 h("span"),
                 h("span")
               ]),
-          h("div", { class: ["ad-card__content", { "ad-card__content--sr-only": Boolean(props.ad.imageUrl) }] }, [
+          h("div", { class: "ad-card__content" }, [
             h("span", { class: "ad-card__provider" }, props.ad.provider),
             h("strong", { class: "ad-card__title" }, props.ad.title),
             props.ad.description ? h("span", { class: "ad-card__description" }, props.ad.description) : null,
