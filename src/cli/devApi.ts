@@ -18,6 +18,8 @@ import {
   telegramWebhookUrl
 } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
+import { stockImpactsForDate } from "../services/market/stockImpactService.js";
+import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
 
 const port = Number(process.env.PORT ?? 7071);
@@ -86,59 +88,7 @@ const server = createServer(async (req, res) => {
           .collection<EtfHoldingChange>("etf_holding_changes")
           .find({ tradeDate: date, diffShares: { $ne: 0 } })
           .toArray();
-        const rowsByStock = new Map<string, any>();
-
-        for (const change of changes) {
-          const row =
-            rowsByStock.get(change.stockId) ??
-            {
-              stockId: change.stockId,
-              stockName: change.stockName,
-              etfCount: 0,
-              increaseEtfCount: 0,
-              decreaseEtfCount: 0,
-              totalDiffLots: 0,
-              totalActiveDiffLots: 0,
-              totalDiffWeightPoint: 0,
-              maxAbsActiveDiffLots: 0,
-              maxAbsDiffWeightPoint: 0,
-              impactScore: 0,
-              primaryImpactEtf: null,
-              etfs: []
-            };
-          const activeDiffLots = change.activeDiffLots ?? change.diffLots;
-          const diffWeightPoint = change.diffWeightPoint ?? 0;
-          const etfImpact = {
-            etfCode: change.etfCode,
-            diffLots: change.diffLots,
-            activeDiffLots: change.activeDiffLots,
-            diffWeightPoint: change.diffWeightPoint,
-            currentWeight: change.currentWeight,
-            status: change.status
-          };
-          const primaryMagnitude = Math.abs(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? 0);
-
-          row.etfs.push(etfImpact);
-          row.etfCount += 1;
-          row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
-          row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
-          row.totalDiffLots += change.diffLots;
-          row.totalActiveDiffLots += activeDiffLots;
-          row.totalDiffWeightPoint += diffWeightPoint;
-          row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
-          row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
-          if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
-          rowsByStock.set(change.stockId, row);
-        }
-
-        const impacts = [...rowsByStock.values()]
-          .map((row) => ({
-            ...row,
-            impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
-          }))
-          .sort((a, b) => b.impactScore - a.impactScore);
-
-        return { date, impacts };
+        return stockImpactsForDate(db, date, changes);
       });
 
       sendJson(res, 200, body);
@@ -263,55 +213,7 @@ const server = createServer(async (req, res) => {
           )
         };
 
-        const rowsByStock = new Map<string, any>();
-        for (const change of allChanges) {
-          const row =
-            rowsByStock.get(change.stockId) ??
-            {
-              stockId: change.stockId,
-              stockName: change.stockName,
-              etfCount: 0,
-              increaseEtfCount: 0,
-              decreaseEtfCount: 0,
-              totalDiffLots: 0,
-              totalActiveDiffLots: 0,
-              totalDiffWeightPoint: 0,
-              maxAbsActiveDiffLots: 0,
-              maxAbsDiffWeightPoint: 0,
-              impactScore: 0,
-              primaryImpactEtf: null,
-              etfs: []
-            };
-          const activeDiffLots = change.activeDiffLots ?? change.diffLots;
-          const diffWeightPoint = change.diffWeightPoint ?? 0;
-          const etfImpact = {
-            etfCode: change.etfCode,
-            diffLots: change.diffLots,
-            activeDiffLots: change.activeDiffLots,
-            diffWeightPoint: change.diffWeightPoint,
-            currentWeight: change.currentWeight,
-            status: change.status
-          };
-          const primaryMagnitude = Math.abs(row.primaryImpactEtf?.activeDiffLots ?? row.primaryImpactEtf?.diffLots ?? 0);
-
-          row.etfs.push(etfImpact);
-          row.etfCount += 1;
-          row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
-          row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
-          row.totalDiffLots += change.diffLots;
-          row.totalActiveDiffLots += activeDiffLots;
-          row.totalDiffWeightPoint += diffWeightPoint;
-          row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
-          row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
-          if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
-          rowsByStock.set(change.stockId, row);
-        }
-        const impacts = [...rowsByStock.values()]
-          .map((row) => ({
-            ...row,
-            impactScore: Math.round(row.maxAbsActiveDiffLots * 100 + row.maxAbsDiffWeightPoint * 10000) / 100
-          }))
-          .sort((a, b) => b.impactScore - a.impactScore);
+        const stockImpact = await stockImpactsForDate(db, date, allChanges);
 
         const availableCodes = new Set(availableRows.map((row) => row.etfCode));
         const latestByCode = new Map(latestRows.map((row) => [row.etfCode, row]));
@@ -345,7 +247,7 @@ const server = createServer(async (req, res) => {
           summary,
           changes,
           summaries,
-          stockImpact: { date, impacts },
+          stockImpact,
           coverage: {
             date,
             trackedCount: coverageEtfs.length,
@@ -488,18 +390,36 @@ const server = createServer(async (req, res) => {
 
       const aggregates = [];
       for (const tradeDate of refreshedTradeDates) {
-        const [consensus, sectorFlow] = await Promise.all([
+        const [consensus, sectorFlow, marketIntelligence] = await Promise.all([
           calculateConsensus(db, tradeDate),
-          calculateSectorFlow(db, tradeDate)
+          calculateSectorFlow(db, tradeDate),
+          syncDailyMarketIntelligence(db, tradeDate)
         ]);
+        await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
         aggregates.push({
           tradeDate,
           consensusRows: consensus.length,
-          sectorRows: sectorFlow.length
+          sectorRows: sectorFlow.length,
+          marketIntelligence
         });
       }
 
       sendJson(res, 200, { ok: results.every((result) => result.ok), job: "dailyRefresh", discovery, results, aggregates });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "market-intelligence") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const tradeDate = assertTradeDate(required(requestUrl.searchParams.get("date"), "date"));
+      const db = await getDevDb();
+      const result = await syncDailyMarketIntelligence(db, tradeDate);
+      await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+      sendJson(res, 200, { ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
       return;
     }
 

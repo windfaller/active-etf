@@ -1,11 +1,13 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
 import { getDb } from "../db/mongo.js";
+import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { setTelegramWebhook, telegramWebhookUrl } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
+import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
 
@@ -133,18 +135,35 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
 
   const aggregates = [];
   for (const tradeDate of refreshedTradeDates) {
-    const [consensus, sectorFlow] = await Promise.all([
+    const [consensus, sectorFlow, marketIntelligence] = await Promise.all([
       calculateConsensus(db, tradeDate),
-      calculateSectorFlow(db, tradeDate)
+      calculateSectorFlow(db, tradeDate),
+      syncDailyMarketIntelligence(db, tradeDate)
     ]);
     aggregates.push({
       tradeDate,
       consensusRows: consensus.length,
-      sectorRows: sectorFlow.length
+      sectorRows: sectorFlow.length,
+      marketIntelligence
     });
+    await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
   }
 
   return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", discovery, results, aggregates });
+}
+
+export async function postSyncMarketIntelligence(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const dateParam = request.query.get("date");
+  if (!dateParam) return badRequest("date is required");
+
+  const tradeDate = assertTradeDate(dateParam);
+  const db = await getDb();
+  const result = await syncDailyMarketIntelligence(db, tradeDate);
+  await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+  return jsonResponse({ ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
 }
 
 export async function postDiscoverActiveEtfs(request: HttpRequest, _context: InvocationContext) {
@@ -198,6 +217,13 @@ app.http("postDailyRefresh", {
   route: "jobs/daily-refresh",
   authLevel: "anonymous",
   handler: postDailyRefresh
+});
+
+app.http("postSyncMarketIntelligence", {
+  methods: ["POST"],
+  route: "jobs/market-intelligence",
+  authLevel: "anonymous",
+  handler: postSyncMarketIntelligence
 });
 
 app.http("postDiscoverActiveEtfs", {

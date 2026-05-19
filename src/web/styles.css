@@ -281,7 +281,7 @@ input:focus {
 }
 
 .market-kpis {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .summary-cards {
@@ -359,6 +359,43 @@ input:focus {
 .operation-cards {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   padding-top: 0;
+}
+
+.sector-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 18px 16px;
+}
+
+.sector-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  background: #f8fafb;
+  border: 1px solid #e2e8ee;
+  border-radius: 10px;
+}
+
+.sector-card b {
+  color: #1f2b35;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sector-card span {
+  font-size: 18px;
+  font-weight: 780;
+  line-height: 1;
+}
+
+.sector-card small {
+  min-width: 0;
+  color: #68737e;
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.35;
 }
 
 .kpi,
@@ -1027,6 +1064,19 @@ input:focus {
   align-items: center;
 }
 
+.impact-table .holdings-head,
+.impact-table .holding-row {
+  grid-template-columns:
+    minmax(128px, 1.25fr)
+    minmax(112px, 1fr)
+    minmax(92px, 0.85fr)
+    minmax(86px, 0.75fr)
+    minmax(104px, 0.9fr)
+    minmax(104px, 0.95fr)
+    minmax(86px, 0.75fr)
+    minmax(112px, 1fr);
+}
+
 .holding-row {
   min-height: 43px;
   padding: 9px 16px;
@@ -1044,6 +1094,19 @@ input:focus {
   color: #8a939e;
   font-size: 12px;
   font-weight: 650;
+}
+
+.sector-pill {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: 3px 8px;
+  color: #345986;
+  background: #edf4fb;
+  border: 1px solid #d5e5f4;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .disclaimer {
@@ -1077,7 +1140,15 @@ input:focus {
   .market-kpis,
   .summary-cards,
   .signal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signal-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sector-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .coverage-strip {
@@ -1157,7 +1228,7 @@ input:focus {
   }
 
   .market-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 14px 18px;
   }
@@ -1306,6 +1377,34 @@ input:focus {
   .holdings-head,
   .holding-row {
     min-width: 680px;
+  }
+
+  .impact-table .holdings-head,
+  .impact-table .holding-row {
+    grid-template-columns: 92px 96px 76px 74px 88px 90px 70px 92px;
+    gap: 7px;
+    min-width: 760px;
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 12px;
+  }
+
+  .impact-table .holding-row {
+    min-height: 52px;
+  }
+
+  .sector-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 18px 14px;
+  }
+
+  .sector-card {
+    padding: 10px;
+  }
+
+  .sector-card span {
+    font-size: 16px;
   }
 
   .premium-chart {

@@ -13,7 +13,7 @@ export function buildSectorFlowRows(changes: EtfHoldingChange[], tradeDate: stri
     const activeDiffLots = change.activeDiffLots ?? change.diffLots;
     if (activeDiffLots === 0) continue;
 
-    const sector = sectorForStock(change.stockId);
+    const sector = sectorForStock(change.stockId, change.stockName);
     const row =
       rowsBySector.get(sector) ??
       ({

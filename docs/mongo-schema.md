@@ -76,6 +76,62 @@ Unique key:
 - `tradeDate`
 - `sector`
 
+### `stock_daily_market`
+
+Daily TWSE/TPEx stock quote and trading rows used to enrich cross-ETF impact rankings.
+
+Unique key:
+
+- `tradeDate`
+- `stockId`
+
+Important fields:
+
+- `market`
+- `openPrice`
+- `highPrice`
+- `lowPrice`
+- `closePrice`
+- `change`
+- `changePercent`
+- `volumeShares`
+- `turnover`
+- `transactionCount`
+- `source`
+
+### `stock_institutional_flows`
+
+Daily 三大法人 net buy/sell rows used to compare ETF active changes against market institutional flow.
+
+Unique key:
+
+- `tradeDate`
+- `stockId`
+
+Important fields:
+
+- `market`
+- `foreignNetShares`
+- `investmentTrustNetShares`
+- `dealerNetShares`
+- `totalNetShares`
+- `source`
+
+### `stock_sector_profiles`
+
+Stock sector/theme classification used by sector flow and dashboard enrichment. Current source is a static map with conservative name-based fallback; unknown rows remain `其他`.
+
+Unique key:
+
+- `stockId`
+
+Important fields:
+
+- `stockName`
+- `sector`
+- `themeTags`
+- `source`
+
 ### `active_etf_discoveries`
 
 Official TWSE ETFortune active ETF registry comparison rows. This collection records listed active ETFs that are already tracked and newly discovered ETFs that still need provider mapping or reverse engineering.

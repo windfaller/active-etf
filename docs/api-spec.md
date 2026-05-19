@@ -34,7 +34,7 @@ Returns cross-ETF active-signal ranking.
 
 `GET /api/market/stock-impact?date=YYYY-MM-DD`
 
-Returns stock-level impact ranking across all tracked active ETFs for a date.
+Returns stock-level impact ranking across all tracked active ETFs for a date. Rows include ETF active holding impact plus joined `sector`, daily market quote/trading fields, and 三大法人 net buy/sell fields when available.
 
 ## Admin Sync Holdings
 
@@ -64,7 +64,13 @@ Runs the daily-change calculation job for every enabled ETF in `src/config/etfs.
 
 `POST /api/jobs/daily-refresh`
 
-Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, and sector-flow calculation for every enabled ETF. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, sector-flow calculation, and TWSE/TPEx daily market intelligence sync for every refreshed trade date. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
+## Admin Market Intelligence Sync
+
+`POST /api/jobs/market-intelligence?date=YYYY-MM-DD`
+
+Runs only the shared TWSE/TPEx market intelligence sync for one date. This fetches daily stock quotes/trading values and 三大法人 flows, stores raw snapshots, upserts `stock_daily_market`, `stock_institutional_flows`, and `stock_sector_profiles`, then clears dashboard cache for that date. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 ## Admin Active ETF Discovery
 

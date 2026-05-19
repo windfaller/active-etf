@@ -62,6 +62,126 @@ issuer -> issuer
 
 The discovery job stores the complete raw JSON response in `raw_snapshots` with source `twse_etfortune`, then upserts `active_etf_discoveries`.
 
+## TWSE listed stock daily market data
+
+URL: `https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX`
+
+Method: GET
+
+Query:
+
+```txt
+date=YYYYMMDD
+type=ALLBUT0999
+response=json
+```
+
+Status: verified official JSON source for listed stock daily quote and trading data. The parser selects the table whose fields include `證券代號` and `收盤價`.
+
+Field mapping:
+
+```txt
+證券代號 -> stock_daily_market.stockId
+證券名稱 -> stock_daily_market.stockName
+成交股數 -> stock_daily_market.volumeShares
+成交金額 -> stock_daily_market.turnover
+成交筆數 -> stock_daily_market.transactionCount
+開盤價 -> stock_daily_market.openPrice
+最高價 -> stock_daily_market.highPrice
+最低價 -> stock_daily_market.lowPrice
+收盤價 -> stock_daily_market.closePrice
+漲跌價差 -> stock_daily_market.change
+```
+
+Raw snapshots are stored with source `twse_market`.
+
+## TWSE listed stock institutional flows
+
+URL: `https://www.twse.com.tw/rwd/zh/fund/T86`
+
+Method: GET
+
+Query:
+
+```txt
+date=YYYYMMDD
+selectType=ALLBUT0999
+response=json
+```
+
+Status: verified official JSON source for listed stock 三大法人 flow.
+
+Field mapping:
+
+```txt
+證券代號 -> stock_institutional_flows.stockId
+證券名稱 -> stock_institutional_flows.stockName
+外陸資買賣超股數(不含外資自營商) + 外資自營商買賣超股數 -> foreignNetShares
+投信買賣超股數 -> investmentTrustNetShares
+自營商買賣超股數 -> dealerNetShares
+三大法人買賣超股數 -> totalNetShares
+```
+
+Raw snapshots are stored with source `twse_institutional`.
+
+## TPEx OTC stock daily market data
+
+URL: `https://www.tpex.org.tw/www/zh-tw/afterTrading/otc`
+
+Method: GET
+
+Query:
+
+```txt
+date=YYYY/MM/DD
+type=EW
+response=json
+```
+
+Status: verified official JSON source for OTC stock daily quote and trading data.
+
+Field mapping:
+
+```txt
+代號 -> stock_daily_market.stockId
+名稱 -> stock_daily_market.stockName
+成交股數 -> stock_daily_market.volumeShares
+成交金額(元) -> stock_daily_market.turnover
+成交筆數 -> stock_daily_market.transactionCount
+開盤 -> stock_daily_market.openPrice
+最高 -> stock_daily_market.highPrice
+最低 -> stock_daily_market.lowPrice
+收盤 -> stock_daily_market.closePrice
+漲跌 -> stock_daily_market.change
+```
+
+Raw snapshots are stored with source `tpex_market`.
+
+## TPEx OTC stock institutional flows
+
+URL: `https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade`
+
+Method: GET
+
+Query:
+
+```txt
+date=YYYY/MM/DD
+type=Daily
+response=json
+```
+
+Status: verified official JSON source for OTC 三大法人 flow. The JSON field labels repeat across grouped columns; mapping follows the official grouped order:
+
+```txt
+columns 8-10 -> 外資及陸資合計買進/賣出/買賣超
+columns 11-13 -> 投信買進/賣出/買賣超
+columns 20-22 -> 自營商合計買進/賣出/買賣超
+column 23 -> 三大法人買賣超股數合計
+```
+
+Raw snapshots are stored with source `tpex_institutional`.
+
 ## 00981A holdings
 
 URL: `https://www.ezmoney.com.tw/ETF/Transaction/GetPCF`

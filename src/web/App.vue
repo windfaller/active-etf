@@ -80,6 +80,7 @@ interface StockImpactEtf {
 interface StockImpact {
   stockId: string;
   stockName: string;
+  sector: string;
   etfCount: number;
   increaseEtfCount: number;
   decreaseEtfCount: number;
@@ -89,8 +90,38 @@ interface StockImpact {
   maxAbsActiveDiffLots: number;
   maxAbsDiffWeightPoint: number;
   impactScore: number;
+  market: {
+    market: "TWSE" | "TPEx";
+    closePrice: NullableNumber;
+    change: NullableNumber;
+    changePercent: NullableNumber;
+    volumeShares: NullableNumber;
+    turnover: NullableNumber;
+    transactionCount: NullableNumber;
+  } | null;
+  institutional: {
+    foreignNetShares: NullableNumber;
+    investmentTrustNetShares: NullableNumber;
+    dealerNetShares: NullableNumber;
+    totalNetShares: NullableNumber;
+  } | null;
   primaryImpactEtf: StockImpactEtf | null;
   etfs: StockImpactEtf[];
+}
+
+interface SectorSummaryRow {
+  sector: string;
+  stockCount: number;
+  etfCount: number;
+  totalActiveDiffLots: number;
+  totalInstitutionalNetLots: NullableNumber;
+  totalTurnover: NullableNumber;
+  topStocks: Array<{
+    stockId: string;
+    stockName: string;
+    impactScore: number;
+    totalActiveDiffLots: number;
+  }>;
 }
 
 interface EtfCoverageRow {
@@ -119,6 +150,9 @@ interface DashboardResponse {
   summaries: Summary[];
   stockImpact: {
     impacts: StockImpact[];
+    sectorSummary: {
+      sectors: SectorSummaryRow[];
+    };
   };
   coverage: EtfCoverageResponse;
 }
@@ -145,6 +179,7 @@ const holdings = ref<Holding[]>([]);
 const summary = ref<Summary | null>(null);
 const summaryHistory = ref<Summary[]>([]);
 const stockImpacts = ref<StockImpact[]>([]);
+const sectorSummaryRows = ref<SectorSummaryRow[]>([]);
 const coverage = ref<EtfCoverageResponse | null>(null);
 const telegramInfo = ref<TelegramInfo | null>(null);
 const changes = ref<ChangesResponse>({
@@ -165,7 +200,9 @@ const displayedImpacts = computed(() => {
   if (!normalized) return stockImpacts.value;
 
   return stockImpacts.value.filter((row) =>
-    `${row.stockId} ${row.stockName} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`.toLowerCase().includes(normalized)
+    `${row.stockId} ${row.stockName} ${row.sector} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`
+      .toLowerCase()
+      .includes(normalized)
   );
 });
 
@@ -209,8 +246,10 @@ const activeDecreaseRows = computed(() => changes.value.topActiveDecreases.slice
 const marketTotals = computed(() => ({
   impactedStocks: stockImpacts.value.length,
   activeLots: stockImpacts.value.reduce((sum, row) => sum + row.totalActiveDiffLots, 0),
-  etfTouches: stockImpacts.value.reduce((sum, row) => sum + row.etfCount, 0)
+  institutionalNetLots: stockImpacts.value.reduce((sum, row) => sum + (row.institutional?.totalNetShares ?? 0) / 1000, 0),
+  turnover: stockImpacts.value.reduce((sum, row) => sum + (row.market?.turnover ?? 0), 0)
 }));
+const topSectorRows = computed(() => sectorSummaryRows.value.slice(0, 6));
 const staleCoverageRows = computed(() =>
   coverage.value?.etfs.filter((etf) => etf.status === "stale" || etf.status === "missing") ?? []
 );
@@ -314,6 +353,11 @@ function formatFundSize(value: NullableNumber): string {
   return formatMoney(value);
 }
 
+function formatSignedNumber(value: NullableNumber, digits = 0): string {
+  if (value === null) return "-";
+  return `${value > 0 ? "+" : ""}${formatNumber(value, digits)}`;
+}
+
 function formatPct(value: NullableNumber, digits = 2): string {
   if (value === null) return "-";
   return `${value > 0 ? "+" : ""}${formatNumber(value, digits)}%`;
@@ -331,6 +375,11 @@ function formatDateLabel(value: string): string {
 function formatLots(value: NullableNumber): string {
   if (value === null) return "-";
   return `${value > 0 ? "+" : ""}${formatNumber(value, 0)}`;
+}
+
+function formatLotsFromShares(value: NullableNumber): string {
+  if (value === null) return "-";
+  return formatLots(value / 1000);
 }
 
 function formatWeight(value: NullableNumber): string {
@@ -384,6 +433,11 @@ function coverageStatusLabel(row: EtfCoverageRow): string {
   return "已納入";
 }
 
+function marketLabel(row: StockImpact): string {
+  if (!row.market) return "-";
+  return `${formatNumber(row.market.closePrice, 2)} / ${formatSignedNumber(row.market.changePercent, 2)}%`;
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -419,6 +473,7 @@ async function loadDashboard(): Promise<void> {
     summary.value = dashboard.summary;
     summaryHistory.value = dashboard.summaries;
     stockImpacts.value = dashboard.stockImpact.impacts;
+    sectorSummaryRows.value = dashboard.stockImpact.sectorSummary?.sectors ?? [];
     coverage.value = dashboard.coverage;
     changes.value = dashboard.changes;
   } catch (error) {
@@ -509,7 +564,7 @@ watch(selectedEtfCode, async (etfCode) => {
       </div>
 
       <div v-if="showInitialSkeleton" class="market-kpis">
-        <div v-for="item in 3" :key="`market-skeleton-${item}`" class="kpi skeleton-card">
+        <div v-for="item in 4" :key="`market-skeleton-${item}`" class="kpi skeleton-card">
           <span></span>
           <strong></strong>
           <em></em>
@@ -531,10 +586,25 @@ watch(selectedEtfCode, async (etfCode) => {
           <em>張</em>
         </div>
         <div class="kpi">
-          <span>ETF 異動交集</span>
-          <strong>{{ formatNumber(marketTotals.etfTouches) }}</strong>
-          <em>筆</em>
+          <span>三大法人淨額</span>
+          <strong>{{ formatLots(marketTotals.institutionalNetLots) }}</strong>
+          <em>張</em>
         </div>
+        <div class="kpi">
+          <span>成交金額</span>
+          <strong>{{ formatMoney(marketTotals.turnover) }}</strong>
+          <em>影響股合計</em>
+        </div>
+      </div>
+
+      <div v-if="topSectorRows.length" class="sector-strip">
+        <article v-for="row in topSectorRows" :key="row.sector" class="sector-card">
+          <b>{{ row.sector }}</b>
+          <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
+            {{ formatLots(row.totalActiveDiffLots) }} 張
+          </span>
+          <small>法人 {{ formatLots(row.totalInstitutionalNetLots) }}｜{{ row.stockCount }} 股 / {{ row.etfCount }} ETF</small>
+        </article>
       </div>
 
       <div v-if="coverage" class="coverage-strip">
@@ -574,12 +644,15 @@ watch(selectedEtfCode, async (etfCode) => {
       <div class="holdings-table impact-table">
         <div class="holdings-head">
           <span>股票</span>
+          <span>產業 / 行情</span>
           <span class="term-with-help">
             主動淨變動
             <button class="help-button" type="button" aria-label="主動淨變動說明">?</button>
             <span class="help-popover" role="tooltip">{{ helpTexts.activeLots }}</span>
           </span>
           <span>權重變動</span>
+          <span>三大法人</span>
+          <span>成交金額</span>
           <span>影響 ETF</span>
           <span>主要來源</span>
         </div>
@@ -590,15 +663,33 @@ watch(selectedEtfCode, async (etfCode) => {
             <span></span>
             <span></span>
             <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         </template>
         <div v-for="row in displayedImpacts" v-else :key="row.stockId" class="holding-row">
-          <span class="stock-cell"><b>{{ row.stockId }}</b>{{ row.stockName }}</span>
+          <span class="stock-cell">
+            <b>{{ row.stockId }}</b>
+            <span>{{ row.stockName }}</span>
+          </span>
+          <span>
+            <b class="sector-pill">{{ row.sector }}</b>
+            <small class="impact-split">{{ row.market?.market ?? "-" }} {{ marketLabel(row) }}</small>
+          </span>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
             {{ formatLots(row.totalActiveDiffLots) }}
           </span>
           <span :class="{ 'increase-number': row.totalDiffWeightPoint > 0, 'decrease-number': row.totalDiffWeightPoint < 0 }">
             {{ formatPct(row.totalDiffWeightPoint, 2) }}
+          </span>
+          <span :class="{ 'increase-number': (row.institutional?.totalNetShares ?? 0) > 0, 'decrease-number': (row.institutional?.totalNetShares ?? 0) < 0 }">
+            {{ formatLotsFromShares(row.institutional?.totalNetShares ?? null) }}
+            <small class="impact-split">投信 {{ formatLotsFromShares(row.institutional?.investmentTrustNetShares ?? null) }}</small>
+          </span>
+          <span>
+            {{ formatMoney(row.market?.turnover ?? null) }}
+            <small class="impact-split">量 {{ formatLotsFromShares(row.market?.volumeShares ?? null) }} 張</small>
           </span>
           <span>
             {{ row.etfCount }} 檔

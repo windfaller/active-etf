@@ -6,8 +6,13 @@ export const sectorNameSchema = z.enum([
   "CPO",
   "散熱",
   "ASIC",
+  "半導體",
+  "半導體設備",
+  "光通訊",
   "金融",
   "航運",
+  "電源",
+  "記憶體",
   "其他"
 ]);
 
