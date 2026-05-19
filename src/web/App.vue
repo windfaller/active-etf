@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import {
-  Activity,
   AlertCircle,
   BarChart3,
   Calendar,
@@ -11,7 +10,6 @@ import {
   ListChecks,
   RefreshCw,
   Search,
-  Send,
   TrendingDown,
   TrendingUp
 } from "@lucide/vue";
@@ -544,7 +542,9 @@ watch(selectedEtfCode, async (etfCode) => {
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-block">
-        <div class="brand-mark"><Activity :size="20" /></div>
+        <div class="brand-mark">
+          <img src="/assets/logo-mark.svg" alt="" aria-hidden="true" />
+        </div>
         <div>
           <h1>台灣主動式ETF 調倉雷達</h1>
           <p>跨 ETF 個股影響、單檔操作日報、折溢價與持股總表</p>
@@ -560,7 +560,7 @@ watch(selectedEtfCode, async (etfCode) => {
           rel="noreferrer"
           :aria-disabled="telegramInfo && !telegramInfo.configured"
         >
-          <Send :size="16" />
+          <img src="/assets/telegram-icon.svg" alt="" aria-hidden="true" />
           <span>Telegram 訂閱</span>
         </a>
 
@@ -729,7 +729,7 @@ watch(selectedEtfCode, async (etfCode) => {
           </span>
           <span>
             {{ formatMoney(row.market?.turnover ?? null) }}
-            <small class="impact-split">量 {{ formatLotsFromShares(row.market?.volumeShares ?? null) }} 張</small>
+            <small class="impact-split">{{ formatLotsFromShares(row.market?.volumeShares ?? null) }} 張</small>
           </span>
           <span>
             {{ row.etfCount }} 檔
