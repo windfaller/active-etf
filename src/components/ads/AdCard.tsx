@@ -57,7 +57,8 @@ export default defineComponent({
           h("div", { class: ["ad-card__content", { "ad-card__content--sr-only": Boolean(props.ad.imageUrl) }] }, [
             h("span", { class: "ad-card__provider" }, props.ad.provider),
             h("strong", { class: "ad-card__title" }, props.ad.title),
-            props.ad.description ? h("span", { class: "ad-card__description" }, props.ad.description) : null
+            props.ad.description ? h("span", { class: "ad-card__description" }, props.ad.description) : null,
+            h("span", { class: "ad-card__cta" }, "查看市場共識 →")
           ])
         ]
       );

@@ -743,6 +743,12 @@ watch(selectedEtfCode, async (etfCode) => {
         </div>
         <p v-if="!isLoading && !displayedImpacts.length" class="empty-row">此日期尚無跨 ETF 異動資料。</p>
       </div>
+
+      <AdSlot
+        v-if="activeMainTab === 'market'"
+        slot="article-inline"
+        page="/market"
+      />
     </section>
 
     <section
@@ -1084,7 +1090,7 @@ watch(selectedEtfCode, async (etfCode) => {
       </section>
 
       <AdSlot
-        v-if="activeEtfPage === 'report'"
+        v-if="activeMainTab === 'etf' && activeEtfPage === 'report'"
         slot="article-inline"
         :page="`/etf/${selectedEtfCode}`"
         :etf-code="selectedEtfCode"
