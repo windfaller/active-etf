@@ -19,6 +19,7 @@ import { configuredEtfs } from "../config/etfs";
 
 type NullableNumber = number | null;
 type MainTab = "market" | "etf";
+type EtfPage = "report" | "premiumHistory";
 
 interface Holding {
   stockId: string;
@@ -172,6 +173,7 @@ const availableDates = ref<string[]>([]);
 const selectedDate = ref("");
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const activeMainTab = ref<MainTab>("market");
+const activeEtfPage = ref<EtfPage>("report");
 const marketQuery = ref("");
 const holdingQuery = ref("");
 const isLoading = ref(false);
@@ -504,6 +506,7 @@ onMounted(() => {
 });
 
 watch(selectedEtfCode, async (etfCode) => {
+  activeEtfPage.value = "report";
   await loadAvailableDates(etfCode);
   await loadDashboard();
 });
@@ -722,10 +725,20 @@ watch(selectedEtfCode, async (etfCode) => {
       <div class="section-heading report-heading">
         <div>
           <span class="eyebrow">單檔 ETF</span>
-          <h2><ListChecks :size="19" /> 操作日報</h2>
-          <p>基金選擇、當日增減碼、折溢價與持股總表都集中在這裡。</p>
+          <h2 v-if="activeEtfPage === 'report'"><ListChecks :size="19" /> 操作日報</h2>
+          <h2 v-else><LineChart :size="19" /> 折溢價歷史</h2>
+          <p v-if="activeEtfPage === 'report'">基金選擇、當日增減碼、折溢價與持股總表都集中在這裡。</p>
+          <p v-else>查看 {{ selectedEtf?.etfCode }} 的歷史股價、淨值與折溢價走勢。</p>
         </div>
         <div class="toolbar report-controls">
+          <button
+            v-if="activeEtfPage === 'premiumHistory'"
+            class="secondary-button"
+            type="button"
+            @click="activeEtfPage = 'report'"
+          >
+            返回日報
+          </button>
           <label class="control wide-control">
             <span>ETF</span>
             <select v-model="selectedEtfCode" aria-label="ETF">
@@ -745,46 +758,84 @@ watch(selectedEtfCode, async (etfCode) => {
         </small>
       </div>
 
-      <section v-if="showInitialSkeleton" class="summary-cards" aria-label="ETF summary loading">
-        <div v-for="item in 3" :key="`summary-skeleton-${item}`" class="kpi skeleton-card">
-          <span></span>
-          <strong></strong>
-          <em></em>
-        </div>
-      </section>
-      <section v-else class="summary-cards" aria-label="ETF summary">
-        <div class="kpi">
-          <span>基金規模</span>
-          <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
-          <em>較前日 {{ formatPct(summary?.netCreationUnits ? (summary.netCreationUnits / (summary.totalUnits ?? 1)) * 100 : 0, 2) }}</em>
-        </div>
-        <div class="kpi">
-          <span class="term-with-help">
-            折溢價 / NAV
-            <button class="help-button" type="button" aria-label="折溢價說明">?</button>
-            <span class="help-popover" role="tooltip">{{ helpTexts.premium }}</span>
-          </span>
-          <strong>{{ formatPct(summary?.premiumDiscount ?? null, 2) }}</strong>
-          <em>股價 {{ formatNumber(summary?.marketPrice ?? null, 2) }}｜淨值 {{ formatNumber(summary?.nav ?? null, 2) }}</em>
-        </div>
-        <div class="kpi">
-          <span>資產配置</span>
-          <strong>{{ formatPct(summary?.stockRatio ?? null, 1) }}</strong>
-          <em>股票｜現金 {{ formatPct(summary?.cashRatio ?? null, 1) }}</em>
-        </div>
-      </section>
-
-      <details class="history-disclosure premium-disclosure" open>
-        <summary>
-          <span>
-            <LineChart :size="18" /> 折溢價走勢（橫軸：交易日）
+      <template v-if="activeEtfPage === 'report'">
+        <section v-if="showInitialSkeleton" class="summary-cards" aria-label="ETF summary loading">
+          <div v-for="item in 3" :key="`summary-skeleton-${item}`" class="kpi skeleton-card">
+            <span></span>
+            <strong></strong>
+            <em></em>
+          </div>
+        </section>
+        <section v-else class="summary-cards" aria-label="ETF summary">
+          <div class="kpi">
+            <span>基金規模</span>
+            <strong>{{ formatFundSize(summary?.fundSize ?? null) }}</strong>
+            <em>較前日 {{ formatPct(summary?.netCreationUnits ? (summary.netCreationUnits / (summary.totalUnits ?? 1)) * 100 : 0, 2) }}</em>
+          </div>
+          <div class="kpi premium-kpi">
             <span class="term-with-help">
-              <button class="help-button" type="button" aria-label="折溢價走勢說明">?</button>
-              <span class="help-popover" role="tooltip">{{ helpTexts.premiumChart }}</span>
+              折溢價 / NAV
+              <button class="help-button" type="button" aria-label="折溢價說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.premium }}</span>
             </span>
-          </span>
-          <small>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</small>
-        </summary>
+            <strong>{{ formatPct(summary?.premiumDiscount ?? null, 2) }}</strong>
+            <em>股價 {{ formatNumber(summary?.marketPrice ?? null, 2) }}｜淨值 {{ formatNumber(summary?.nav ?? null, 2) }}</em>
+            <button class="kpi-action" type="button" @click="activeEtfPage = 'premiumHistory'">
+              <LineChart :size="16" />
+              歷史
+            </button>
+          </div>
+          <div class="kpi">
+            <span>資產配置</span>
+            <strong>{{ formatPct(summary?.stockRatio ?? null, 1) }}</strong>
+            <em>股票｜現金 {{ formatPct(summary?.cashRatio ?? null, 1) }}</em>
+          </div>
+        </section>
+
+        <section v-if="showInitialSkeleton" class="operation-cards">
+          <div v-for="item in 4" :key="`operation-skeleton-${item}`" class="kpi skeleton-card">
+            <span></span>
+            <strong></strong>
+            <em></em>
+          </div>
+        </section>
+        <section v-else class="operation-cards">
+          <div class="kpi">
+            <span>新增</span>
+            <strong>{{ operationCounts.new }}</strong>
+            <em>檔</em>
+          </div>
+          <div class="kpi delete-card">
+            <span>刪除</span>
+            <strong>{{ operationCounts.delete }}</strong>
+            <em>檔</em>
+          </div>
+          <div class="kpi add-card">
+            <span>加碼</span>
+            <strong>{{ operationCounts.increase }}</strong>
+            <em>檔</em>
+          </div>
+          <div class="kpi cut-card">
+            <span>減碼</span>
+            <strong>{{ operationCounts.decrease }}</strong>
+            <em>檔</em>
+          </div>
+        </section>
+      </template>
+
+      <section v-else class="premium-history-page">
+        <div class="premium-page-title">
+          <div>
+            <h2>
+              <LineChart :size="18" /> 折溢價走勢（橫軸：交易日）
+              <span class="term-with-help">
+                <button class="help-button" type="button" aria-label="折溢價走勢說明">?</button>
+                <span class="help-popover" role="tooltip">{{ helpTexts.premiumChart }}</span>
+              </span>
+            </h2>
+            <p>更新：{{ latestPremiumDate === "-" ? "-" : formatDateLabel(latestPremiumDate) }}</p>
+          </div>
+        </div>
 
         <div class="premium-chart" :class="{ empty: !premiumValues.length }">
           <div v-if="premiumValues.length" class="premium-bars">
@@ -826,39 +877,9 @@ watch(selectedEtfCode, async (etfCode) => {
             </span>
           </div>
         </div>
-      </details>
-
-      <section v-if="showInitialSkeleton" class="operation-cards">
-        <div v-for="item in 4" :key="`operation-skeleton-${item}`" class="kpi skeleton-card">
-          <span></span>
-          <strong></strong>
-          <em></em>
-        </div>
-      </section>
-      <section v-else class="operation-cards">
-        <div class="kpi">
-          <span>新增</span>
-          <strong>{{ operationCounts.new }}</strong>
-          <em>檔</em>
-        </div>
-        <div class="kpi delete-card">
-          <span>刪除</span>
-          <strong>{{ operationCounts.delete }}</strong>
-          <em>檔</em>
-        </div>
-        <div class="kpi add-card">
-          <span>加碼</span>
-          <strong>{{ operationCounts.increase }}</strong>
-          <em>檔</em>
-        </div>
-        <div class="kpi cut-card">
-          <span>減碼</span>
-          <strong>{{ operationCounts.decrease }}</strong>
-          <em>檔</em>
-        </div>
       </section>
 
-      <section class="operation-panel">
+      <section v-if="activeEtfPage === 'report'" class="operation-panel">
         <div class="operation-title">
           <div>
             <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
@@ -908,7 +929,7 @@ watch(selectedEtfCode, async (etfCode) => {
         </div>
       </section>
 
-      <section class="signal-grid">
+      <section v-if="activeEtfPage === 'report'" class="signal-grid">
         <article class="panel">
           <div class="panel-title positive">
             <TrendingUp :size="18" />
@@ -992,7 +1013,7 @@ watch(selectedEtfCode, async (etfCode) => {
         </article>
       </section>
 
-      <section class="holdings-panel">
+      <section v-if="activeEtfPage === 'report'" class="holdings-panel">
         <div class="table-title">
           <div>
             <h2><Database :size="18" /> 持股總表</h2>

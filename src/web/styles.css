@@ -186,6 +186,27 @@ input:focus {
   border-color: #d5dde5;
 }
 
+.secondary-button {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  align-self: end;
+  padding: 0 13px;
+  color: #345986;
+  background: #edf4fb;
+  border: 1px solid #cfddec;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.secondary-button:hover {
+  background: #e4eef8;
+}
+
 .icon-button:disabled {
   cursor: progress;
   opacity: 0.6;
@@ -419,6 +440,11 @@ input:focus {
   padding: 16px 18px;
 }
 
+.premium-kpi {
+  position: relative;
+  padding-right: 92px;
+}
+
 .kpi span {
   display: block;
   color: #6a7480;
@@ -442,6 +468,30 @@ input:focus {
   font-size: 14px;
   font-style: normal;
   font-weight: 650;
+}
+
+.kpi-action {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  color: #345986;
+  background: #edf4fb;
+  border: 1px solid #cfddec;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.kpi-action:hover {
+  background: #e4eef8;
 }
 
 .term-with-help {
@@ -605,13 +655,17 @@ input:focus {
   min-width: min(430px, 100%);
 }
 
-.report-controls .control {
-  width: 100%;
-}
+  .report-controls .control {
+    width: 100%;
+  }
 
-.report-controls select {
-  width: 100%;
-}
+  .report-controls select {
+    width: 100%;
+  }
+
+  .report-controls .secondary-button {
+    align-self: stretch;
+  }
 
 .report-identity {
   display: flex;
@@ -819,6 +873,40 @@ input:focus {
     linear-gradient(#edf1f4 1px, transparent 1px) 0 0 / 100% 25%,
     #ffffff;
   border-top: 1px solid #e8edf1;
+}
+
+.premium-history-page {
+  margin: 0 18px 16px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e6ea;
+  border-radius: 10px;
+}
+
+.premium-page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 16px;
+  border-bottom: 1px solid #e5e9ef;
+}
+
+.premium-page-title h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #18222d;
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.premium-page-title p {
+  margin-top: 6px;
+  color: #87909a;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .premium-chart.empty {
@@ -1360,11 +1448,25 @@ input:focus {
 
   .section-panel > .operation-panel,
   .section-panel > .holdings-panel,
-  .section-panel > .history-disclosure {
+  .section-panel > .history-disclosure,
+  .premium-history-page {
     margin: 0 0 14px;
     border-right: 0;
     border-left: 0;
     border-radius: 0;
+  }
+
+  .premium-kpi {
+    padding-right: 84px;
+  }
+
+  .kpi-action {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .premium-page-title {
+    padding: 14px 18px;
   }
 
   .operation-title {
