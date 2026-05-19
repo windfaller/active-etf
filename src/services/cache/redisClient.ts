@@ -9,6 +9,8 @@ interface RedisConfig {
   commandTimeoutMs: number;
 }
 
+let redisUnavailableUntil = 0;
+
 function getRedisConfig(): RedisConfig | null {
   const host = process.env.REDIS_GOGOWINNERS_HOST;
   const port = Number(process.env.REDIS_GOGOWINNERS_PORT ?? 6380);
@@ -20,12 +22,12 @@ function getRedisConfig(): RedisConfig | null {
     host,
     port,
     key,
-    commandTimeoutMs: Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 2500)
+    commandTimeoutMs: Number(process.env.REDIS_COMMAND_TIMEOUT_MS ?? 800)
   };
 }
 
 export function isRedisConfigured(): boolean {
-  return getRedisConfig() !== null;
+  return getRedisConfig() !== null && Date.now() >= redisUnavailableUntil;
 }
 
 function encodeCommand(parts: string[]): string {
@@ -79,6 +81,7 @@ function expectedResponseCount(commands: string[][]): number {
 export async function runRedisCommands(commands: string[][]): Promise<RedisValue[]> {
   const config = getRedisConfig();
   if (!config) throw new Error("Redis is not configured");
+  if (Date.now() < redisUnavailableUntil) throw new Error("Redis is temporarily disabled after a connection failure");
 
   const allCommands = [["AUTH", config.key], ...commands];
 
@@ -100,7 +103,10 @@ export async function runRedisCommands(commands: string[][]): Promise<RedisValue
       settled = true;
       clearTimeout(timeout);
       socket.destroy();
-      if (error) reject(error);
+      if (error) {
+        redisUnavailableUntil = Date.now() + Number(process.env.REDIS_FAILURE_COOLDOWN_MS ?? 60000);
+        reject(error);
+      }
     }
 
     socket.on("secureConnect", () => {
