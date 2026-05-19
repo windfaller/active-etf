@@ -145,6 +145,73 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && parts[1] === "etfs" && parts[2] === "coverage") {
+      const dateParam = requestUrl.searchParams.get("date");
+      const date = dateParam ? assertTradeDate(dateParam) : null;
+      const enabledEtfs = configuredEtfs.filter((item) => item.enabled);
+      const etfCodes = enabledEtfs.map((item) => item.etfCode);
+      const db = await getDevDb();
+      const latestRows = await db
+        .collection<EtfDailySummary>("etf_daily_summary")
+        .aggregate<{ etfCode: string; latestTradeDate: string; updatedAt: Date }>([
+          { $match: { etfCode: { $in: etfCodes } } },
+          { $sort: { tradeDate: -1 } },
+          {
+            $group: {
+              _id: "$etfCode",
+              latestTradeDate: { $first: "$tradeDate" },
+              updatedAt: { $first: "$updatedAt" }
+            }
+          },
+          { $project: { _id: 0, etfCode: "$_id", latestTradeDate: 1, updatedAt: 1 } }
+        ])
+        .toArray();
+      const availableOnDate = date
+        ? new Set(
+            (
+              await db
+                .collection<EtfDailySummary>("etf_daily_summary")
+                .find({ etfCode: { $in: etfCodes }, tradeDate: date }, { projection: { _id: 0, etfCode: 1 } })
+                .toArray()
+            ).map((row) => row.etfCode)
+          )
+        : new Set<string>();
+      const latestByCode = new Map(latestRows.map((row) => [row.etfCode, row]));
+      const etfs = enabledEtfs.map((etf) => {
+        const latest = latestByCode.get(etf.etfCode);
+        const hasSelectedDate = date ? availableOnDate.has(etf.etfCode) : false;
+        const latestTradeDate = latest?.latestTradeDate ?? null;
+        const status =
+          !date || hasSelectedDate
+            ? "available"
+            : latestTradeDate === null
+              ? "missing"
+              : latestTradeDate < date
+                ? "stale"
+                : "newer_available";
+
+        return {
+          etfCode: etf.etfCode,
+          name: etf.name,
+          issuer: etf.issuer,
+          providerId: etf.source.providerId ?? "ezmoney",
+          latestTradeDate,
+          hasSelectedDate,
+          status,
+          updatedAt: latest?.updatedAt ?? null
+        };
+      });
+
+      sendJson(res, 200, {
+        date,
+        trackedCount: etfs.length,
+        availableCount: date ? etfs.filter((etf) => etf.hasSelectedDate).length : 0,
+        staleCount: date ? etfs.filter((etf) => etf.status === "stale" || etf.status === "missing").length : 0,
+        etfs
+      });
+      return;
+    }
+
     if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "etf") {
       const authError = adminAuthError(req);
       if (authError) {
@@ -356,6 +423,27 @@ const server = createServer(async (req, res) => {
 
     const etfCode = parts[2];
     const action = parts[3];
+
+    if (action === "dates") {
+      const limit = Math.min(365, Math.max(1, Number(requestUrl.searchParams.get("limit") ?? 120)));
+      const body = await getOrSetDailyCache(["etf", etfCode, "dates", limit], async () => {
+        const db = await getDevDb();
+        const rows = await db
+          .collection<EtfDailyHolding>("etf_daily_holdings")
+          .aggregate<{ tradeDate: string }>([
+            { $match: { etfCode } },
+            { $group: { _id: "$tradeDate" } },
+            { $sort: { _id: -1 } },
+            { $limit: limit },
+            { $project: { _id: 0, tradeDate: "$_id" } }
+          ])
+          .toArray();
+
+        return { etfCode, dates: rows.map((row) => row.tradeDate) };
+      });
+      sendJson(res, 200, body);
+      return;
+    }
 
     if (action === "holdings") {
       const date = required(requestUrl.searchParams.get("date"), "date");

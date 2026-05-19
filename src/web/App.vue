@@ -92,6 +92,25 @@ interface StockImpact {
   etfs: StockImpactEtf[];
 }
 
+interface EtfCoverageRow {
+  etfCode: string;
+  name: string;
+  issuer: string;
+  providerId: string;
+  latestTradeDate: string | null;
+  hasSelectedDate: boolean;
+  status: "available" | "stale" | "missing" | "newer_available";
+  updatedAt: string | null;
+}
+
+interface EtfCoverageResponse {
+  date: string | null;
+  trackedCount: number;
+  availableCount: number;
+  staleCount: number;
+  etfs: EtfCoverageRow[];
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
@@ -108,6 +127,7 @@ const holdings = ref<Holding[]>([]);
 const summary = ref<Summary | null>(null);
 const summaryHistory = ref<Summary[]>([]);
 const stockImpacts = ref<StockImpact[]>([]);
+const coverage = ref<EtfCoverageResponse | null>(null);
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -172,6 +192,13 @@ const marketTotals = computed(() => ({
   activeLots: stockImpacts.value.reduce((sum, row) => sum + row.totalActiveDiffLots, 0),
   etfTouches: stockImpacts.value.reduce((sum, row) => sum + row.etfCount, 0)
 }));
+const staleCoverageRows = computed(() =>
+  coverage.value?.etfs.filter((etf) => etf.status === "stale" || etf.status === "missing") ?? []
+);
+const selectedEtfCoverage = computed(
+  () => coverage.value?.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null
+);
+const selectedEtfLatestDate = computed(() => selectedEtfCoverage.value?.latestTradeDate ?? "-");
 const loadingText = computed(() =>
   hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。"
 );
@@ -330,6 +357,13 @@ function etfLabel(code: string): string {
   return etfNameByCode.get(code) ?? code;
 }
 
+function coverageStatusLabel(row: EtfCoverageRow): string {
+  if (row.status === "missing") return "尚無資料";
+  if (row.status === "newer_available") return `最新 ${row.latestTradeDate}`;
+  if (row.status === "stale") return `最新 ${row.latestTradeDate}`;
+  return "已納入";
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -357,19 +391,28 @@ async function loadDashboard(): Promise<void> {
 
   try {
     const etfCode = selectedEtfCode.value;
-    const [holdingsResponse, summaryResponse, changesResponse, summaryHistoryResponse, stockImpactResponse] =
+    const [
+      holdingsResponse,
+      summaryResponse,
+      changesResponse,
+      summaryHistoryResponse,
+      stockImpactResponse,
+      coverageResponse
+    ] =
       await Promise.all([
         getJson<{ holdings: Holding[] }>(`/api/etf/${etfCode}/holdings?date=${selectedDate.value}`),
         getJson<{ summary: Summary | null }>(`/api/etf/${etfCode}/summary?date=${selectedDate.value}`),
         getJson<ChangesResponse>(`/api/etf/${etfCode}/changes?date=${selectedDate.value}`),
         getJson<{ summaries: Summary[] }>(`/api/etf/${etfCode}/summary-history?limit=90`),
-        getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`)
+        getJson<{ impacts: StockImpact[] }>(`/api/market/stock-impact?date=${selectedDate.value}`),
+        getJson<EtfCoverageResponse>(`/api/etfs/coverage?date=${selectedDate.value}`)
       ]);
 
     holdings.value = holdingsResponse.holdings;
     summary.value = summaryResponse.summary;
     summaryHistory.value = summaryHistoryResponse.summaries;
     stockImpacts.value = stockImpactResponse.impacts;
+    coverage.value = coverageResponse;
     changes.value = changesResponse;
   } catch (error) {
     errorMessage.value =
@@ -466,6 +509,23 @@ watch(selectedEtfCode, async (etfCode) => {
         </div>
       </div>
 
+      <div v-if="coverage" class="coverage-strip">
+        <div class="coverage-main">
+          <b>統計涵蓋 {{ coverage.availableCount }} / {{ coverage.trackedCount }} 檔 ETF</b>
+          <span>{{ selectedDate }} 已納入跨 ETF 影響計算；不同投信揭露時間可能不同。</span>
+        </div>
+        <div v-if="staleCoverageRows.length" class="coverage-lag">
+          <span>尚未更新</span>
+          <small v-for="row in staleCoverageRows.slice(0, 6)" :key="row.etfCode">
+            {{ row.etfCode }} {{ coverageStatusLabel(row) }}
+          </small>
+          <small v-if="staleCoverageRows.length > 6">+{{ staleCoverageRows.length - 6 }} 檔</small>
+        </div>
+        <div v-else class="coverage-lag complete">
+          <span>所有追蹤 ETF 都已含此日期資料</span>
+        </div>
+      </div>
+
       <div class="table-title">
         <div>
           <h2>
@@ -547,7 +607,9 @@ watch(selectedEtfCode, async (etfCode) => {
       <div class="report-identity">
         <b>{{ selectedEtf?.etfCode }}</b>
         <span>{{ selectedEtf?.name }}</span>
-        <small>{{ selectedEtf?.issuer }}｜{{ selectedDate }}</small>
+        <small>
+          {{ selectedEtf?.issuer }}｜畫面日期 {{ selectedDate }}｜來源最新 {{ selectedEtfLatestDate }}
+        </small>
       </div>
 
       <section v-if="showInitialSkeleton" class="summary-cards" aria-label="ETF summary loading">
