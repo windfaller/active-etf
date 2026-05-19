@@ -2,6 +2,7 @@ import { logger } from "../../utils/logger.js";
 import { isRedisConfigured, redisDel, redisGet, redisSetEx } from "./redisClient.js";
 
 const namespace = "active-etf:v1";
+const commonDateLimits = [10, 30, 60, 90, 120, 180, 365];
 const commonSummaryHistoryLimits = [30, 60, 90, 120, 180];
 
 function ttlSeconds(): number {
@@ -58,9 +59,7 @@ export async function invalidateDailyCache(etfCode: string, tradeDate: string): 
     buildCacheKey(["etf", etfCode, "changes", tradeDate]),
     buildCacheKey(["market", "stock-impact", tradeDate]),
     buildCacheKey(["etf", "active", "ranking", tradeDate]),
-    buildCacheKey(["etf", etfCode, "dates", 120]),
-    buildCacheKey(["etf", etfCode, "dates", 180]),
-    buildCacheKey(["etf", etfCode, "dates", 365]),
+    ...commonDateLimits.map((limit) => buildCacheKey(["etf", etfCode, "dates", limit])),
     ...commonSummaryHistoryLimits.map((limit) => buildCacheKey(["etf", etfCode, "summary-history", limit]))
   ];
 
