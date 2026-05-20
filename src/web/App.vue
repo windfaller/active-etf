@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   AlertCircle,
   BarChart3,
@@ -524,6 +524,29 @@ async function loadTelegramInfo(): Promise<void> {
   }
 }
 
+function scrollToPageTop(): void {
+  if (typeof window === "undefined") return;
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
+async function showMarketTab(): Promise<void> {
+  activeMainTab.value = "market";
+  await nextTick();
+  scrollToPageTop();
+}
+
+async function showEtfReport(etfCode?: string): Promise<void> {
+  activeMainTab.value = "etf";
+  activeEtfPage.value = "report";
+
+  if (etfCode && etfCode !== selectedEtfCode.value) {
+    selectedEtfCode.value = etfCode;
+  }
+
+  await nextTick();
+  scrollToPageTop();
+}
+
 onMounted(() => {
   void (async () => {
     void loadTelegramInfo();
@@ -536,6 +559,10 @@ watch(selectedEtfCode, async (etfCode) => {
   activeEtfPage.value = "report";
   await loadAvailableDates(etfCode);
   await loadDashboard();
+  if (activeMainTab.value === "etf") {
+    await nextTick();
+    scrollToPageTop();
+  }
 });
 </script>
 
@@ -737,7 +764,15 @@ watch(selectedEtfCode, async (etfCode) => {
             <small class="impact-split">加 {{ row.increaseEtfCount }} / 減 {{ row.decreaseEtfCount }}</small>
           </span>
           <span>
-            {{ row.primaryImpactEtf?.etfCode ?? "-" }}
+            <button
+              v-if="row.primaryImpactEtf"
+              class="primary-etf-link"
+              type="button"
+              @click="showEtfReport(row.primaryImpactEtf.etfCode)"
+            >
+              {{ row.primaryImpactEtf.etfCode }}
+            </button>
+            <span v-else>-</span>
             <small class="impact-split">{{ row.primaryImpactEtf ? etfLabel(row.primaryImpactEtf.etfCode) : "-" }}</small>
           </span>
         </div>
@@ -1106,7 +1141,7 @@ watch(selectedEtfCode, async (etfCode) => {
         type="button"
         :class="{ active: activeMainTab === 'market' }"
         aria-controls="market-panel"
-        @click="activeMainTab = 'market'"
+        @click="showMarketTab"
       >
         <Layers :size="19" />
         <span>市場總覽</span>
@@ -1115,7 +1150,7 @@ watch(selectedEtfCode, async (etfCode) => {
         type="button"
         :class="{ active: activeMainTab === 'etf' }"
         aria-controls="report-panel"
-        @click="activeMainTab = 'etf'"
+        @click="showEtfReport()"
       >
         <ListChecks :size="19" />
         <span>單檔 ETF</span>

@@ -1216,6 +1216,31 @@ input:focus {
   font-weight: 650;
 }
 
+.primary-etf-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  padding: 0;
+  color: #345986;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(52, 89, 134, 0.34);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.primary-etf-link:hover {
+  color: #07847d;
+  border-bottom-color: rgba(7, 132, 125, 0.52);
+}
+
+.primary-etf-link:focus-visible {
+  outline: 2px solid rgba(7, 132, 125, 0.24);
+  outline-offset: 3px;
+}
+
 .sector-pill {
   display: inline-flex;
   max-width: 100%;
