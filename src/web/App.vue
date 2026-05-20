@@ -175,6 +175,8 @@ const activeMainTab = ref<MainTab>("market");
 const activeEtfPage = ref<EtfPage>("report");
 const marketQuery = ref("");
 const holdingQuery = ref("");
+const expandedSector = ref("");
+const focusedStockImpactId = ref("");
 const isLoading = ref(false);
 const hasLoaded = ref(false);
 const errorMessage = ref("");
@@ -253,6 +255,12 @@ const marketTotals = computed(() => ({
   turnover: stockImpacts.value.reduce((sum, row) => sum + (row.market?.turnover ?? 0), 0)
 }));
 const topSectorRows = computed(() => sectorSummaryRows.value.slice(0, 6));
+const expandedSectorStocks = computed(() => {
+  if (!expandedSector.value) return [];
+  return stockImpacts.value
+    .filter((row) => sectorLabel(row) === expandedSector.value)
+    .sort((a, b) => b.impactScore - a.impactScore);
+});
 const staleCoverageRows = computed(() =>
   coverage.value?.etfs.filter((etf) => etf.status === "stale" || etf.status === "missing") ?? []
 );
@@ -469,6 +477,31 @@ function sectorClass(row: StockImpact): string {
   return "other";
 }
 
+function stockImpactRowId(stockId: string): string {
+  return `stock-impact-${stockId}`;
+}
+
+function toggleSector(sector: string): void {
+  expandedSector.value = expandedSector.value === sector ? "" : sector;
+}
+
+async function focusStockImpact(stockId: string): Promise<void> {
+  marketQuery.value = "";
+  focusedStockImpactId.value = stockId;
+  await nextTick();
+
+  document.getElementById(stockImpactRowId(stockId))?.scrollIntoView({
+    block: "center",
+    behavior: "smooth"
+  });
+
+  window.setTimeout(() => {
+    if (focusedStockImpactId.value === stockId) {
+      focusedStockImpactId.value = "";
+    }
+  }, 2400);
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -665,13 +698,42 @@ watch(selectedEtfCode, async (etfCode) => {
       </div>
 
       <div v-if="topSectorRows.length" class="sector-strip">
-        <article v-for="row in topSectorRows" :key="row.sector" class="sector-card">
+        <button
+          v-for="row in topSectorRows"
+          :key="row.sector"
+          class="sector-card"
+          :class="{ active: expandedSector === row.sector }"
+          type="button"
+          :aria-expanded="expandedSector === row.sector"
+          @click="toggleSector(row.sector)"
+        >
           <b>{{ row.sector }}</b>
           <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
             {{ formatLots(row.totalActiveDiffLots) }} 張
           </span>
           <small>法人 {{ formatLots(row.totalInstitutionalNetLots) }}｜{{ row.stockCount }} 股 / {{ row.etfCount }} ETF</small>
-        </article>
+        </button>
+      </div>
+      <div v-if="expandedSector" class="sector-stock-panel">
+        <div class="sector-stock-heading">
+          <b>{{ expandedSector }}</b>
+          <span>{{ expandedSectorStocks.length }} 檔個股影響資料</span>
+        </div>
+        <div class="sector-stock-list">
+          <button
+            v-for="stock in expandedSectorStocks"
+            :key="stock.stockId"
+            class="sector-stock-link"
+            type="button"
+            @click="focusStockImpact(stock.stockId)"
+          >
+            <b>{{ stock.stockId }}</b>
+            <span>{{ stock.stockName }}</span>
+            <small :class="{ 'increase-number': stock.totalActiveDiffLots > 0, 'decrease-number': stock.totalActiveDiffLots < 0 }">
+              {{ formatLots(stock.totalActiveDiffLots) }} 張
+            </small>
+          </button>
+        </div>
       </div>
 
       <div v-if="coverage" class="coverage-strip">
@@ -735,7 +797,14 @@ watch(selectedEtfCode, async (etfCode) => {
             <span></span>
           </div>
         </template>
-        <div v-for="row in displayedImpacts" v-else :key="row.stockId" class="holding-row">
+        <div
+          v-for="row in displayedImpacts"
+          v-else
+          :id="stockImpactRowId(row.stockId)"
+          :key="row.stockId"
+          class="holding-row"
+          :class="{ 'is-focused': focusedStockImpactId === row.stockId }"
+        >
           <span class="stock-cell">
             <b>{{ row.stockId }}</b>
             <span>{{ row.stockName }}</span>

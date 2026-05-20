@@ -426,9 +426,24 @@ input:focus {
   gap: 7px;
   min-width: 0;
   padding: 12px;
+  text-align: left;
   background: #f8fafb;
   border: 1px solid #e2e8ee;
   border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sector-card:hover,
+.sector-card.active {
+  background: #f2f7fb;
+  border-color: #bdd1e4;
+  box-shadow: 0 8px 22px rgba(52, 89, 134, 0.09);
+}
+
+.sector-card:focus-visible {
+  outline: 2px solid rgba(7, 132, 125, 0.22);
+  outline-offset: 3px;
 }
 
 .sector-card b {
@@ -449,6 +464,85 @@ input:focus {
   font-size: 11px;
   font-weight: 680;
   line-height: 1.35;
+}
+
+.sector-stock-panel {
+  display: grid;
+  gap: 10px;
+  margin: -4px 18px 16px;
+  padding: 13px;
+  background: #ffffff;
+  border: 1px solid #dce5ee;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(36, 48, 61, 0.06);
+}
+
+.sector-stock-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sector-stock-heading b {
+  color: #1f2b35;
+  font-size: 14px;
+}
+
+.sector-stock-heading span {
+  color: #68737e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sector-stock-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sector-stock-link {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 7px 9px;
+  color: #26313b;
+  background: #f8fafb;
+  border: 1px solid #e1e8ef;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.sector-stock-link:hover {
+  background: #edf4fb;
+  border-color: #c8dae9;
+}
+
+.sector-stock-link:focus-visible {
+  outline: 2px solid rgba(7, 132, 125, 0.22);
+  outline-offset: 2px;
+}
+
+.sector-stock-link b {
+  color: #345986;
+  font-weight: 850;
+}
+
+.sector-stock-link span {
+  overflow: hidden;
+  max-width: 112px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-stock-link small {
+  font-size: 11px;
+  font-weight: 780;
 }
 
 .kpi,
@@ -1206,6 +1300,11 @@ input:focus {
 
 .holding-row:nth-child(even) {
   background: #fbfcfd;
+}
+
+.holding-row.is-focused {
+  background: #fff7df;
+  box-shadow: inset 3px 0 0 #d7a72f;
 }
 
 .impact-split {
