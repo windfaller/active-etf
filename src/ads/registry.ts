@@ -4,9 +4,9 @@ export const adRegistry: AdItem[] = [
   {
     id: "forvix-fed-2026-ratecuts",
     provider: "forvix",
-    title: "市場預期：2026 聯準會可能僅降息一次",
-    description: "利率預期正在重新定價。追蹤全球市場如何看待 Fed、通膨與風險事件。",
-    imageUrl: "/assets/ads/forvix-fed-2026-ratecuts-visual-v2.png",
+    title: "市場預期：2026 聯準會不降息機率最高",
+    description: "5/20 資料顯示，0 次降息機率約 69.5%。追蹤全球市場如何看待 Fed、通膨與風險事件。",
+    imageUrl: "/assets/ads/forvix-fed-2026-ratecuts-visual-v3.png",
     link: "https://www.forvix.app/?topic=market&lang=zh-TW&tab=polymarket&id=51456",
     slots: ["article-inline", "sidebar-top"],
     enabled: true,
