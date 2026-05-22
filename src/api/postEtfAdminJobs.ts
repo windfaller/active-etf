@@ -5,6 +5,7 @@ import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
+import { sendTelegramDailyDigest } from "../services/notify/dailyDigestJob.js";
 import { setTelegramWebhook, telegramWebhookUrl } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
@@ -184,6 +185,29 @@ export async function postTelegramSetWebhook(request: HttpRequest, _context: Inv
   return jsonResponse({ ok: true, job: "telegramSetWebhook", webhookUrl: telegramWebhookUrl(), result });
 }
 
+export async function postTelegramDailyDigest(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const etfCode = request.query.get("etfCode") ?? undefined;
+  const dateParam = request.query.get("date");
+  const tradeDate = dateParam ? assertTradeDate(dateParam) : undefined;
+  const db = await getDb();
+  try {
+    const result = await sendTelegramDailyDigest(db, { etfCode, tradeDate });
+    return jsonResponse({ ok: true, job: "telegramDailyDigest", result });
+  } catch (error) {
+    return jsonResponse(
+      {
+        ok: false,
+        job: "telegramDailyDigest",
+        error: error instanceof Error ? error.message : String(error)
+      },
+      400
+    );
+  }
+}
+
 app.http("postEtfSyncHoldings", {
   methods: ["POST"],
   route: "jobs/etf/{etfCode}/sync-holdings",
@@ -238,4 +262,11 @@ app.http("postTelegramSetWebhook", {
   route: "jobs/telegram/set-webhook",
   authLevel: "anonymous",
   handler: postTelegramSetWebhook
+});
+
+app.http("postTelegramDailyDigest", {
+  methods: ["POST"],
+  route: "jobs/telegram/daily-digest",
+  authLevel: "anonymous",
+  handler: postTelegramDailyDigest
 });

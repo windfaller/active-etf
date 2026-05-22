@@ -84,6 +84,12 @@ Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), 
 
 Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.chicoo.co/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
 
+## Admin Telegram Daily Digest
+
+`POST /api/jobs/telegram/daily-digest?etfCode=00981A&date=YYYY-MM-DD`
+
+Sends the Telegram daily adjustment digest to enabled subscribers whose `dailyDigest` subscription is on. `etfCode` is optional and defaults to `00981A`. `date` is optional; if omitted, the endpoint uses the latest available `etf_holding_changes.tradeDate` for that ETF so Logic App schedules do not fail on weekends, holidays, or delayed source disclosure. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and either enabled subscribers or legacy `TELEGRAM_CHAT_ID`.
+
 ## Telegram Webhook
 
 `POST /api/telegram/webhook`

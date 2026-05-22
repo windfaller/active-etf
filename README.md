@@ -130,6 +130,14 @@ x-admin-token: <ADMIN_JOB_TOKEN>
 
 `daily-refresh` 會先執行證交所 e 添富主動式 ETF 偵測，再跑既有持股同步與計算；未追蹤的新上市 ETF 會寫入 `active_etf_discoveries`，若設定 Telegram 變數且偵測到新項目，會主動通知。
 
+若 Logic App 要在每日資料更新後發送 Telegram 每日日報，請在 `daily-refresh` 成功後接著呼叫：
+
+```txt
+POST /api/jobs/telegram/daily-digest
+```
+
+同樣必須帶 `x-admin-token`。可選參數：`etfCode=00981A`、`date=YYYY-MM-DD`。若未帶 `date`，系統會使用該 ETF 最新可用的 `etf_holding_changes.tradeDate`，避免假日或揭露延遲時查不到「今天」資料。
+
 設定 Telegram webhook 可呼叫一次：
 
 ```txt
@@ -217,6 +225,7 @@ pnpm test
 - `POST /api/jobs/daily-refresh`
 - `POST /api/jobs/discover-active-etfs?notify=true`
 - `POST /api/jobs/telegram/set-webhook`
+- `POST /api/jobs/telegram/daily-digest?etfCode=00981A&date=YYYY-MM-DD`
 - `POST /api/telegram/webhook`
 
 詳細規格見 `docs/api-spec.md`。
