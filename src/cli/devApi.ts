@@ -47,6 +47,30 @@ function adminAuthError(req: IncomingMessage): { status: number; message: string
   return null;
 }
 
+function enabledEtfSummaries() {
+  return configuredEtfs
+    .filter((item) => item.enabled)
+    .map((etf) => ({
+      etfCode: etf.etfCode,
+      name: etf.name,
+      issuer: etf.issuer,
+      fundCode: etf.fundCode,
+      providerId: etf.source.providerId ?? null
+    }));
+}
+
+async function latestHoldingChangeTradeDate(): Promise<string | null> {
+  const db = await getDevDb();
+  const latest = await db
+    .collection<EtfHoldingChange>("etf_holding_changes")
+    .find({})
+    .sort({ tradeDate: -1 })
+    .limit(1)
+    .next();
+
+  return latest?.tradeDate ?? null;
+}
+
 function telegramAuthError(req: IncomingMessage): { status: number; message: string } | null {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!expected) return { status: 500, message: "TELEGRAM_WEBHOOK_SECRET is required" };
@@ -345,6 +369,18 @@ const server = createServer(async (req, res) => {
         sendJson(res, 200, { ok: results.every((result) => result.ok), job: "calculateDailyChangesAll", results });
         return;
       }
+
+      if (action === "enabled") {
+        const authError = adminAuthError(req);
+        if (authError) {
+          sendJson(res, authError.status, { error: authError.message });
+          return;
+        }
+
+        const etfs = enabledEtfSummaries();
+        sendJson(res, 200, { ok: true, job: "enabledEtfs", result: { count: etfs.length, etfs } });
+        return;
+      }
     }
 
     if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "daily-refresh") {
@@ -420,6 +456,40 @@ const server = createServer(async (req, res) => {
       const result = await syncDailyMarketIntelligence(db, tradeDate);
       await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
       sendJson(res, 200, { ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "aggregates") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const dateParam = requestUrl.searchParams.get("date");
+      const tradeDate = dateParam ? assertTradeDate(dateParam) : await latestHoldingChangeTradeDate();
+      if (!tradeDate) {
+        sendJson(res, 400, { error: "date is required when no holding changes exist yet" });
+        return;
+      }
+
+      const db = await getDevDb();
+      const [consensus, sectorFlow, marketIntelligence] = await Promise.all([
+        calculateConsensus(db, tradeDate),
+        calculateSectorFlow(db, tradeDate),
+        syncDailyMarketIntelligence(db, tradeDate)
+      ]);
+      await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+      sendJson(res, 200, {
+        ok: marketIntelligence.errors.length === 0,
+        job: "dailyAggregates",
+        result: {
+          tradeDate,
+          consensusRows: consensus.length,
+          sectorRows: sectorFlow.length,
+          marketIntelligence
+        }
+      });
       return;
     }
 

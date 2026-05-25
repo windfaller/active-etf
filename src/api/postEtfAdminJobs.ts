@@ -1,6 +1,7 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
 import { getDb } from "../db/mongo.js";
+import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
@@ -19,6 +20,30 @@ function validateAdminToken(request: HttpRequest) {
   const actual = request.headers.get("x-admin-token");
   if (actual !== expected) return unauthorized();
   return null;
+}
+
+function enabledEtfSummaries() {
+  return configuredEtfs
+    .filter((item) => item.enabled)
+    .map((etf) => ({
+      etfCode: etf.etfCode,
+      name: etf.name,
+      issuer: etf.issuer,
+      fundCode: etf.fundCode,
+      providerId: etf.source.providerId ?? null
+    }));
+}
+
+async function latestHoldingChangeTradeDate(): Promise<string | null> {
+  const db = await getDb();
+  const latest = await db
+    .collection<EtfHoldingChange>("etf_holding_changes")
+    .find({})
+    .sort({ tradeDate: -1 })
+    .limit(1)
+    .next();
+
+  return latest?.tradeDate ?? null;
 }
 
 export async function postEtfSyncHoldings(request: HttpRequest, _context: InvocationContext) {
@@ -97,6 +122,14 @@ export async function postAllEtfsCalculateChanges(request: HttpRequest, _context
   return jsonResponse({ ok: results.every((result) => result.ok), job: "calculateDailyChangesAll", results });
 }
 
+export async function postEnabledEtfs(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const etfs = enabledEtfSummaries();
+  return jsonResponse({ ok: true, job: "enabledEtfs", result: { count: etfs.length, etfs } });
+}
+
 export async function postDailyRefresh(request: HttpRequest, _context: InvocationContext) {
   const authError = validateAdminToken(request);
   if (authError) return authError;
@@ -165,6 +198,35 @@ export async function postSyncMarketIntelligence(request: HttpRequest, _context:
   const result = await syncDailyMarketIntelligence(db, tradeDate);
   await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
   return jsonResponse({ ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
+}
+
+export async function postDailyAggregates(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const dateParam = request.query.get("date");
+  const tradeDate = dateParam ? assertTradeDate(dateParam) : await latestHoldingChangeTradeDate();
+  if (!tradeDate) return badRequest("date is required when no holding changes exist yet");
+
+  const db = await getDb();
+  const [consensus, sectorFlow, marketIntelligence] = await Promise.all([
+    calculateConsensus(db, tradeDate),
+    calculateSectorFlow(db, tradeDate),
+    syncDailyMarketIntelligence(db, tradeDate)
+  ]);
+
+  await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+
+  return jsonResponse({
+    ok: marketIntelligence.errors.length === 0,
+    job: "dailyAggregates",
+    result: {
+      tradeDate,
+      consensusRows: consensus.length,
+      sectorRows: sectorFlow.length,
+      marketIntelligence
+    }
+  });
 }
 
 export async function postDiscoverActiveEtfs(request: HttpRequest, _context: InvocationContext) {
@@ -236,6 +298,13 @@ app.http("postAllEtfsCalculateChanges", {
   handler: postAllEtfsCalculateChanges
 });
 
+app.http("postEnabledEtfs", {
+  methods: ["POST"],
+  route: "jobs/etfs/enabled",
+  authLevel: "anonymous",
+  handler: postEnabledEtfs
+});
+
 app.http("postDailyRefresh", {
   methods: ["POST"],
   route: "jobs/daily-refresh",
@@ -248,6 +317,13 @@ app.http("postSyncMarketIntelligence", {
   route: "jobs/market-intelligence",
   authLevel: "anonymous",
   handler: postSyncMarketIntelligence
+});
+
+app.http("postDailyAggregates", {
+  methods: ["POST"],
+  route: "jobs/aggregates",
+  authLevel: "anonymous",
+  handler: postDailyAggregates
 });
 
 app.http("postDiscoverActiveEtfs", {

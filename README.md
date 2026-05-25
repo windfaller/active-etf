@@ -122,6 +122,18 @@ Azure Static Web Apps managed Functions 只支援 HTTP triggers，因此本專�
 POST /api/jobs/daily-refresh
 ```
 
+若 `daily-refresh` 在 SWA/Cloudflare 路徑被 5 分鐘左右的 backend timeout 中斷，請改用拆分式 Logic App：
+
+```txt
+POST /api/jobs/discover-active-etfs?notify=true
+POST /api/jobs/etfs/enabled
+POST /api/jobs/etf/{etfCode}/sync-holdings
+POST /api/jobs/etf/{etfCode}/calculate-changes
+POST /api/jobs/aggregates
+```
+
+Logic App 應從 `etfs/enabled` 的 `result.etfs` 動態 foreach，不需要在 workflow 裡列舉 ETF code；未來新增或停用 ETF 只要更新程式設定並部署。
+
 必須在 SWA App Settings 設定 `ADMIN_JOB_TOKEN`，並讓 Logic App 帶 header：
 
 ```txt

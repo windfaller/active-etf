@@ -60,11 +60,25 @@ Runs the daily-change calculation job for one ETF. `date` is optional; if omitte
 
 Runs the daily-change calculation job for every enabled ETF in `src/config/etfs.ts`. `date` is optional; if omitted, the job uses today's Taipei date. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
+## Admin Enabled ETF List
+
+`POST /api/jobs/etfs/enabled`
+
+Returns the current enabled ETF list from `src/config/etfs.ts` for external schedulers. Logic App can call this endpoint first and iterate over `result.etfs` so future ETF additions or removals do not require editing the Logic App workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
 ## Admin Daily Refresh
 
 `POST /api/jobs/daily-refresh`
 
 Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, sector-flow calculation, and TWSE/TPEx daily market intelligence sync for every refreshed trade date. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
+For Azure Static Web Apps managed Functions, prefer the split Logic App flow when the full refresh risks backend timeout: call `discover-active-etfs`, `etfs/enabled`, loop through per-ETF `sync-holdings` and `calculate-changes`, then call `aggregates`.
+
+## Admin Daily Aggregates
+
+`POST /api/jobs/aggregates?date=YYYY-MM-DD`
+
+Runs consensus calculation, sector-flow calculation, and TWSE/TPEx daily market intelligence sync for one date. `date` is optional; if omitted, the job uses the latest available `etf_holding_changes.tradeDate`. This is intended for split scheduler workflows after per-ETF holdings and changes are complete. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 ## Admin Market Intelligence Sync
 
