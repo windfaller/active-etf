@@ -1203,6 +1203,7 @@ watch(selectedEtfCode, async (etfCode) => {
 
     <footer class="disclaimer">
       本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。ETF 持股揭露可能有時間差，請以投信與交易所公告為準。
+      <a href="/active-etfs/">查看追蹤 ETF 清單</a>
     </footer>
 
     <nav class="bottom-tabs" aria-label="主要頁籤">

@@ -115,6 +115,54 @@ h1 {
   font-size: 13px;
 }
 
+.static-seo-shell {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 32px 22px 56px;
+}
+
+.static-seo-shell header,
+.static-seo-shell section {
+  margin-bottom: 18px;
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #e2e6ea;
+  border-radius: 12px;
+}
+
+.static-seo-shell img {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.static-seo-shell h1 {
+  font-size: 30px;
+}
+
+.static-seo-shell h2 {
+  margin: 0 0 10px;
+  color: #18222d;
+  font-size: 21px;
+  line-height: 1.3;
+}
+
+.static-seo-shell p,
+.static-seo-shell li {
+  color: #596674;
+  line-height: 1.8;
+}
+
+.static-seo-shell ul {
+  margin: 12px 0 0;
+  padding-left: 22px;
+}
+
+.static-seo-shell a,
+.disclaimer a {
+  color: #345986;
+  font-weight: 760;
+}
+
 .toolbar {
   position: relative;
   z-index: 1;
