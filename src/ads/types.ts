@@ -23,6 +23,7 @@ export interface AdItem {
   description?: string;
 
   imageUrl?: string;
+  imageOnly?: boolean;
 
   link: string;
 

@@ -2,17 +2,18 @@ import type { AdItem } from "./types.js";
 
 export const adRegistry: AdItem[] = [
   {
-    id: "forvix-fed-2026-ratecuts",
+    id: "forvix-fed-july-decision",
     provider: "forvix",
-    title: "市場預期：2026 聯準會不降息機率最高",
-    description: "5/20 資料顯示，0 次降息機率約 69.5%。追蹤全球市場如何看待 Fed、通膨與風險事件。",
-    imageUrl: "/assets/ads/forvix-fed-2026-ratecuts-visual-v3.png",
-    link: "https://www.forvix.app/?topic=market&lang=zh-TW&tab=polymarket&id=51456",
+    title: "7月聯準會利率決策會如何？",
+    description: "交易前先看群眾預測，做出更明智的決策。",
+    imageUrl: "/assets/ads/forvix-fed-july-decision-v1.webp",
+    imageOnly: true,
+    link: "https://www.forvia.app/?id=287395",
     slots: ["article-inline", "sidebar-top"],
     enabled: true,
     priority: 100,
     weight: 100,
-    tags: ["macro", "fed", "rates", "bond", "market-sentiment", "prediction-intelligence"],
+    tags: ["macro", "fed", "rates", "fomc", "market-sentiment", "crowd-intelligence"],
     tracking: {
       impression: "/api/ad/impression",
       click: "/api/ad/click"

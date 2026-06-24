@@ -19,8 +19,10 @@ export default defineComponent({
   },
   emits: ["ad-click"],
   setup(props, { emit }) {
-    return () =>
-      h(
+    return () => {
+      const imageOnly = Boolean(props.ad.imageUrl && props.ad.imageOnly);
+
+      return h(
         "a",
         {
           class: [
@@ -29,7 +31,8 @@ export default defineComponent({
             `ad-card--slot-${props.slotName}`,
             {
               "ad-card--compact": props.compact,
-              "ad-card--visual": Boolean(props.ad.imageUrl)
+              "ad-card--visual": Boolean(props.ad.imageUrl),
+              "ad-card--image-only": imageOnly
             }
           ],
           href: props.ad.link,
@@ -55,13 +58,16 @@ export default defineComponent({
                 h("span"),
                 h("span")
               ]),
-          h("div", { class: "ad-card__content" }, [
-            h("span", { class: "ad-card__provider" }, props.ad.provider),
-            h("strong", { class: "ad-card__title" }, props.ad.title),
-            props.ad.description ? h("span", { class: "ad-card__description" }, props.ad.description) : null,
-            h("span", { class: "ad-card__cta" }, "查看市場共識 →")
-          ])
+          imageOnly
+            ? null
+            : h("div", { class: "ad-card__content" }, [
+                h("span", { class: "ad-card__provider" }, props.ad.provider),
+                h("strong", { class: "ad-card__title" }, props.ad.title),
+                props.ad.description ? h("span", { class: "ad-card__description" }, props.ad.description) : null,
+                h("span", { class: "ad-card__cta" }, "查看市場共識 →")
+              ])
         ]
       );
+    };
   }
 });
