@@ -10,7 +10,7 @@ Returns holdings for one ETF and trade date.
 
 `GET /api/etf/{etfCode}/changes?date=YYYY-MM-DD`
 
-Returns top increases, decreases, active increases, active decreases, new holdings, and exits.
+Returns top increases, decreases, active increases, active decreases, new holdings, exits, and `tagMovements` that aggregate the ETF manager's latest active movement by theme tag.
 
 ## Get Summary
 
@@ -85,6 +85,12 @@ Runs consensus calculation, sector-flow calculation, and TWSE/TPEx daily market 
 `POST /api/jobs/market-intelligence?date=YYYY-MM-DD`
 
 Runs only the shared TWSE/TPEx market intelligence sync for one date. This fetches daily stock quotes/trading values and 三大法人 flows, stores raw snapshots, upserts `stock_daily_market`, `stock_institutional_flows`, and `stock_sector_profiles`, then clears dashboard cache for that date. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
+## Admin Sector Profile Refresh
+
+`POST /api/jobs/sector-profiles/refresh`
+
+Refreshes `stock_sector_profiles` from the latest `stock_daily_market` and `etf_daily_holdings` rows using the local sector/theme-tag mapping rules. This is intended for weekly Logic App scheduling so tag changes can be applied without waiting for the next market-intelligence run. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 ## Admin Active ETF Discovery
 

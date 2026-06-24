@@ -18,6 +18,8 @@ import {
   telegramWebhookUrl
 } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
+import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
+import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
@@ -234,7 +236,8 @@ const server = createServer(async (req, res) => {
           ),
           exitedHoldings: etfChanges.filter(
             (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
-          )
+          ),
+          tagMovements: await tagMovementsForChanges(db, etfChanges)
         };
 
         const stockImpact = await stockImpactsForDate(db, date, allChanges);
@@ -493,6 +496,23 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "sector-profiles" && parts[3] === "refresh") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const db = await getDevDb();
+      const result = await refreshStockSectorProfiles(db);
+      const tradeDate = await latestHoldingChangeTradeDate();
+      if (tradeDate) {
+        await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+      }
+      sendJson(res, 200, { ok: true, job: "refreshSectorProfiles", result, cacheInvalidatedTradeDate: tradeDate });
+      return;
+    }
+
     if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "discover-active-etfs") {
       const authError = adminAuthError(req);
       if (authError) {
@@ -662,7 +682,8 @@ const server = createServer(async (req, res) => {
           ),
           exitedHoldings: changes.filter(
             (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
-          )
+          ),
+          tagMovements: await tagMovementsForChanges(db, changes)
         };
       });
       sendJson(res, 200, body);

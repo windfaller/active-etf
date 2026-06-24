@@ -76,6 +76,27 @@ interface ChangesResponse {
   topActiveDecreases: Change[];
   newHoldings: Change[];
   exitedHoldings: Change[];
+  tagMovements: TagMovement[];
+}
+
+interface TagMovement {
+  tag: string;
+  direction: "increase" | "decrease" | "mixed" | "flat";
+  stockCount: number;
+  increaseStockCount: number;
+  decreaseStockCount: number;
+  totalActiveDiffLots: number;
+  totalDiffWeightPoint: number;
+  totalCurrentWeight: number;
+  movementScore: number;
+  topStocks: Array<{
+    stockId: string;
+    stockName: string;
+    activeDiffLots: number;
+    diffWeightPoint: number;
+    currentWeight: NullableNumber;
+    status: string;
+  }>;
 }
 
 interface StockImpactEtf {
@@ -91,6 +112,7 @@ interface StockImpact {
   stockId: string;
   stockName: string;
   sector: string;
+  themeTags: string[];
   etfCount: number;
   increaseEtfCount: number;
   decreaseEtfCount: number;
@@ -205,7 +227,8 @@ const changes = ref<ChangesResponse>({
   topActiveIncreases: [],
   topActiveDecreases: [],
   newHoldings: [],
-  exitedHoldings: []
+  exitedHoldings: [],
+  tagMovements: []
 });
 
 const selectedEtf = computed(
@@ -217,7 +240,7 @@ const displayedImpacts = computed(() => {
   if (!normalized) return stockImpacts.value;
 
   return stockImpacts.value.filter((row) =>
-    `${row.stockId} ${row.stockName} ${row.sector} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`
+    `${row.stockId} ${row.stockName} ${row.sector} ${(row.themeTags ?? []).join(" ")} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`
       .toLowerCase()
       .includes(normalized)
   );
@@ -259,6 +282,8 @@ const premiumRange = computed(() => {
 const latestPremiumDate = computed(() => premiumRows.value[0]?.tradeDate ?? "-");
 const activeIncreaseRows = computed(() => changes.value.topActiveIncreases.slice(0, 12));
 const activeDecreaseRows = computed(() => changes.value.topActiveDecreases.slice(0, 12));
+const tagMovementRows = computed(() => (changes.value.tagMovements ?? []).slice(0, 8));
+const maxTagMovementScore = computed(() => Math.max(1, ...tagMovementRows.value.map((row) => row.movementScore)));
 
 const marketTotals = computed(() => ({
   impactedStocks: stockImpacts.value.length,
@@ -598,6 +623,17 @@ function barWidth(value: NullableNumber): string {
   return `${Math.min(100, (Math.abs(value ?? 0) / maxActiveLots.value) * 100)}%`;
 }
 
+function tagMovementWidth(row: TagMovement): string {
+  return `${Math.max(8, Math.min(100, (row.movementScore / maxTagMovementScore.value) * 100))}%`;
+}
+
+function tagDirectionLabel(row: TagMovement): string {
+  if (row.direction === "increase") return "偏加碼";
+  if (row.direction === "decrease") return "偏減碼";
+  if (row.direction === "mixed") return "多空調整";
+  return "變化有限";
+}
+
 function premiumBarStyle(value: NullableNumber): Record<string, string> {
   if (value === null) return { height: "0%" };
 
@@ -662,6 +698,10 @@ function sectorClass(row: StockImpact): string {
   if (sector === "金融") return "financial";
   if (sector === "航運") return "shipping";
   return "other";
+}
+
+function visibleThemeTags(row: StockImpact): string[] {
+  return (row.themeTags ?? []).slice(0, 3);
 }
 
 function stockImpactRowId(stockId: string): string {
@@ -1037,6 +1077,9 @@ watch(selectedEtfCode, async (etfCode) => {
           </span>
           <span class="sector-market-cell">
             <b class="sector-pill" :class="sectorClass(row)">{{ sectorLabel(row) }}</b>
+            <span v-if="visibleThemeTags(row).length" class="theme-tag-list">
+              <small v-for="tag in visibleThemeTags(row)" :key="tag" class="theme-tag">{{ tag }}</small>
+            </span>
             <small class="market-price-line">{{ marketPriceLabel(row) }}</small>
             <small class="market-change-line" :class="marketChangeClass(row)">{{ marketChangeLabel(row) }}</small>
           </span>
@@ -1292,6 +1335,46 @@ watch(selectedEtfCode, async (etfCode) => {
             </span>
           </div>
           <p v-if="!isLoading && !operationRows.length" class="empty-row">此日期尚無可計算的異動資料。</p>
+        </div>
+      </section>
+
+      <section v-if="activeEtfPage === 'report'" class="tag-movement-panel">
+        <div class="operation-title">
+          <div>
+            <h2><Layers :size="18" /> 經理人主題移動</h2>
+          </div>
+          <span>{{ selectedEtf?.etfCode }}｜{{ selectedDate }}</span>
+        </div>
+
+        <div class="tag-movement-list">
+          <article
+            v-for="row in tagMovementRows"
+            :key="row.tag"
+            class="tag-movement-row"
+            :class="row.direction"
+          >
+            <div class="tag-movement-meter" :style="{ width: tagMovementWidth(row) }"></div>
+            <div class="tag-movement-main">
+              <span class="tag-movement-name">
+                <b>{{ row.tag }}</b>
+                <small>{{ tagDirectionLabel(row) }}</small>
+              </span>
+              <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
+                {{ formatLots(row.totalActiveDiffLots) }} 張
+              </span>
+              <span :class="{ 'increase-number': row.totalDiffWeightPoint > 0, 'decrease-number': row.totalDiffWeightPoint < 0 }">
+                {{ formatPct(row.totalDiffWeightPoint, 2) }}
+              </span>
+              <span>{{ formatWeight(row.totalCurrentWeight) }}</span>
+              <span>加 {{ row.increaseStockCount }} / 減 {{ row.decreaseStockCount }}</span>
+            </div>
+            <div class="tag-movement-stocks">
+              <span v-for="stock in row.topStocks" :key="`${row.tag}-${stock.stockId}`">
+                <b>{{ stock.stockId }}</b>{{ stock.stockName }}
+              </span>
+            </div>
+          </article>
+          <p v-if="!isLoading && !tagMovementRows.length" class="empty-row">此日尚無可整理的主題移動。</p>
         </div>
       </section>
 

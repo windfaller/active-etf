@@ -119,7 +119,7 @@ Important fields:
 
 ### `stock_sector_profiles`
 
-Stock sector/theme classification used by sector flow and dashboard enrichment. Current source is a static map with conservative name-based fallback; unknown rows remain `其他`.
+Stock sector/theme classification used by sector flow and dashboard enrichment. Current source is a static map plus conservative stock-name fallback; unknown rows remain `其他`. Theme tags are multi-value labels such as `AI伺服器`, `CPO`, `CoWoS`, `重電`, `金控`, or `記憶體`.
 
 Unique key:
 
@@ -131,6 +131,11 @@ Important fields:
 - `sector`
 - `themeTags`
 - `source`
+
+Refresh paths:
+
+- Daily market-intelligence sync upserts profiles for the refreshed market date.
+- Weekly profile refresh can call `POST /api/jobs/sector-profiles/refresh` to recompute tags from the latest market and ETF holding rows.
 
 ### `active_etf_discoveries`
 

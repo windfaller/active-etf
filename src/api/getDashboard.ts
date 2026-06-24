@@ -6,10 +6,11 @@ import type { EtfDailySummary } from "../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
+import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { assertTradeDate } from "../utils/date.js";
 import { badRequest, jsonResponse } from "./response.js";
 
-function changesResponse(etfCode: string, date: string, changes: EtfHoldingChange[]) {
+async function changesResponse(db: Awaited<ReturnType<typeof getDb>>, etfCode: string, date: string, changes: EtfHoldingChange[]) {
   return {
     etfCode,
     date,
@@ -22,7 +23,8 @@ function changesResponse(etfCode: string, date: string, changes: EtfHoldingChang
       .filter((change) => (change.activeDiffShares ?? 0) < 0)
       .sort((a, b) => (a.activeDiffShares ?? 0) - (b.activeDiffShares ?? 0)),
     newHoldings: changes.filter((change) => change.status === "new" || (change.prevShares === 0 && change.currentShares > 0)),
-    exitedHoldings: changes.filter((change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0))
+    exitedHoldings: changes.filter((change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)),
+    tagMovements: await tagMovementsForChanges(db, changes)
   };
 }
 
@@ -103,7 +105,7 @@ export async function getDashboard(request: HttpRequest, _context: InvocationCon
       date,
       holdings,
       summary,
-      changes: changesResponse(etfCode, date, etfChanges),
+      changes: await changesResponse(db, etfCode, date, etfChanges),
       summaries,
       stockImpact,
       coverage: coverageResponse(date, latestRows, new Set(availableRows.map((row) => row.etfCode)))

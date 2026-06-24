@@ -29,6 +29,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection("stock_institutional_flows").createIndex({ stockId: 1, tradeDate: -1 }),
     db.collection("stock_sector_profiles").createIndex({ stockId: 1 }, { unique: true }),
     db.collection("stock_sector_profiles").createIndex({ sector: 1 }),
+    db.collection("stock_sector_profiles").createIndex({ themeTags: 1 }),
     db.collection("active_etf_discoveries").createIndex({ etfCode: 1 }, { unique: true }),
     db.collection("active_etf_discoveries").createIndex({ discoveryStatus: 1, listingDate: -1 }),
     db.collection("telegram_subscribers").createIndex({ chatId: 1 }, { unique: true }),

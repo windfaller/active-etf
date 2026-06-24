@@ -82,6 +82,104 @@ const mappings: StockSectorMapping[] = [
 
 const mappingByStockId = new Map(mappings.map((mapping) => [mapping.stockId, mapping]));
 
+const defaultTagsBySector: Partial<Record<SectorName, string[]>> = {
+  "AI Server": ["AI", "AI伺服器"],
+  ASIC: ["AI", "IC設計", "ASIC"],
+  CPO: ["AI", "CPO", "光通訊"],
+  PCB: ["AI", "PCB"],
+  光通訊: ["AI", "光通訊"],
+  半導體: ["半導體"],
+  半導體設備: ["半導體設備"],
+  散熱: ["AI", "散熱"],
+  記憶體: ["記憶體"],
+  電源: ["電力設備"],
+  金融: ["金融"],
+  航運: ["航運"]
+};
+
+const explicitTagsByStockId = new Map<string, string[]>([
+  ["2330", ["AI", "晶圓代工", "CoWoS", "先進製程"]],
+  ["2454", ["IC設計", "AI", "手機晶片"]],
+  ["3034", ["IC設計", "面板驅動IC"]],
+  ["3443", ["IC設計", "ASIC", "IP"]],
+  ["3661", ["IC設計", "ASIC", "AI"]],
+  ["5274", ["IC設計", "伺服器管理晶片"]],
+  ["3711", ["封測", "先進封裝", "半導體"]],
+  ["2327", ["被動元件", "車用電子"]],
+  ["2345", ["網通", "AI伺服器", "交換器"]],
+  ["2308", ["電源", "AI伺服器", "電動車"]],
+  ["2317", ["AI伺服器", "EMS", "電動車"]],
+  ["2356", ["AI伺服器", "伺服器代工"]],
+  ["2376", ["AI伺服器", "板卡"]],
+  ["2377", ["AI伺服器", "板卡"]],
+  ["2382", ["AI伺服器", "伺服器代工"]],
+  ["3231", ["AI伺服器", "伺服器代工"]],
+  ["3706", ["AI伺服器", "伺服器代工"]],
+  ["6669", ["AI伺服器", "伺服器代工"]],
+  ["8210", ["AI伺服器", "機殼"]],
+  ["3017", ["散熱", "AI伺服器"]],
+  ["3324", ["散熱", "AI伺服器"]],
+  ["3653", ["散熱", "均熱片"]],
+  ["2421", ["散熱", "風扇"]],
+  ["3338", ["散熱", "熱管"]],
+  ["8996", ["散熱", "熱交換"]],
+  ["2368", ["PCB", "AI伺服器"]],
+  ["2383", ["PCB", "CCL", "AI伺服器"]],
+  ["3037", ["PCB", "載板"]],
+  ["3189", ["PCB", "載板"]],
+  ["4958", ["PCB", "載板"]],
+  ["6191", ["PCB", "EMS"]],
+  ["6274", ["PCB", "CCL"]],
+  ["8046", ["PCB", "載板"]],
+  ["3081", ["光通訊", "磊晶"]],
+  ["3163", ["光通訊", "矽光子"]],
+  ["3363", ["光通訊", "CPO"]],
+  ["4979", ["光通訊", "光收發模組"]],
+  ["6442", ["CPO", "光通訊", "矽光子"]],
+  ["2303", ["晶圓代工", "成熟製程"]],
+  ["2449", ["封測", "半導體測試"]],
+  ["2344", ["記憶體", "DRAM"]],
+  ["2408", ["記憶體", "DRAM"]],
+  ["3006", ["記憶體", "利基型記憶體"]],
+  ["5347", ["晶圓代工", "成熟製程"]],
+  ["6488", ["半導體材料", "矽晶圓"]],
+  ["3167", ["半導體設備", "PCB設備"]],
+  ["3583", ["半導體設備", "先進製程"]],
+  ["3680", ["半導體設備", "EUV", "光罩盒"]],
+  ["4763", ["半導體材料", "特用材料"]],
+  ["6789", ["半導體", "CMOS影像感測"]],
+  ["8028", ["半導體", "再生晶圓"]],
+  ["8299", ["記憶體", "NAND控制IC"]],
+  ["8150", ["封測", "記憶體測試"]],
+  ["6223", ["半導體測試", "探針卡"]],
+  ["6510", ["半導體測試", "探針卡"]],
+  ["1476", ["紡織", "機能服飾"]],
+  ["1504", ["電機", "節能設備"]],
+  ["1519", ["重電", "電力設備"]],
+  ["1605", ["線纜", "電力設備"]],
+  ["4904", ["電信", "高股息"]],
+  ["2881", ["金融", "金控"]],
+  ["2882", ["金融", "金控"]],
+  ["2883", ["金融", "金控"]],
+  ["2884", ["金融", "金控"]],
+  ["2885", ["金融", "金控"]],
+  ["2886", ["金融", "金控"]],
+  ["2887", ["金融", "金控"]],
+  ["2891", ["金融", "金控"]],
+  ["2892", ["金融", "金控"]],
+  ["5876", ["金融", "銀行"]],
+  ["5880", ["金融", "金控"]],
+  ["2603", ["航運", "貨櫃航運"]],
+  ["2609", ["航運", "貨櫃航運"]],
+  ["2615", ["航運", "貨櫃航運"]],
+  ["2618", ["航運", "航空"]],
+  ["2637", ["航運", "散裝航運"]]
+]);
+
+function dedupeTags(tags: string[]): string[] {
+  return [...new Set(tags.filter(Boolean))].slice(0, 5);
+}
+
 function heuristicSector(stockId: string, stockName?: string): SectorName {
   if (/^28/u.test(stockId) || /金|銀|壽|保險|證/u.test(stockName ?? "")) return "金融";
   if (/^26/u.test(stockId) || /航|運|海/u.test(stockName ?? "")) return "航運";
@@ -91,6 +189,35 @@ function heuristicSector(stockId: string, stockName?: string): SectorName {
   if (/散熱|風扇|熱|奇鋐|雙鴻|健策|建準/u.test(stockName ?? "")) return "散熱";
   if (/PCB|電路板|欣興|南電|台光電|金像電|台燿/u.test(stockName ?? "")) return "PCB";
   return "其他";
+}
+
+function heuristicTags(stockId: string, stockName?: string): string[] {
+  const name = stockName ?? "";
+  const tags: string[] = [];
+  if (/^28/u.test(stockId) || /金|銀|壽|保險|證/u.test(name)) tags.push("金融");
+  if (/^26/u.test(stockId) || /航|運|海/u.test(name)) tags.push("航運");
+  if (/AI|伺服器|廣達|緯創|緯穎|英業達|神達/u.test(name)) tags.push("AI伺服器");
+  if (/光|CPO|矽光|光通訊|光聖|聯亞|波若威|華星光|上詮/u.test(name)) tags.push("光通訊");
+  if (/半導體|晶圓|矽|封測|精測/u.test(name)) tags.push("半導體");
+  if (/測試|探針|京元|旺矽|南茂|精測/u.test(name)) tags.push("半導體測試");
+  if (/國巨|華新科|信昌電|被動元件/u.test(name)) tags.push("被動元件");
+  if (/智邦|網通|交換器|啟碁|中磊/u.test(name)) tags.push("網通");
+  if (/記憶體|華邦|南亞科|旺宏/u.test(name)) tags.push("記憶體");
+  if (/散熱|風扇|熱|奇鋐|雙鴻|健策|建準/u.test(name)) tags.push("散熱");
+  if (/PCB|電路板|欣興|南電|台光電|金像電|台燿/u.test(name)) tags.push("PCB");
+  if (/電力|重電|華城|東元|線纜|電源/u.test(name)) tags.push("電力設備");
+  return tags;
+}
+
+export function themeTagsForStock(stockId: string, stockName?: string): string[] {
+  const mapping = mappingByStockId.get(stockId);
+  const sector = mapping?.sector ?? heuristicSector(stockId, stockName);
+  return dedupeTags([
+    ...(mapping?.tags ?? []),
+    ...(explicitTagsByStockId.get(stockId) ?? []),
+    ...(defaultTagsBySector[sector] ?? []),
+    ...heuristicTags(stockId, stockName)
+  ]);
 }
 
 export function sectorForStock(stockId: string, stockName?: string): SectorName {
@@ -104,7 +231,7 @@ export function sectorProfileForStock(stockId: string, stockName?: string) {
     stockId,
     stockName: stockName ?? mapping?.stockName,
     sector,
-    themeTags: mapping?.tags ?? [],
+    themeTags: themeTagsForStock(stockId, stockName ?? mapping?.stockName),
     source: mapping ? ("static" as const) : sector === "其他" ? ("unknown" as const) : ("heuristic" as const)
   };
 }

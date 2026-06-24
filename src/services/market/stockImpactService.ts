@@ -3,8 +3,9 @@ import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { SectorName } from "../../models/EtfSectorFlow.js";
 import type { StockDailyMarket } from "../../models/StockDailyMarket.js";
 import type { StockInstitutionalFlow } from "../../models/StockInstitutionalFlow.js";
+import type { StockSectorProfile } from "../../models/StockSectorProfile.js";
 import { round } from "../../utils/number.js";
-import { sectorForStock } from "../sector/sectorMapping.js";
+import { sectorProfileForStock } from "../sector/sectorMapping.js";
 
 export interface StockImpactEtf {
   etfCode: string;
@@ -19,6 +20,7 @@ export interface StockImpactRow {
   stockId: string;
   stockName: string;
   sector: SectorName;
+  themeTags: string[];
   etfCount: number;
   increaseEtfCount: number;
   decreaseEtfCount: number;
@@ -66,12 +68,14 @@ function computeImpacts(changes: EtfHoldingChange[]): StockImpactRow[] {
   const rowsByStock = new Map<string, StockImpactRow>();
 
   for (const change of changes) {
+    const profile = sectorProfileForStock(change.stockId, change.stockName);
     const row =
       rowsByStock.get(change.stockId) ??
       ({
         stockId: change.stockId,
         stockName: change.stockName,
-        sector: sectorForStock(change.stockId, change.stockName),
+        sector: profile.sector,
+        themeTags: profile.themeTags,
         etfCount: 0,
         increaseEtfCount: 0,
         decreaseEtfCount: 0,
@@ -193,21 +197,26 @@ export async function stockImpactsForDate(db: Db, date: string, changes: EtfHold
     return { date, impacts, sectorSummary: { date, sectors: [] } };
   }
 
-  const [marketRows, institutionalRows] = await Promise.all([
+  const [marketRows, institutionalRows, profileRows] = await Promise.all([
     db.collection<StockDailyMarket>("stock_daily_market").find({ tradeDate: date, stockId: { $in: stockIds } }).toArray(),
     db
       .collection<StockInstitutionalFlow>("stock_institutional_flows")
       .find({ tradeDate: date, stockId: { $in: stockIds } })
-      .toArray()
+      .toArray(),
+    db.collection<StockSectorProfile>("stock_sector_profiles").find({ stockId: { $in: stockIds } }).toArray()
   ]);
   const marketByStockId = new Map(marketRows.map((row) => [row.stockId, row]));
   const institutionalByStockId = new Map(institutionalRows.map((row) => [row.stockId, row]));
+  const profileByStockId = new Map(profileRows.map((row) => [row.stockId, row]));
 
   const enriched = impacts.map((impact) => {
     const market = marketByStockId.get(impact.stockId);
     const institutional = institutionalByStockId.get(impact.stockId);
+    const profile = profileByStockId.get(impact.stockId);
     return {
       ...impact,
+      sector: profile?.sector ?? impact.sector,
+      themeTags: profile?.themeTags?.length ? profile.themeTags : impact.themeTags,
       market: market
         ? {
             market: market.market,

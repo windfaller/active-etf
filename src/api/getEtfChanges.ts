@@ -2,6 +2,7 @@ import { app, type HttpRequest, type InvocationContext } from "@azure/functions"
 import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
+import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { badRequest, jsonResponse } from "./response.js";
 
 export async function getEtfChanges(request: HttpRequest, _context: InvocationContext) {
@@ -30,7 +31,8 @@ export async function getEtfChanges(request: HttpRequest, _context: InvocationCo
       newHoldings: changes.filter((change) => change.status === "new" || (change.prevShares === 0 && change.currentShares > 0)),
       exitedHoldings: changes.filter(
         (change) => change.status === "exit" || (change.prevShares > 0 && change.currentShares === 0)
-      )
+      ),
+      tagMovements: await tagMovementsForChanges(db, changes)
     };
   });
 

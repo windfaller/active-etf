@@ -9,6 +9,7 @@ import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../service
 import { sendTelegramDailyDigest } from "../services/notify/dailyDigestJob.js";
 import { setTelegramWebhook, telegramWebhookUrl } from "../services/notify/telegramSubscriberService.js";
 import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
+import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
@@ -229,6 +230,20 @@ export async function postDailyAggregates(request: HttpRequest, _context: Invoca
   });
 }
 
+export async function postRefreshSectorProfiles(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const db = await getDb();
+  const result = await refreshStockSectorProfiles(db);
+  const tradeDate = await latestHoldingChangeTradeDate();
+  if (tradeDate) {
+    await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+  }
+
+  return jsonResponse({ ok: true, job: "refreshSectorProfiles", result, cacheInvalidatedTradeDate: tradeDate });
+}
+
 export async function postDiscoverActiveEtfs(request: HttpRequest, _context: InvocationContext) {
   const authError = validateAdminToken(request);
   if (authError) return authError;
@@ -324,6 +339,13 @@ app.http("postDailyAggregates", {
   route: "jobs/aggregates",
   authLevel: "anonymous",
   handler: postDailyAggregates
+});
+
+app.http("postRefreshSectorProfiles", {
+  methods: ["POST"],
+  route: "jobs/sector-profiles/refresh",
+  authLevel: "anonymous",
+  handler: postRefreshSectorProfiles
 });
 
 app.http("postDiscoverActiveEtfs", {

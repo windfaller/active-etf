@@ -150,6 +150,14 @@ POST /api/jobs/telegram/daily-digest
 
 同樣必須帶 `x-admin-token`。可選參數：`etfCode=00981A`、`date=YYYY-MM-DD`。若未帶 `date`，系統會使用該 ETF 最新可用的 `etf_holding_changes.tradeDate`，避免假日或揭露延遲時查不到「今天」資料。
 
+股票主題 tag 可每週刷新一次，讓 `stock_sector_profiles.themeTags` 跟最新 mapping 規則同步。SWA / Logic App 可排程呼叫：
+
+```txt
+POST /api/jobs/sector-profiles/refresh
+```
+
+同樣必須帶 `x-admin-token`。若部署到獨立 Azure Functions App 並設定 `ENABLE_TIMER_TRIGGERS=true`，`refreshSectorProfiles` Timer 會每週一 07:00 執行。
+
 設定 Telegram webhook 可呼叫一次：
 
 ```txt
