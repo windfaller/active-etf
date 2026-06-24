@@ -15,6 +15,7 @@ import {
   TrendingUp
 } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
+import { enabledGlobalEtfs } from "../config/globalEtfs";
 import AdSlot from "../components/ads/AdSlot";
 import { sectorProfileForStock } from "../services/sector/sectorMapping";
 
@@ -233,6 +234,11 @@ interface GlobalReportSection {
   takeaway: string;
 }
 
+interface GlobalEtfOption {
+  etfCode: string;
+  fundName: string;
+}
+
 interface GlobalReport {
   reportDate: string;
   coveredEtfs: string[];
@@ -275,6 +281,7 @@ const coverage = ref<EtfCoverageResponse | null>(null);
 const telegramInfo = ref<TelegramInfo | null>(null);
 const globalReport = ref<GlobalReport | null>(null);
 const globalErrorMessage = ref("");
+const isGlobalLoading = ref(false);
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -291,8 +298,14 @@ const selectedEtf = computed(
 const selectedGlobalSection = computed(
   () => globalReport.value?.sections.find((section) => section.etfCode === selectedGlobalEtfCode.value) ?? globalReport.value?.sections[0] ?? null
 );
-const globalEtfOptions = computed(() => globalReport.value?.sections ?? []);
-const globalDateLabel = computed(() => selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? "-");
+const globalEtfOptions = computed<GlobalEtfOption[]>(() =>
+  globalReport.value?.sections.length
+    ? globalReport.value.sections
+    : enabledGlobalEtfs.map((etf) => ({ etfCode: etf.etfCode, fundName: etf.fundName }))
+);
+const globalDateLabel = computed(() =>
+  selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? (isGlobalLoading.value ? "載入中" : "-")
+);
 const globalMarketRows = computed(() => {
   const byPosition = new Map<
     string,
@@ -420,9 +433,13 @@ const selectedEtfCoverage = computed(
 );
 const selectedEtfLatestDate = computed(() => selectedEtfCoverage.value?.latestTradeDate ?? "-");
 const telegramSubscribeUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
-const loadingText = computed(() =>
-  hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。"
-);
+const loadingText = computed(() => {
+  if (activeProduct.value === "global") {
+    return globalReport.value ? "正在更新海外 ETF 持股與權重變化資料。" : "正在載入海外 ETF 持股與權重變化資料。";
+  }
+
+  return hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。";
+});
 const showInitialSkeleton = computed(() => isLoading.value && !hasLoaded.value);
 const helpTexts = {
   impactRanking: "影響分數 = 主動淨變動張數的絕對值，加上權重變動幅度的加權；分數越高代表這檔股票在多檔 ETF 的調倉影響越大。",
@@ -970,21 +987,34 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+let globalReportPromise: Promise<void> | null = null;
+
 async function loadGlobalReport(): Promise<void> {
+  if (globalReportPromise) return globalReportPromise;
+
   globalErrorMessage.value = "";
-  try {
-    const report = await getJson<GlobalReport>("/api/global-etfs/daily-report");
-    globalReport.value = report;
-    if (!report.sections.some((section) => section.etfCode === selectedGlobalEtfCode.value)) {
-      selectedGlobalEtfCode.value = report.sections[0]?.etfCode ?? "DRAM";
+  isGlobalLoading.value = true;
+
+  globalReportPromise = (async () => {
+    try {
+      const report = await getJson<GlobalReport>("/api/global-etfs/daily-report");
+      globalReport.value = report;
+      if (!report.sections.some((section) => section.etfCode === selectedGlobalEtfCode.value)) {
+        selectedGlobalEtfCode.value = report.sections[0]?.etfCode ?? enabledGlobalEtfs[0]?.etfCode ?? "DRAM";
+      }
+      if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
+        updateDocumentMetadata();
+      }
+    } catch (error) {
+      globalErrorMessage.value =
+        error instanceof Error ? error.message : "海外 ETF 資料讀取失敗，請確認 API server 是否啟動。";
+    } finally {
+      isGlobalLoading.value = false;
+      globalReportPromise = null;
     }
-    if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
-      updateDocumentMetadata();
-    }
-  } catch (error) {
-    globalErrorMessage.value =
-      error instanceof Error ? error.message : "海外 ETF 資料讀取失敗，請確認 API server 是否啟動。";
-  }
+  })();
+
+  return globalReportPromise;
 }
 
 async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<void> {
@@ -1142,14 +1172,17 @@ onMounted(() => {
     applyRouteFromLocation();
     window.addEventListener("popstate", () => {
       applyRouteFromLocation(false);
-      void loadGlobalReport();
-      if (activeMainTab.value !== "global" && activeMainTab.value !== "globalMarket") {
+      if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
+        void loadGlobalReport();
+      } else {
         void loadAvailableDates(selectedEtfCode.value).then(loadDashboard);
       }
     });
     void loadTelegramInfo();
-    void loadGlobalReport();
-    if (activeMainTab.value !== "global" && activeMainTab.value !== "globalMarket") {
+    if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
+      await loadGlobalReport();
+    } else {
+      void loadGlobalReport();
       await loadAvailableDates(selectedEtfCode.value);
       await loadDashboard();
     }
@@ -1241,11 +1274,11 @@ watch(selectedGlobalEtfCode, () => {
         <button
           class="icon-button"
           type="button"
-          :disabled="(activeMainTab === 'market' || activeMainTab === 'etf') && isLoading"
+          :disabled="((activeMainTab === 'market' || activeMainTab === 'etf') && isLoading) || ((activeMainTab === 'global' || activeMainTab === 'globalMarket') && isGlobalLoading)"
           aria-label="重新整理"
           @click="activeMainTab === 'global' || activeMainTab === 'globalMarket' ? loadGlobalReport() : loadDashboard()"
         >
-          <RefreshCw :size="18" :class="{ spinning: isLoading }" />
+          <RefreshCw :size="18" :class="{ spinning: isLoading || isGlobalLoading }" />
         </button>
       </div>
     </header>
@@ -1255,7 +1288,7 @@ watch(selectedGlobalEtfCode, () => {
       <span>{{ errorMessage }}</span>
     </section>
 
-    <section v-if="isLoading" class="loading-banner" role="status" aria-live="polite">
+    <section v-if="isLoading || isGlobalLoading" class="loading-banner" role="status" aria-live="polite">
       <RefreshCw :size="16" class="spinning" />
       <span>{{ loadingText }}</span>
     </section>
@@ -1913,7 +1946,8 @@ watch(selectedGlobalEtfCode, () => {
               {{ formatGlobalPp(row.totalDeltaPp) }}
             </span>
           </div>
-          <p v-if="!globalMarketRows.length" class="empty-row">目前尚無可比較的海外 ETF 權重變化。</p>
+          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF 權重變化。</p>
+          <p v-else-if="!globalMarketRows.length" class="empty-row">目前尚無可比較的海外 ETF 權重變化。</p>
         </div>
       </section>
 
@@ -1998,6 +2032,11 @@ watch(selectedGlobalEtfCode, () => {
             <p v-if="!selectedGlobalSection.weightChanges.length" class="empty-row">此檔尚無可比較的權重變化。</p>
           </div>
         </div>
+      </section>
+      <section v-else class="holdings-panel global-detail-panel">
+        <p class="empty-row">
+          {{ isGlobalLoading ? "正在載入海外 ETF 持股資料。" : "目前尚無可顯示的海外 ETF 持股資料。" }}
+        </p>
       </section>
 
       <AdSlot
