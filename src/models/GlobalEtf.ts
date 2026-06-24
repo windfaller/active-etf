@@ -79,6 +79,21 @@ export interface GlobalEtfAggregateChange {
   deltaPp: number;
 }
 
+export interface GlobalEtfCommonHolding {
+  positionKey: string;
+  ticker?: string;
+  name: string;
+  sector?: string;
+  assetType?: string;
+  etfCount: number;
+  totalWeightPercent: number;
+  maxWeightPercent: number;
+  etfs: Array<{
+    etfCode: string;
+    weightPercent?: number;
+  }>;
+}
+
 export interface GlobalEtfReportSection {
   etfCode: string;
   fundName: string;
@@ -112,6 +127,7 @@ export interface GlobalEtfDailyReport {
     rowCount: number;
     sourceStatus: GlobalEtfSourceStatus;
   }>;
+  commonHoldings: GlobalEtfCommonHolding[];
   globalMovers: GlobalEtfHoldingChange[];
   sections: GlobalEtfReportSection[];
   adContext: {

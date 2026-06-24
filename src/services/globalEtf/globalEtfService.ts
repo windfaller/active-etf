@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Db, Filter } from "mongodb";
 import { enabledGlobalEtfs, findGlobalEtfConfig } from "../../config/globalEtfs.js";
-import type { GlobalEtfDailyReport, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
+import type { GlobalEtfCommonHolding, GlobalEtfDailyReport, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { fetchGlobalEtfSnapshot } from "../../providers/globalEtf/provider.js";
 import { createRawSnapshot } from "../source/rawSnapshotService.js";
 import { calculateGlobalEtfAggregateChanges, calculateGlobalEtfChanges, splitGlobalEtfChanges } from "./changeCalculator.js";
@@ -73,6 +73,80 @@ function usableSnapshotClauses(): Filter<GlobalEtfSnapshot>[] {
     { unusableReason: { $exists: false } },
     { unusableReason: null } as unknown as Filter<GlobalEtfSnapshot>
   ];
+}
+
+function normalizeCommonHoldingKey(holding: GlobalEtfSnapshot["holdings"][number]): string {
+  const ticker = holding.ticker?.trim().toUpperCase();
+  if (ticker) return `ticker:${ticker.replace(/\.(?:KS|TW|T|JP)$/u, "")}`;
+  return `name:${holding.name.trim().toUpperCase().replace(/\s+/gu, " ")}`;
+}
+
+function isCommonHoldingCandidate(holding: GlobalEtfSnapshot["holdings"][number]): boolean {
+  const normalizedName = holding.name.toUpperCase();
+  if (holding.assetType === "Cash") return false;
+  if (normalizedName.includes("SWAP")) return false;
+  if (normalizedName.includes("BLK CSH FND") || normalizedName.includes("MONEY MARKET")) return false;
+  if (holding.weightPercent === undefined || holding.weightPercent <= 0) return false;
+  return Boolean(holding.ticker || holding.name);
+}
+
+function calculateCommonHoldings(snapshots: GlobalEtfSnapshot[]): GlobalEtfCommonHolding[] {
+  const byPosition = new Map<
+    string,
+    Omit<GlobalEtfCommonHolding, "etfCount" | "etfs"> & {
+      etfs: Map<string, { etfCode: string; weightPercent?: number }>;
+    }
+  >();
+
+  for (const snapshot of snapshots) {
+    const bestHoldingByKey = new Map<string, GlobalEtfSnapshot["holdings"][number]>();
+    for (const holding of snapshot.holdings) {
+      if (!isCommonHoldingCandidate(holding)) continue;
+      const key = normalizeCommonHoldingKey(holding);
+      const existing = bestHoldingByKey.get(key);
+      if (!existing || (holding.weightPercent ?? 0) > (existing.weightPercent ?? 0)) {
+        bestHoldingByKey.set(key, holding);
+      }
+    }
+
+    for (const [key, holding] of bestHoldingByKey) {
+      const weightPercent = holding.weightPercent ?? 0;
+      const existing = byPosition.get(key) ?? {
+        positionKey: key,
+        ticker: holding.ticker,
+        name: holding.name,
+        sector: holding.sector,
+        assetType: holding.assetType,
+        totalWeightPercent: 0,
+        maxWeightPercent: 0,
+        etfs: new Map()
+      };
+      existing.ticker ||= holding.ticker;
+      existing.sector ||= holding.sector;
+      existing.assetType ||= holding.assetType;
+      existing.totalWeightPercent += weightPercent;
+      existing.maxWeightPercent = Math.max(existing.maxWeightPercent, weightPercent);
+      existing.etfs.set(snapshot.etfCode, { etfCode: snapshot.etfCode, weightPercent: holding.weightPercent });
+      byPosition.set(key, existing);
+    }
+  }
+
+  return [...byPosition.values()]
+    .map((row) => {
+      const etfs = [...row.etfs.values()].sort((a, b) => (b.weightPercent ?? 0) - (a.weightPercent ?? 0));
+      return {
+        ...row,
+        etfCount: etfs.length,
+        etfs
+      };
+    })
+    .filter((row) => row.etfCount >= 2)
+    .sort((a, b) => {
+      if (b.etfCount !== a.etfCount) return b.etfCount - a.etfCount;
+      if (b.totalWeightPercent !== a.totalWeightPercent) return b.totalWeightPercent - a.totalWeightPercent;
+      return b.maxWeightPercent - a.maxWeightPercent;
+    })
+    .slice(0, 40);
 }
 
 export function demoGlobalEtfSnapshots(): GlobalEtfSnapshot[] {
@@ -215,6 +289,7 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
       rowCount: section.rowCount,
       sourceStatus: section.sourceStatus
     })),
+    commonHoldings: calculateCommonHoldings(snapshots),
     globalMovers: sortedMovers,
     sections,
     adContext: {

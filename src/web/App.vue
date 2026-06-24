@@ -218,6 +218,21 @@ interface GlobalChange {
   status: string;
 }
 
+interface GlobalCommonHolding {
+  positionKey: string;
+  ticker?: string;
+  name: string;
+  sector?: string;
+  assetType?: string;
+  etfCount: number;
+  totalWeightPercent: number;
+  maxWeightPercent: number;
+  etfs: Array<{
+    etfCode: string;
+    weightPercent?: number;
+  }>;
+}
+
 interface GlobalReportSection {
   etfCode: string;
   fundName: string;
@@ -246,6 +261,7 @@ interface GlobalReport {
   totalCount: number;
   highlights: string[];
   statusRows: Array<{ etfCode: string; sourceAsOf: string; rowCount: number; sourceStatus: string }>;
+  commonHoldings: GlobalCommonHolding[];
   globalMovers: GlobalChange[];
   sections: GlobalReportSection[];
   adContext: { tags: string[] };
@@ -306,6 +322,7 @@ const globalEtfOptions = computed<GlobalEtfOption[]>(() =>
 const globalDateLabel = computed(() =>
   selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? (isGlobalLoading.value ? "載入中" : "-")
 );
+const globalCommonHoldingRows = computed(() => globalReport.value?.commonHoldings ?? []);
 const globalMarketRows = computed(() => {
   const byPosition = new Map<
     string,
@@ -988,6 +1005,8 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 let globalReportPromise: Promise<void> | null = null;
+let availableDatesRequestId = 0;
+let dashboardRequestId = 0;
 
 async function loadGlobalReport(): Promise<void> {
   if (globalReportPromise) return globalReportPromise;
@@ -1017,34 +1036,48 @@ async function loadGlobalReport(): Promise<void> {
   return globalReportPromise;
 }
 
-async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<void> {
+async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<boolean> {
+  const requestId = ++availableDatesRequestId;
   try {
     const response = await getJson<{ dates: string[] }>(`/api/etf/${etfCode}/dates?limit=180`);
+    if (requestId !== availableDatesRequestId || etfCode !== selectedEtfCode.value) return false;
     availableDates.value = response.dates;
   } catch (error) {
+    if (requestId !== availableDatesRequestId || etfCode !== selectedEtfCode.value) return false;
     availableDates.value = [];
     selectedDate.value = "";
     errorMessage.value =
       error instanceof Error ? error.message : "日期資料讀取失敗，請確認 API server 是否啟動。";
-    return;
+    return false;
   }
 
   if (!selectedDate.value || !availableDates.value.includes(selectedDate.value)) {
-    selectedDate.value = availableDates.value[0];
+    selectedDate.value = availableDates.value[0] ?? "";
   }
+  return Boolean(selectedDate.value);
 }
 
 async function loadDashboard(): Promise<void> {
-  if (!selectedDate.value) return;
+  const etfCode = selectedEtfCode.value;
+  if (!selectedDate.value) {
+    const hasDates = await loadAvailableDates(etfCode);
+    if (!hasDates || etfCode !== selectedEtfCode.value) return;
+  }
+  if (!selectedDate.value) {
+    errorMessage.value = "目前沒有可用日期，請稍後重新整理。";
+    return;
+  }
 
+  const requestId = ++dashboardRequestId;
+  const date = selectedDate.value;
   isLoading.value = true;
   errorMessage.value = "";
 
   try {
-    const etfCode = selectedEtfCode.value;
     const dashboard = await getJson<DashboardResponse>(
-      `/api/dashboard?etfCode=${encodeURIComponent(etfCode)}&date=${selectedDate.value}`
+      `/api/dashboard?etfCode=${encodeURIComponent(etfCode)}&date=${date}`
     );
+    if (requestId !== dashboardRequestId || etfCode !== selectedEtfCode.value || date !== selectedDate.value) return;
 
     holdings.value = dashboard.holdings;
     summary.value = dashboard.summary;
@@ -1054,13 +1087,23 @@ async function loadDashboard(): Promise<void> {
     coverage.value = dashboard.coverage;
     changes.value = dashboard.changes;
   } catch (error) {
+    if (requestId !== dashboardRequestId) return;
     errorMessage.value =
       error instanceof Error ? error.message : "資料讀取失敗，請確認 API server 是否啟動。";
   } finally {
-    isLoading.value = false;
-    hasLoaded.value = true;
-    await scrollToRouteTarget();
+    if (requestId === dashboardRequestId) {
+      isLoading.value = false;
+      hasLoaded.value = true;
+      await scrollToRouteTarget();
+    }
   }
+}
+
+async function ensureTaiwanDashboardLoaded(): Promise<void> {
+  if (!selectedDate.value || !availableDates.value.length) {
+    await loadAvailableDates(selectedEtfCode.value);
+  }
+  await loadDashboard();
 }
 
 async function loadTelegramInfo(): Promise<void> {
@@ -1080,6 +1123,7 @@ async function showMarketTab(): Promise<void> {
   activeMainTab.value = "market";
   activeEtfSection.value = "overview";
   syncRoute();
+  await ensureTaiwanDashboardLoaded();
   await nextTick();
   scrollToPageTop();
 }
@@ -1147,6 +1191,7 @@ async function showEtfReport(etfCode?: string, section: EtfRouteSection = "overv
   }
 
   syncRoute();
+  await ensureTaiwanDashboardLoaded();
   await nextTick();
   if (section === "changes") {
     document.getElementById("changes-panel")?.scrollIntoView({
@@ -1175,7 +1220,7 @@ onMounted(() => {
       if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
         void loadGlobalReport();
       } else {
-        void loadAvailableDates(selectedEtfCode.value).then(loadDashboard);
+        void ensureTaiwanDashboardLoaded();
       }
     });
     void loadTelegramInfo();
@@ -1183,8 +1228,7 @@ onMounted(() => {
       await loadGlobalReport();
     } else {
       void loadGlobalReport();
-      await loadAvailableDates(selectedEtfCode.value);
-      await loadDashboard();
+      await ensureTaiwanDashboardLoaded();
     }
   })();
 });
@@ -1259,6 +1303,9 @@ watch(selectedGlobalEtfCode, () => {
         <label v-if="activeMainTab === 'market' || activeMainTab === 'etf'" class="control">
           <span><Calendar :size="14" /> 指定日期</span>
           <select v-model="selectedDate" aria-label="指定日期" @change="loadDashboard">
+            <option v-if="!availableDates.length" value="" disabled>
+              {{ isLoading ? "載入中" : "尚無日期" }}
+            </option>
             <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
           </select>
         </label>
@@ -1905,6 +1952,45 @@ watch(selectedGlobalEtfCode, () => {
       <section v-if="globalErrorMessage" class="alert">
         <AlertCircle :size="18" />
         <span>{{ globalErrorMessage }}</span>
+      </section>
+
+      <section class="holdings-panel global-detail-panel">
+        <div class="table-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 共同持有標的</h2>
+            <p>{{ globalDateLabel }}，依持有 ETF 數、合計權重排序。</p>
+          </div>
+        </div>
+
+        <div class="holdings-table global-market-table global-common-table">
+          <div class="holdings-head">
+            <span>標的</span>
+            <span>持有 ETF</span>
+            <span>合計權重</span>
+            <span>最高權重</span>
+          </div>
+          <div v-for="row in globalCommonHoldingRows" :key="row.positionKey" class="holding-row">
+            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+            <span class="global-etf-chip-list">
+              <button
+                v-for="etf in row.etfs"
+                :key="`${row.positionKey}-${etf.etfCode}`"
+                type="button"
+                class="primary-etf-link"
+                @click="showGlobalEtfs(etf.etfCode)"
+              >
+                {{ etf.etfCode }}
+              </button>
+              <small>
+                {{ row.etfCount }} 檔 · 合計 {{ formatGlobalWeight(row.totalWeightPercent) }} · 最高 {{ formatGlobalWeight(row.maxWeightPercent) }}
+              </small>
+            </span>
+            <span>{{ formatGlobalWeight(row.totalWeightPercent) }}</span>
+            <span>{{ formatGlobalWeight(row.maxWeightPercent) }}</span>
+          </div>
+          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF 共同持倉。</p>
+          <p v-else-if="!globalCommonHoldingRows.length" class="empty-row">目前尚無多檔 ETF 共同持有的標的。</p>
+        </div>
       </section>
 
       <section class="holdings-panel global-detail-panel">

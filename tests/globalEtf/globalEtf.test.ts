@@ -26,6 +26,20 @@ describe("global ETF product line", () => {
     ]);
   });
 
+  it("summarizes common holdings across global ETF snapshots", async () => {
+    const report = await getGlobalEtfDailyReport();
+    const asml = report.commonHoldings.find((row) => row.ticker === "ASML");
+
+    expect(asml).toEqual(
+      expect.objectContaining({
+        ticker: "ASML",
+        etfCount: 2
+      })
+    );
+    expect(asml?.etfs.map((etf) => etf.etfCode).sort()).toEqual(["BAI", "EUV"]);
+    expect(asml?.totalWeightPercent).toBeCloseTo(18.3);
+  });
+
   it("parses NASA percent_of_nav as a fraction and preserves sector/country", () => {
     const etf = enabledGlobalEtfs.find((item) => item.etfCode === "NASA");
     expect(etf).toBeDefined();
