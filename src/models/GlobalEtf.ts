@@ -19,6 +19,7 @@ export interface GlobalEtfHolding {
   identifier?: string;
   weightPercent?: number;
   shares?: number;
+  parValue?: number;
   marketValue?: number;
   notionalValue?: number;
   price?: number;

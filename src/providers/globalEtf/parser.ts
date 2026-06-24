@@ -259,11 +259,23 @@ export function sanitizeSpreadsheetXml(raw: string): string {
     .replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[a-f0-9]+;)/giu, "&amp;");
 }
 
+function extractWorksheet(raw: string, name: string): string {
+  const openMatch = new RegExp(`<(?:\\w+:)?Worksheet[^>]+(?:\\w+:)?Name="${name}"[^>]*>`, "u").exec(raw);
+  if (!openMatch) return raw;
+
+  const bodyStart = openMatch.index + openMatch[0].length;
+  const closeTags = ["</ss:Worksheet>", "</Worksheet>"]
+    .map((tag) => ({ tag, index: raw.indexOf(tag, bodyStart) }))
+    .filter((item) => item.index >= 0)
+    .sort((a, b) => a.index - b.index);
+  const close = closeTags[0];
+  if (!close) return raw.slice(openMatch.index);
+  return raw.slice(openMatch.index, close.index + close.tag.length);
+}
+
 function spreadsheetRows(raw: string): string[][] {
   const xml = sanitizeSpreadsheetXml(raw);
-  const worksheet =
-    xml.match(/<(?:\w+:)?Worksheet[^>]+(?:\w+:)?Name="Holdings"[\s\S]*?<\/(?:\w+:)?Worksheet>/u)?.[0] ??
-    xml;
+  const worksheet = extractWorksheet(xml, "Holdings");
   const rows = [...worksheet.matchAll(/<(?:\w+:)?Row\b[^>]*>([\s\S]*?)<\/(?:\w+:)?Row>/gu)];
 
   return rows.map((rowMatch) => {
@@ -286,12 +298,16 @@ export function parseBlackRockBaiSpreadsheet(raw: string, etf: GlobalEtfConfig, 
   const sourceAsOf =
     dateOnly(rows.find((row) => row.some((cell) => cell.toLowerCase() === "fund holdings as of"))?.find((cell) => /\d/u.test(cell))) ||
     dateOnly(rows.find((row) => row[0]?.toLowerCase() === "fund holdings as of")?.[1]);
-  const headerIndex = rows.findIndex((row) => row.map((cell) => cell.trim()).join("|").startsWith("Ticker|Name|Sector|Asset Class"));
+  const headerIndex = rows.findIndex((row) => {
+    const headers = row.map((cell) => cell.trim());
+    return headers.includes("Name") && headers.includes("Weight (%)") && headers.includes("Asset Class");
+  });
   const headers = rows[headerIndex] ?? [];
   const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1).filter((row) => row.some((cell) => cell.trim())) : [];
   const rowObjects = dataRows.map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
-  const holdings = rowObjects.map((row) =>
-    buildHolding(etf, sourceAsOf, sourceUrl, row, {
+  const holdings = rowObjects
+    .filter((row) => stringFrom(row.Name) && numberFrom(row["Weight (%)"]) !== undefined)
+    .map((row) => buildHolding(etf, sourceAsOf, sourceUrl, row, {
       ticker: stringFrom(row.Ticker),
       name: stringFrom(row.Name) ?? stringFrom(row.Ticker) ?? "Unknown",
       sector: stringFrom(row.Sector),
@@ -300,12 +316,12 @@ export function parseBlackRockBaiSpreadsheet(raw: string, etf: GlobalEtfConfig, 
       weightPercent: numberFrom(row["Weight (%)"]),
       notionalValue: numberFrom(row["Notional Value"]),
       shares: numberFrom(row.Shares) ?? numberFrom(row.Quantity),
+      parValue: numberFrom(row["Par Value"]),
       price: numberFrom(row.Price),
       country: stringFrom(row.Location)
-    })
-  );
+    }));
 
-  return { sourceAsOf, rawRowCount: rowObjects.length, holdings };
+  return { sourceAsOf, rawRowCount: holdings.length, holdings };
 }
 
 export function parseCorgiEuvRows(rows: unknown[], etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {

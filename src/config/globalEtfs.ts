@@ -90,6 +90,86 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     sourceUrl: "https://corgifunds.com/euv",
     holdingsUrl: "https://cmltk98h4m.execute-api.us-east-2.amazonaws.com/api/v1/holdings?account=EUV&limit=1000",
     themes: ["semiconductor", "ai"]
+  },
+  {
+    etfCode: "DYNF",
+    fundName: "iShares U.S. Equity Factor Rotation Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/307283/ishares-u-s-equity-factor-rotation-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=307283&component=fundDownload&userType=individual",
+    themes: ["macro", "innovation"]
+  },
+  {
+    etfCode: "BINC",
+    fundName: "iShares Flexible Income Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active_fixed_income",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/331752/ishares-flexible-income-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=331752&component=fundDownload&userType=individual",
+    themes: ["income", "macro"]
+  },
+  {
+    etfCode: "ICSH",
+    fundName: "iShares Ultra Short Duration Bond Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active_fixed_income",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/258806/ishares-liquidity-income-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=258806&component=fundDownload&userType=individual",
+    themes: ["income", "macro"]
+  },
+  {
+    etfCode: "BALI",
+    fundName: "iShares U.S. Large Cap Premium Income Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "covered_call",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/333207/ishares-u-s-large-cap-premium-income-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=333207&component=fundDownload&userType=individual",
+    themes: ["income", "macro"]
+  },
+  {
+    etfCode: "CLOA",
+    fundName: "iShares AAA CLO Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active_fixed_income",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/330488/ishares-aaa-clo-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=330488&component=fundDownload&userType=individual",
+    themes: ["income", "macro"]
   }
 ];
 
@@ -113,8 +193,7 @@ export const globalEtfCandidates: GlobalEtfConfig[] = [
     ["GPIQ", "Goldman Sachs Nasdaq-100 Core Premium Income ETF", "Goldman Sachs", "goldmanSachs", "covered_call", ["income", "ai"]],
     ["JPST", "JPMorgan Ultra-Short Income ETF", "JPMorgan", "jpmorganUs", "active_fixed_income", ["income", "macro"]],
     ["MINT", "PIMCO Enhanced Short Maturity Active ETF", "PIMCO", "pimco", "active_fixed_income", ["income", "macro"]],
-    ["BOND", "PIMCO Active Bond ETF", "PIMCO", "pimco", "active_fixed_income", ["income", "macro"]],
-    ["ICSH", "iShares Ultra Short-Term Bond Active ETF", "iShares", "blackrock", "active_fixed_income", ["income", "macro"]]
+    ["BOND", "PIMCO Active Bond ETF", "PIMCO", "pimco", "active_fixed_income", ["income", "macro"]]
   ].map(([etfCode, fundName, issuer, providerId, strategyType, themes]) => ({
     etfCode: etfCode as string,
     fundName: fundName as string,

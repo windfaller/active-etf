@@ -51,9 +51,9 @@ async function fetchTemaNasa() {
   return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
 }
 
-async function fetchBlackRockBai() {
-  const etf = findGlobalEtfConfig("BAI");
-  if (!etf?.holdingsUrl) throw new Error("BAI holdings URL missing");
+async function fetchBlackRockHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
   const raw = await fetchSource({
     url: etf.holdingsUrl,
     headers: {
@@ -61,7 +61,7 @@ async function fetchBlackRockBai() {
       Accept: "application/vnd.ms-excel,application/xml,text/xml,*/*"
     }
   });
-  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`BAI holdings returned ${raw.responseStatus}`);
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
   const parsed = parseBlackRockBaiSpreadsheet(raw.rawBody, etf, raw.url);
   return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
 }
@@ -102,7 +102,8 @@ export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtf
 
   if (normalized === "DRAM") return fetchRoundhillDram();
   if (normalized === "NASA") return fetchTemaNasa();
-  if (normalized === "BAI") return fetchBlackRockBai();
+  const etf = findGlobalEtfConfig(normalized);
+  if (etf?.providerId === "blackrock") return fetchBlackRockHoldings(normalized);
   if (normalized === "EUV") return fetchCorgiEuv();
 
   throw new Error(`${normalized} is not enabled for Global ETF sync`);

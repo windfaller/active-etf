@@ -516,4 +516,34 @@
     <changefreq>daily</changefreq>
     <priority>0.76</priority>
   </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/DYNF</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/BINC</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/ICSH</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/BALI</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/CLOA</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
 </urlset>

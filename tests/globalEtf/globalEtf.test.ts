@@ -13,7 +13,17 @@ describe("global ETF product line", () => {
     expect(taiwanCodes.has("NASA")).toBe(false);
     expect(taiwanCodes.has("BAI")).toBe(false);
     expect(taiwanCodes.has("EUV")).toBe(false);
-    expect(enabledGlobalEtfs.map((etf) => etf.etfCode)).toEqual(["DRAM", "NASA", "BAI", "EUV"]);
+    expect(enabledGlobalEtfs.map((etf) => etf.etfCode)).toEqual([
+      "DRAM",
+      "NASA",
+      "BAI",
+      "EUV",
+      "DYNF",
+      "BINC",
+      "ICSH",
+      "BALI",
+      "CLOA"
+    ]);
   });
 
   it("parses NASA percent_of_nav as a fraction and preserves sector/country", () => {
@@ -109,6 +119,59 @@ describe("global ETF product line", () => {
         weightPercent: 8.5,
         shares: 100,
         country: "United States"
+      })
+    );
+  });
+
+  it("parses BlackRock fixed-income holdings without ticker column", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "ICSH");
+    expect(etf).toBeDefined();
+    const parsed = parseBlackRockBaiSpreadsheet(
+      `<?xml version="1.0"?>
+      <ss:Workbook xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+        <ss:Worksheet ss:Name="Holdings">
+          <ss:Table>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">Fund Holdings as of</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Jun 23, 2026</ss:Data></ss:Cell>
+            </ss:Row>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">Name</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Sector</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Asset Class</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Market Value</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Weight (%)</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Notional Value</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Par Value</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Price</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Location</ss:Data></ss:Cell>
+            </ss:Row>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">US TREASURY BILL</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Treasury</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Fixed Income</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">1,000,000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">5.5</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">1,000,000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">1,000,000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">99.5</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">United States</ss:Data></ss:Cell>
+            </ss:Row>
+          </ss:Table>
+        </ss:Worksheet>
+      </ss:Workbook>`,
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.rawRowCount).toBe(1);
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: undefined,
+        name: "US TREASURY BILL",
+        weightPercent: 5.5,
+        parValue: 1_000_000,
+        assetType: "Fixed Income"
       })
     );
   });
