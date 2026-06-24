@@ -22,5 +22,16 @@ export const allianzEtfs: EtfInfo[] = [
     implementationStatus: "verified",
     fundCode: "E0002",
     notes: "Official Allianz ETF GetFundTradeInfo endpoint, FundNo E0002"
+  },
+  {
+    etfCode: "00402A",
+    name: "主動安聯美國科技",
+    issuer: "安聯投信",
+    providerId: "allianz",
+    currency: "TWD",
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "E0003",
+    notes: "Official Allianz ETF GetFundTradeInfo endpoint, FundNo E0003"
   }
 ];

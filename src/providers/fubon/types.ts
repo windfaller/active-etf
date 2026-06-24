@@ -2,6 +2,18 @@ import type { EtfInfo } from "../types.js";
 
 export const fubonEtfs: EtfInfo[] = [
   {
+    etfCode: "00405A",
+    name: "主動富邦台灣龍耀",
+    issuer: "富邦投信",
+    providerId: "fubon",
+    currency: "TWD",
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "00405A",
+    notes:
+      "Official Fubon assets page renders equity holdings and summary server-side; Assets.aspx?stkId=00405A verified."
+  },
+  {
     etfCode: "00982D",
     name: "主動富邦動態入息",
     issuer: "富邦投信",

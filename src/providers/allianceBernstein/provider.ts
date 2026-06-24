@@ -5,7 +5,6 @@ import { detectAllianceBernsteinTradeDate } from "./parser.js";
 import { allianceBernsteinEtfs } from "./types.js";
 
 const apiBase = "https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor";
-const pcfPageUrl = "https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000984D0.html";
 
 function fundCodeFor(etfCode: string): string {
   const etf = allianceBernsteinEtfs.find((item) => item.etfCode === etfCode);
@@ -20,11 +19,15 @@ function apiUrl(fundCode: string, endpoint: "holdings" | "basket"): string {
   return `${apiBase}/${fundCode}/${endpoint}`;
 }
 
+function pcfPageUrl(fundCode: string): string {
+  return `https://www.abfunds.com.tw/zh-tw/etfs/pcf.${fundCode}.html`;
+}
+
 async function fetchJson(fundCode: string, endpoint: "holdings" | "basket"): Promise<SourceFetchResult> {
   return fetchSource({
     url: apiUrl(fundCode, endpoint),
     headers: {
-      ...defaultCrawlerHeaders(pcfPageUrl),
+      ...defaultCrawlerHeaders(pcfPageUrl(fundCode)),
       Accept: "application/json, text/plain, */*",
       Origin: "https://www.abfunds.com.tw"
     }

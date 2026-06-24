@@ -460,6 +460,7 @@ Confirmed products:
 
 - `00984A`: `FundNo` `E0001`
 - `00993A`: `FundNo` `E0002`
+- `00402A`: `FundNo` `E0003`
 
 Headers for trade info:
 
@@ -481,7 +482,7 @@ Payload:
 }
 ```
 
-Status: verified primary source for 安聯 holdings and PCF summary. `Date` is the PCF announcement date, while the actual holdings/NAV snapshot date is `Entries.CNavDt`.
+Status: verified primary source for 安聯 holdings and PCF summary. `Date` is the PCF announcement date, while the actual holdings/NAV snapshot date is `Entries.CNavDt`. `00402A` live smoke on 2026-06-24 returned `CNavDt=2026-06-22` with 51 stock rows.
 
 Field mapping:
 
@@ -501,7 +502,7 @@ fundSize * weight / 100 -> etf_daily_holdings.marketValue
 
 Notes:
 
-- The official `GetFundOverview` endpoint maps `00984A -> E0001`, `00993A -> E0002`; it also currently returns `00402A -> E0003`, which should be reviewed by the discovery/onboarding flow before enabling.
+- The official `GetFundOverview` endpoint maps `00984A -> E0001`, `00993A -> E0002`, and `00402A -> E0003`.
 - Market closing price is filled by the shared TWSE closing price sync.
 
 ## 兆豐 holdings and summary
@@ -540,10 +541,11 @@ Notes:
 
 Official assets pages:
 
+- `00405A`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00405A`
 - `00982D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00982D`
 - `00983D`: `https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00983D`
 
-Status: verified official HTML fallback source for 富邦 `00982D` and `00983D`, but disabled for current equity-only production sync. The public assets page renders the current snapshot server-side, including data date, NAV, fund size, total units, bond holdings, fund holdings, market value and weights. These are active fixed-income ETFs, so holdings are normalized into the shared schema with bond ISINs or ETF tickers in `stockId` when re-enabled.
+Status: verified official HTML fallback source for 富邦 `00405A`, `00982D` and `00983D`. `00405A` is enabled for production sync; `00982D` and `00983D` stay disabled for current equity-only production sync. The public assets page renders the current snapshot server-side, including data date, NAV, fund size, total units, holdings, market value and weights.
 
 Field mapping:
 
@@ -552,6 +554,9 @@ Field mapping:
 "基金淨資產(新台幣)" -> etf_daily_summary.fundSize
 "基金在外流通單位數(單位)" -> etf_daily_summary.totalUnits
 "基金每單位淨值(新台幣)" -> etf_daily_summary.nav
+股票 table "股票代碼" -> etf_daily_holdings.stockId
+股票 table "股票名稱" -> etf_daily_holdings.stockName
+股票 table "股數" -> etf_daily_holdings.shares
 債券 table "債券代碼" -> etf_daily_holdings.stockId
 債券 table "債券名稱" -> etf_daily_holdings.stockName
 債券 table "面額" -> etf_daily_holdings.shares
@@ -569,14 +574,19 @@ Notes:
 
 ## 聯博 holdings and summary
 
-Official PCF page: `https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000984D0.html`
+Official PCF page pattern: `https://www.abfunds.com.tw/zh-tw/etfs/pcf.{shareClassId}.html`
 
 API endpoints:
 
-- Holdings: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/holdings`
-- Basket: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/TW00000984D0/basket`
+- Holdings: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/{shareClassId}/holdings`
+- Basket: `https://webapi.alliancebernstein.com/v2/funds/tw/zh-tw/investor/{shareClassId}/basket`
 
-Status: verified primary JSON source for 聯博 `00984D`, but disabled for current equity-only production sync. The official React PCF page sets `shareClassId=TW00000984D0` and calls the two endpoints above. The provider stores a combined raw JSON payload containing both responses, so holdings and PCF summary share one raw snapshot when re-enabled.
+Confirmed share classes:
+
+- `00404A`: `TW00000404A5`
+- `00984D`: `TW00000984D0`
+
+Status: verified primary JSON source for 聯博 `00404A` and `00984D`. `00404A` is enabled for production sync; `00984D` stays disabled for current equity-only production sync. The official React PCF page sets `shareClassId` and calls the two endpoints above. The provider stores a combined raw JSON payload containing both responses, so holdings and PCF summary share one raw snapshot.
 
 Field mapping:
 
@@ -658,6 +668,7 @@ Confirmed products:
 
 - `00995A`: `FID` `E0036`
 - `00983A`: `FID` `E0034`
+- `00406A`: `FID` `E0038`
 
 Headers:
 
@@ -678,7 +689,7 @@ Payload:
 }
 ```
 
-Status: verified primary source for 中信 holdings and PCF summary. The official Vue SPA calls `home/AuthToken` with the public bootstrap token, then calls `etf/Buyback`. `ETFCNOList` maps ETF code to `FID`, including `00995A -> E0036` and `00983A -> E0034`.
+Status: verified primary source for 中信 holdings and PCF summary. The official Vue SPA calls `home/AuthToken` with the public bootstrap token, then calls `etf/Buyback`. `ETFCNOList` maps ETF code to `FID`, including `00995A -> E0036`, `00983A -> E0034` and `00406A -> E0038`.
 
 Field mapping:
 

@@ -2,6 +2,18 @@ import type { EtfInfo } from "../types.js";
 
 export const allianceBernsteinEtfs: EtfInfo[] = [
   {
+    etfCode: "00404A",
+    name: "主動聯博動能50",
+    issuer: "聯博投信",
+    providerId: "allianceBernstein",
+    currency: "TWD",
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "TW00000404A5",
+    notes:
+      "Official AllianceBernstein webapi holdings and basket JSON endpoints verified for shareClassId TW00000404A5."
+  },
+  {
     etfCode: "00984D",
     name: "主動聯博全球非投",
     issuer: "聯博投信",

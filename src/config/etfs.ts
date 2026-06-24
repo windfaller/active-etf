@@ -193,6 +193,38 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00406A",
+    fundCode: "E0038",
+    name: "主動中信台灣收益",
+    issuer: "中信投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "ctbc",
+      infoUrl: "https://www.ctbcinvestments.com.tw/ETF/00406A/Info",
+      pcfUrl: "https://www.ctbcinvestments.com.tw/ETF/Buyback"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00405A",
+    fundCode: "00405A",
+    name: "主動富邦台灣龍耀",
+    issuer: "富邦投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "fubon",
+      infoUrl: "https://www.fubon.com/asset-management/ph/activeequity/index.html",
+      pcfUrl: "https://websys.fsit.com.tw/FubonETF/Fund/Assets.aspx?stkId=00405A"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00982D",
     fundCode: "00982D",
     name: "主動富邦動態入息",
@@ -284,6 +316,38 @@ export const configuredEtfs: EtfMaster[] = [
       providerId: "allianz",
       infoUrl: "https://etf.allianzgi.com.tw/etf-info/E0001",
       pcfUrl: "https://etf.allianzgi.com.tw/list-trade"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00402A",
+    fundCode: "E0003",
+    name: "主動安聯美國科技",
+    issuer: "安聯投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianz",
+      infoUrl: "https://etf.allianzgi.com.tw/etf-info/E0003",
+      pcfUrl: "https://etf.allianzgi.com.tw/list-trade"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00404A",
+    fundCode: "TW00000404A5",
+    name: "主動聯博動能50",
+    issuer: "聯博投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianceBernstein",
+      infoUrl: "https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000404A5.html",
+      pcfUrl: "https://www.abfunds.com.tw/zh-tw/etfs/pcf.TW00000404A5.html"
     },
     createdAt: now,
     updatedAt: now
