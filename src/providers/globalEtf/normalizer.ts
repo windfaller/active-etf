@@ -69,9 +69,11 @@ export function buildGlobalSnapshot(
     sourceUrl: input.sourceUrl
   }));
   const unusableReason =
-    etf.etfCode === "EUV" && ((input.rawRowCount > 200 && holdings.length > 200) || holdings.some((holding) => (holding.weightPercent ?? 0) > 100))
-      ? "historical_aggregation_pollution"
-      : undefined;
+    holdings.length === 0
+      ? "no_holdings"
+      : etf.etfCode === "EUV" && ((input.rawRowCount > 200 && holdings.length > 200) || holdings.some((holding) => (holding.weightPercent ?? 0) > 100))
+        ? "historical_aggregation_pollution"
+        : undefined;
   const snapshot: GlobalEtfSnapshot = {
     snapshotId: randomUUID(),
     etfCode: etf.etfCode,

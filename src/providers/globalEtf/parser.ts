@@ -68,6 +68,18 @@ function dateOnly(value: unknown): string {
     const [, month, day, year] = us;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
+  const namedMonth = text.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/u);
+  if (namedMonth) {
+    const [, day, monthName, year] = namedMonth;
+    const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(monthName.toLowerCase());
+    if (month >= 0) return `${year}-${String(month + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  const namedMonthFirst = text.match(/([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4})/u);
+  if (namedMonthFirst) {
+    const [, monthName, day, year] = namedMonthFirst;
+    const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(monthName.toLowerCase());
+    if (month >= 0) return `${year}-${String(month + 1).padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
   return text.slice(0, 10);
 }
 
@@ -108,21 +120,103 @@ function buildHolding(
   };
 }
 
+function normalizeExchangeTicker(ticker: string | undefined): string | undefined {
+  if (!ticker) return undefined;
+  const normalized = ticker.trim().replace(/\s+/gu, " ");
+  const exchangeMatch = normalized.match(/^(.+?)\s+(KS|TT|JP)$/u);
+  if (!exchangeMatch) return normalized;
+
+  const [, symbol, exchange] = exchangeMatch;
+  if (exchange === "KS") return `${symbol}.KS`;
+  if (exchange === "TT") return `${symbol}.TW`;
+  if (exchange === "JP") return `${symbol}.JP`;
+  return normalized;
+}
+
+function normalizeRoundhillDramHolding(row: CsvRow): {
+  ticker?: string;
+  name: string;
+  identifier?: string;
+  assetType: string;
+} {
+  const rawTicker = stringFrom(row.StockTicker);
+  const displayTicker = normalizeExchangeTicker(rawTicker);
+  const rawName = stringFrom(row.SecurityName) ?? rawTicker ?? "Unknown";
+  const upperName = rawName.toUpperCase();
+  const isCash =
+    row.MoneyMarketFlag?.trim().toUpperCase() === "Y" ||
+    upperName.includes("TREASURY BILL") ||
+    upperName.includes("GOVERNMENT OBLIGATIONS FUND") ||
+    upperName.includes("WON") ||
+    upperName.includes("DOLLAR") ||
+    ["KRW", "TWD", "USD", "JPY"].includes(rawTicker ?? "");
+
+  if (isCash) {
+    return {
+      ticker: displayTicker,
+      name: rawName,
+      identifier: stringFrom(row.CUSIP),
+      assetType: "Cash"
+    };
+  }
+
+  if (upperName.includes("MICRON") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
+    return {
+      ticker: "MU",
+      name: "Micron Technology Inc",
+      identifier: "MU",
+      assetType: "Equity Swap"
+    };
+  }
+
+  if (upperName.includes("SK HYNIX") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
+    return {
+      ticker: "000660.KS",
+      name: "SK Hynix Inc",
+      identifier: "000660.KS",
+      assetType: "Equity Swap"
+    };
+  }
+
+  if (upperName.includes("SAMSUNG ELECTRONICS") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
+    return {
+      ticker: "005930.KS",
+      name: "Samsung Electronics Co Ltd",
+      identifier: "005930.KS",
+      assetType: "Equity Swap"
+    };
+  }
+
+  if (upperName.includes("KIOXIA") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
+    return {
+      ticker: "285A.JP",
+      name: "Kioxia Holdings Corp",
+      identifier: "285A.JP",
+      assetType: "Equity Swap"
+    };
+  }
+
+  return {
+    ticker: displayTicker,
+    name: rawName,
+    identifier: displayTicker,
+    assetType: "Equity"
+  };
+}
+
 export function parseRoundhillDramCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
   const rows = parseCsv(raw);
   const filtered = rows.filter((row) => row.Account?.trim().toUpperCase() === "DRAM");
   const sourceAsOf = dateOnly(filtered[0]?.Date ?? rows[0]?.Date);
-  const holdings = filtered.map((row) =>
-    buildHolding(etf, sourceAsOf, sourceUrl, row, {
-      ticker: stringFrom(row.StockTicker),
-      name: stringFrom(row.SecurityName) ?? stringFrom(row.StockTicker) ?? "Unknown",
-      identifier: stringFrom(row.CUSIP),
+  const holdings = filtered.map((row) => {
+    const normalized = normalizeRoundhillDramHolding(row);
+    return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      ...normalized,
       weightPercent: numberFrom(row.Weightings),
       shares: numberFrom(row.Shares),
-      marketValue: numberFrom(row.MarketValue),
-      assetType: row.MoneyMarketFlag?.trim().toUpperCase() === "Y" ? "Cash" : "Equity"
-    })
-  );
+      marketValue: numberFrom(row.MarketValue)
+    });
+  });
 
   return { sourceAsOf, rawRowCount: rows.length, holdings };
 }
@@ -168,20 +262,19 @@ export function sanitizeSpreadsheetXml(raw: string): string {
 function spreadsheetRows(raw: string): string[][] {
   const xml = sanitizeSpreadsheetXml(raw);
   const worksheet =
-    xml.match(/<Worksheet[^>]+ss:Name="Holdings"[\s\S]*?<\/Worksheet>/u)?.[0] ??
-    xml.match(/<Worksheet[^>]+Name="Holdings"[\s\S]*?<\/Worksheet>/u)?.[0] ??
+    xml.match(/<(?:\w+:)?Worksheet[^>]+(?:\w+:)?Name="Holdings"[\s\S]*?<\/(?:\w+:)?Worksheet>/u)?.[0] ??
     xml;
-  const rows = [...worksheet.matchAll(/<Row\b[^>]*>([\s\S]*?)<\/Row>/gu)];
+  const rows = [...worksheet.matchAll(/<(?:\w+:)?Row\b[^>]*>([\s\S]*?)<\/(?:\w+:)?Row>/gu)];
 
   return rows.map((rowMatch) => {
-    const cells = [...rowMatch[1].matchAll(/<Cell\b([^>]*)>([\s\S]*?)<\/Cell>/gu)];
+    const cells = [...rowMatch[1].matchAll(/<(?:\w+:)?Cell\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?Cell>/gu)];
     const values: string[] = [];
     for (const cell of cells) {
-      const indexAttr = cell[1].match(/ss:Index="(\d+)"/u)?.[1];
+      const indexAttr = cell[1].match(/(?:\w+:)?Index="(\d+)"/u)?.[1];
       if (indexAttr) {
         while (values.length < Number(indexAttr) - 1) values.push("");
       }
-      const data = cell[2].match(/<Data\b[^>]*>([\s\S]*?)<\/Data>/u)?.[1] ?? "";
+      const data = cell[2].match(/<(?:\w+:)?Data\b[^>]*>([\s\S]*?)<\/(?:\w+:)?Data>/u)?.[1] ?? "";
       values.push(decodeXmlText(data.replace(/<[^>]+>/gu, "")));
     }
     return values;
@@ -206,7 +299,7 @@ export function parseBlackRockBaiSpreadsheet(raw: string, etf: GlobalEtfConfig, 
       marketValue: numberFrom(row["Market Value"]),
       weightPercent: numberFrom(row["Weight (%)"]),
       notionalValue: numberFrom(row["Notional Value"]),
-      shares: numberFrom(row.Shares),
+      shares: numberFrom(row.Shares) ?? numberFrom(row.Quantity),
       price: numberFrom(row.Price),
       country: stringFrom(row.Location)
     })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
-import { parseCorgiEuvRows, parseTemaNasaCsv } from "../../src/providers/globalEtf/parser.js";
+import { parseBlackRockBaiSpreadsheet, parseCorgiEuvRows, parseRoundhillDramCsv, parseTemaNasaCsv } from "../../src/providers/globalEtf/parser.js";
 import { buildGlobalSnapshot } from "../../src/providers/globalEtf/normalizer.js";
 import { calculateGlobalEtfChanges } from "../../src/services/globalEtf/changeCalculator.js";
 import { demoGlobalEtfSnapshots, getGlobalEtfDailyReport } from "../../src/services/globalEtf/globalEtfService.js";
@@ -55,6 +55,87 @@ describe("global ETF product line", () => {
     expect(snapshot.rowCount).toBe(2);
     expect(snapshot.holdings.map((holding) => holding.ticker)).toEqual(["ASML", "LRCX"]);
     expect(snapshot.unusableReason).toBeUndefined();
+  });
+
+  it("parses BlackRock namespaced spreadsheet XML for BAI holdings", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "BAI");
+    expect(etf).toBeDefined();
+    const parsed = parseBlackRockBaiSpreadsheet(
+      `<?xml version="1.0"?>
+      <ss:Workbook xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+        <ss:Worksheet ss:Name="Holdings">
+          <ss:Table>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">Fund Holdings as of</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Jun 23, 2026</ss:Data></ss:Cell>
+            </ss:Row>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">Ticker</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Name</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Sector</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Asset Class</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Market Value</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Weight (%)</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Notional Value</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Quantity</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Price</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Location</ss:Data></ss:Cell>
+            </ss:Row>
+            <ss:Row>
+              <ss:Cell><ss:Data ss:Type="String">NVDA</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">NVIDIA Corp</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Information Technology</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">Equity</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">1,000,000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">8.5</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">1,000,000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">100</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">10000</ss:Data></ss:Cell>
+              <ss:Cell><ss:Data ss:Type="String">United States</ss:Data></ss:Cell>
+            </ss:Row>
+          </ss:Table>
+        </ss:Worksheet>
+      </ss:Workbook>`,
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-06-23");
+    expect(parsed.rawRowCount).toBe(1);
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: "NVDA",
+        name: "NVIDIA Corp",
+        weightPercent: 8.5,
+        shares: 100,
+        country: "United States"
+      })
+    );
+  });
+
+  it("normalizes DRAM swaps to underlying memory exposures and marks collateral as cash", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "DRAM");
+    expect(etf).toBeDefined();
+    const parsed = parseRoundhillDramCsv(
+      [
+        "Date,Account,StockTicker,CUSIP,SecurityName,Shares,MarketValue,Weightings,MoneyMarketFlag",
+        "06/24/2026,DRAM,595112103 TRS 050427 NM,595112103 TRS 050427 NM,MICRON TECHNOLOGY INC SWAP NM,100,13,13.00%,",
+        "06/24/2026,DRAM,MU,595112103,Micron Technology Inc,100,9,9.00%,",
+        "06/24/2026,DRAM,2408 TT,6283,Nanya Technology Corp,100,3,3.00%,",
+        "06/24/2026,DRAM,912797UP0,912797UP0,United States Treasury Bill 07/14/2026,100,16,16.00%,",
+        "06/24/2026,DRAM,FGXXX,31846V336,First American Government Obligations Fund,100,10,10.00%,Y"
+      ].join("\n"),
+      etf!,
+      etf!.sourceUrl
+    );
+    const snapshot = buildGlobalSnapshot(etf!, { ...parsed, sourceUrl: etf!.sourceUrl });
+    const micron = snapshot.holdings.find((holding) => holding.ticker === "MU");
+
+    expect(parsed.sourceAsOf).toBe("2026-06-24");
+    expect(micron?.weightPercent).toBe(22);
+    expect(snapshot.holdings.find((holding) => holding.name === "Nanya Technology Corp")?.ticker).toBe("2408.TW");
+    expect(snapshot.holdings.filter((holding) => holding.assetType === "Cash")).toHaveLength(2);
+    expect(snapshot.holdings.find((holding) => holding.name.includes("Treasury"))?.assetType).toBe("Cash");
   });
 
   it("calculates weight changes and renders a dark-mode-safe Top 10 report", async () => {

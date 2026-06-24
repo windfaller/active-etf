@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Db } from "mongodb";
+import type { Db, Filter } from "mongodb";
 import { enabledGlobalEtfs, findGlobalEtfConfig } from "../../config/globalEtfs.js";
 import type { GlobalEtfDailyReport, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { fetchGlobalEtfSnapshot } from "../../providers/globalEtf/provider.js";
@@ -68,19 +68,26 @@ function samplePrevious(snapshot: GlobalEtfSnapshot): GlobalEtfSnapshot {
   };
 }
 
+function usableSnapshotClauses(): Filter<GlobalEtfSnapshot>[] {
+  return [
+    { unusableReason: { $exists: false } },
+    { unusableReason: null } as unknown as Filter<GlobalEtfSnapshot>
+  ];
+}
+
 export function demoGlobalEtfSnapshots(): GlobalEtfSnapshot[] {
   return [
     sampleSnapshot("DRAM", [
-      ["MU", "Micron Technology Inc", 12.4, "Semiconductors"],
-      ["WDC", "Western Digital Corp", 10.8, "Technology Hardware"],
-      ["STX", "Seagate Technology Holdings", 8.1, "Technology Hardware"],
-      ["NVDA", "NVIDIA Corp", 7.2, "Semiconductors"],
-      ["AVGO", "Broadcom Inc", 6.5, "Semiconductors"],
-      ["LRCX", "Lam Research Corp", 5.2, "Semiconductor Equipment"],
-      ["KLAC", "KLA Corp", 4.7, "Semiconductor Equipment"],
-      ["AMAT", "Applied Materials Inc", 4.3, "Semiconductor Equipment"],
-      ["ASML", "ASML Holding NV", 4.0, "Semiconductor Equipment"],
-      ["TSM", "Taiwan Semiconductor Manufacturing", 3.8, "Semiconductors"]
+      ["005930.KS", "Samsung Electronics Co Ltd", 27.1, "Memory & Storage"],
+      ["000660.KS", "SK Hynix Inc", 24.6, "Memory & Storage"],
+      ["MU", "Micron Technology Inc", 22.8, "Memory & Storage"],
+      ["SNDK", "SanDisk Corp", 6.4, "Memory & Storage"],
+      ["WDC", "Western Digital Corp", 5.8, "Memory & Storage"],
+      ["STX", "Seagate Technology Holdings", 5.1, "Memory & Storage"],
+      ["285A.T", "Kioxia Holdings Corp", 4.6, "Memory & Storage"],
+      ["SIMO", "Silicon Motion Technology Corp", 1.8, "Storage Controllers"],
+      ["2344.TW", "Winbond Electronics Corp", 1.2, "Memory & Storage"],
+      ["2408.TW", "Nanya Technology Corp", 0.9, "Memory & Storage"]
     ]),
     sampleSnapshot("NASA", [
       ["RKLB", "Rocket Lab USA Inc", 9.6, "Aerospace & Defense"],
@@ -122,10 +129,14 @@ export function demoGlobalEtfSnapshots(): GlobalEtfSnapshot[] {
 }
 
 async function latestSnapshotsFromDb(db: Db): Promise<GlobalEtfSnapshot[]> {
+  const usableSnapshotsFilter: Filter<GlobalEtfSnapshot> = {
+    etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
+    $or: usableSnapshotClauses()
+  };
   const rows = await db
     .collection<GlobalEtfSnapshot>("global_etf_snapshots")
     .aggregate<GlobalEtfSnapshot>([
-      { $match: { etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) }, unusableReason: { $exists: false } } },
+      { $match: usableSnapshotsFilter },
       { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
       { $group: { _id: "$etfCode", doc: { $first: "$$ROOT" } } },
       { $replaceRoot: { newRoot: "$doc" } }
@@ -136,9 +147,15 @@ async function latestSnapshotsFromDb(db: Db): Promise<GlobalEtfSnapshot[]> {
 }
 
 async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promise<GlobalEtfSnapshot | null> {
+  const filter: Filter<GlobalEtfSnapshot> = {
+    etfCode: current.etfCode,
+    sourceAsOf: { $lt: current.sourceAsOf },
+    $or: usableSnapshotClauses()
+  };
+
   return db
     .collection<GlobalEtfSnapshot>("global_etf_snapshots")
-    .find({ etfCode: current.etfCode, sourceAsOf: { $lt: current.sourceAsOf }, unusableReason: { $exists: false } })
+    .find(filter)
     .sort({ sourceAsOf: -1, fetchedAt: -1 })
     .limit(1)
     .next();
@@ -161,7 +178,9 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
       sourceUrl: snapshot.sourceUrl,
       sourceStatus: snapshot.sourceStatus,
       rowCount: snapshot.rowCount,
-      topHoldings: snapshot.holdings.slice(0, 10),
+      topHoldings: snapshot.holdings
+        .filter((holding) => holding.assetType !== "Cash" && !holding.name.toUpperCase().includes("SWAP"))
+        .slice(0, 10),
       ...split,
       sectorChanges: calculateGlobalEtfAggregateChanges(snapshot, previous, "sector"),
       countryChanges: calculateGlobalEtfAggregateChanges(snapshot, previous, "country"),
@@ -209,6 +228,7 @@ export async function getGlobalEtfDailyReport(db?: Db): Promise<GlobalEtfDailyRe
   if (db) {
     const snapshots = await latestSnapshotsFromDb(db);
     if (snapshots.length) return reportFromSnapshots(db, snapshots, false);
+    return reportFromSnapshots(db, [], false);
   }
   return reportFromSnapshots(null, demoGlobalEtfSnapshots(), true);
 }
