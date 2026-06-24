@@ -5,6 +5,7 @@ import {
   BarChart3,
   Calendar,
   Database,
+  Globe2,
   Layers,
   LineChart,
   ListChecks,
@@ -18,7 +19,7 @@ import AdSlot from "../components/ads/AdSlot";
 import { sectorProfileForStock } from "../services/sector/sectorMapping";
 
 type NullableNumber = number | null;
-type MainTab = "market" | "etf";
+type MainTab = "market" | "etf" | "globalMarket" | "global";
 type EtfPage = "report" | "premiumHistory";
 type EtfRouteSection = "overview" | "changes";
 
@@ -196,6 +197,55 @@ interface TelegramInfo {
   subscribeUrl: string | null;
 }
 
+interface GlobalHolding {
+  ticker?: string;
+  name: string;
+  weightPercent?: number;
+  marketValue?: number;
+  sector?: string;
+  assetType?: string;
+}
+
+interface GlobalChange {
+  etfCode: string;
+  positionKey?: string;
+  ticker?: string;
+  name: string;
+  currentWeightPercent?: number;
+  prevWeightPercent?: number;
+  deltaPp?: number;
+  status: string;
+}
+
+interface GlobalReportSection {
+  etfCode: string;
+  fundName: string;
+  issuer: string;
+  strategyType?: string;
+  sourceAsOf: string;
+  sourceUrl: string;
+  sourceStatus: string;
+  rowCount: number;
+  topHoldings: GlobalHolding[];
+  newPositions: GlobalChange[];
+  exitedPositions: GlobalChange[];
+  weightChanges: GlobalChange[];
+  takeaway: string;
+}
+
+interface GlobalReport {
+  reportDate: string;
+  coveredEtfs: string[];
+  successCount: number;
+  totalCount: number;
+  highlights: string[];
+  statusRows: Array<{ etfCode: string; sourceAsOf: string; rowCount: number; sourceStatus: string }>;
+  globalMovers: GlobalChange[];
+  sections: GlobalReportSection[];
+  adContext: { tags: string[] };
+  demoMode?: boolean;
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
@@ -206,6 +256,7 @@ const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const activeMainTab = ref<MainTab>("market");
 const activeEtfPage = ref<EtfPage>("report");
 const activeEtfSection = ref<EtfRouteSection>("overview");
+const selectedGlobalEtfCode = ref("DRAM");
 const marketQuery = ref("");
 const holdingQuery = ref("");
 const expandedSector = ref("");
@@ -222,6 +273,8 @@ const stockImpacts = ref<StockImpact[]>([]);
 const sectorSummaryRows = ref<SectorSummaryRow[]>([]);
 const coverage = ref<EtfCoverageResponse | null>(null);
 const telegramInfo = ref<TelegramInfo | null>(null);
+const globalReport = ref<GlobalReport | null>(null);
+const globalErrorMessage = ref("");
 const changes = ref<ChangesResponse>({
   topIncreases: [],
   topDecreases: [],
@@ -234,6 +287,55 @@ const changes = ref<ChangesResponse>({
 
 const selectedEtf = computed(
   () => etfOptions.find((etf) => etf.etfCode === selectedEtfCode.value) ?? etfOptions[0]
+);
+const selectedGlobalSection = computed(
+  () => globalReport.value?.sections.find((section) => section.etfCode === selectedGlobalEtfCode.value) ?? globalReport.value?.sections[0] ?? null
+);
+const globalEtfOptions = computed(() => globalReport.value?.sections ?? []);
+const globalDateLabel = computed(() => selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? "-");
+const globalMarketRows = computed(() => {
+  const byPosition = new Map<
+    string,
+    {
+      ticker?: string;
+      name: string;
+      etfs: string[];
+      totalDeltaPp: number;
+      largestAbsDeltaPp: number;
+      direction: "increase" | "decrease" | "mixed";
+    }
+  >();
+
+  for (const section of globalReport.value?.sections ?? []) {
+    for (const change of section.weightChanges) {
+      const key = change.positionKey ?? change.ticker ?? change.name;
+      const existing = byPosition.get(key) ?? {
+        ticker: change.ticker,
+        name: change.name,
+        etfs: [],
+        totalDeltaPp: 0,
+        largestAbsDeltaPp: 0,
+        direction: change.deltaPp && change.deltaPp < 0 ? "decrease" as const : "increase" as const
+      };
+      existing.etfs.push(section.etfCode);
+      existing.totalDeltaPp += change.deltaPp ?? 0;
+      existing.largestAbsDeltaPp = Math.max(existing.largestAbsDeltaPp, Math.abs(change.deltaPp ?? 0));
+      const nextDirection = change.deltaPp && change.deltaPp < 0 ? "decrease" : "increase";
+      if (existing.direction !== nextDirection) existing.direction = "mixed";
+      byPosition.set(key, existing);
+    }
+  }
+
+  return [...byPosition.values()].sort((a, b) => {
+    if (b.etfs.length !== a.etfs.length) return b.etfs.length - a.etfs.length;
+    return b.largestAbsDeltaPp - a.largestAbsDeltaPp;
+  });
+});
+const activeProduct = computed<"taiwan" | "global">(() =>
+  activeMainTab.value === "global" || activeMainTab.value === "globalMarket" ? "global" : "taiwan"
+);
+const activeViewMode = computed<"market" | "single">(() =>
+  activeMainTab.value === "market" || activeMainTab.value === "globalMarket" ? "market" : "single"
 );
 
 const displayedImpacts = computed(() => {
@@ -346,6 +448,8 @@ function cleanPath(pathname: string): string {
 
 function routeForState(): string {
   if (activeMainTab.value === "market") return "/market";
+  if (activeMainTab.value === "globalMarket") return "/global-etfs";
+  if (activeMainTab.value === "global") return `/global-etfs/${selectedGlobalEtfCode.value}`;
 
   const code = selectedEtf.value?.etfCode ?? selectedEtfCode.value;
   if (activeEtfPage.value === "premiumHistory") return `/etf/${code}/premium-history`;
@@ -386,6 +490,18 @@ function routeFromPath(pathname: string): AppRoute {
       etfPage: "report",
       etfSection: "overview",
       canonicalPath: `/etf/${code}`
+    };
+  }
+
+  if (parts[0] === "global-etfs") {
+    const code = parts[1]?.toUpperCase();
+    if (code) selectedGlobalEtfCode.value = code;
+    return {
+      mainTab: code ? "global" : "globalMarket",
+      etfCode: fallbackCode,
+      etfPage: "report",
+      etfSection: "overview",
+      canonicalPath: code ? `/global-etfs/${code}` : "/global-etfs"
     };
   }
 
@@ -439,18 +555,27 @@ function updateDocumentMetadata(): void {
   const url = `${baseUrl}${path}`;
   const etf = selectedEtf.value;
 
-  let title = "台灣主動式 ETF 調倉雷達｜市場總覽";
+  let title = "台灣 ETF 市場總覽｜ETF 持倉雷達";
   let description = "查看台灣主動式 ETF 跨 ETF 個股影響、主動淨變動、三大法人與產業資金流總覽。";
 
-  if (activeMainTab.value === "etf" && etf) {
+  if (activeMainTab.value === "globalMarket") {
+    title = "海外 ETF 市場總覽｜ETF 持倉雷達";
+    description = "查看海外熱門 ETF 是否同時增減同一批標的，並比較 DRAM、NASA、BAI、EUV 等關注 ETF 的跨 ETF 權重變化。";
+  } else if (activeMainTab.value === "global") {
+    const section = selectedGlobalSection.value;
+    title = section ? `${section.etfCode} ${section.fundName}｜海外單檔 ETF` : "海外單檔 ETF｜ETF 持倉雷達";
+    description = section
+      ? `查看 ${section.etfCode} ${section.fundName} 的官方 Top 10 持股、權重變化與資料日期。`
+      : "查看海外熱門 ETF 官方 Top 10 持股、權重變化與資料日期。";
+  } else if (activeMainTab.value === "etf" && etf) {
     if (activeEtfPage.value === "premiumHistory") {
-      title = `${etf.etfCode} ${etf.name}｜折溢價歷史`;
+      title = `${etf.etfCode} ${etf.name}｜台灣 ETF 折溢價歷史`;
       description = `查看 ${etf.etfCode} ${etf.name} 的歷史股價、淨值與折溢價走勢。`;
     } else if (activeEtfSection.value === "changes") {
-      title = `${etf.etfCode} ${etf.name}｜持股變化`;
+      title = `${etf.etfCode} ${etf.name}｜台灣 ETF 持股變化`;
       description = `查看 ${etf.etfCode} ${etf.name} 的每日新增、刪除、加碼、減碼與規模校正後主動調倉訊號。`;
     } else {
-      title = `${etf.etfCode} ${etf.name}｜單檔 ETF 日報`;
+      title = `${etf.etfCode} ${etf.name}｜台灣單檔 ETF`;
       description = `查看 ${etf.etfCode} ${etf.name} 的持股總表、折溢價、資產配置與每日操作日報。`;
     }
   }
@@ -620,6 +745,14 @@ function formatLotsFromShares(value: NullableNumber): string {
 function formatWeight(value: NullableNumber): string {
   if (value === null) return "-";
   return value === 0 ? "<0.01%" : formatPlainPct(value, 2);
+}
+
+function formatGlobalWeight(value: number | undefined): string {
+  return value === undefined ? "-" : `${formatNumber(value, 1)}%`;
+}
+
+function formatGlobalPp(value: number | undefined): string {
+  return value === undefined ? "-" : `${value >= 0 ? "+" : ""}${formatNumber(value, 1)}pp`;
 }
 
 function operationLabel(status: "new" | "delete" | "increase" | "decrease"): string {
@@ -837,6 +970,23 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function loadGlobalReport(): Promise<void> {
+  globalErrorMessage.value = "";
+  try {
+    const report = await getJson<GlobalReport>("/api/global-etfs/daily-report");
+    globalReport.value = report;
+    if (!report.sections.some((section) => section.etfCode === selectedGlobalEtfCode.value)) {
+      selectedGlobalEtfCode.value = report.sections[0]?.etfCode ?? "DRAM";
+    }
+    if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
+      updateDocumentMetadata();
+    }
+  } catch (error) {
+    globalErrorMessage.value =
+      error instanceof Error ? error.message : "海外 ETF 資料讀取失敗，請確認 API server 是否啟動。";
+  }
+}
+
 async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<void> {
   try {
     const response = await getJson<{ dates: string[] }>(`/api/etf/${etfCode}/dates?limit=180`);
@@ -904,6 +1054,59 @@ async function showMarketTab(): Promise<void> {
   scrollToPageTop();
 }
 
+async function showGlobalMarket(): Promise<void> {
+  activeMainTab.value = "globalMarket";
+  activeEtfPage.value = "report";
+  activeEtfSection.value = "overview";
+  if (!globalReport.value) await loadGlobalReport();
+  syncRoute();
+  await nextTick();
+  scrollToPageTop();
+}
+
+async function showGlobalEtfs(etfCode?: string): Promise<void> {
+  activeMainTab.value = "global";
+  activeEtfPage.value = "report";
+  activeEtfSection.value = "overview";
+  if (etfCode) selectedGlobalEtfCode.value = etfCode;
+  if (!globalReport.value) await loadGlobalReport();
+  syncRoute();
+  await nextTick();
+  scrollToPageTop();
+}
+
+async function showTaiwanProduct(): Promise<void> {
+  if (activeViewMode.value === "single") {
+    await showEtfReport();
+  } else {
+    await showMarketTab();
+  }
+}
+
+async function showGlobalProduct(): Promise<void> {
+  if (activeViewMode.value === "single") {
+    await showGlobalEtfs();
+  } else {
+    await showGlobalMarket();
+  }
+}
+
+async function showCurrentProductMarket(): Promise<void> {
+  if (activeProduct.value === "global") {
+    await showGlobalMarket();
+  } else {
+    await showMarketTab();
+  }
+}
+
+async function showCurrentProductSingle(): Promise<void> {
+  if (activeProduct.value === "global") {
+    await showGlobalEtfs();
+  } else {
+    await showEtfReport();
+  }
+}
+
 async function showEtfReport(etfCode?: string, section: EtfRouteSection = "overview"): Promise<void> {
   activeMainTab.value = "etf";
   activeEtfPage.value = "report";
@@ -939,11 +1142,17 @@ onMounted(() => {
     applyRouteFromLocation();
     window.addEventListener("popstate", () => {
       applyRouteFromLocation(false);
-      void loadAvailableDates(selectedEtfCode.value).then(loadDashboard);
+      void loadGlobalReport();
+      if (activeMainTab.value !== "global" && activeMainTab.value !== "globalMarket") {
+        void loadAvailableDates(selectedEtfCode.value).then(loadDashboard);
+      }
     });
     void loadTelegramInfo();
-    await loadAvailableDates(selectedEtfCode.value);
-    await loadDashboard();
+    void loadGlobalReport();
+    if (activeMainTab.value !== "global" && activeMainTab.value !== "globalMarket") {
+      await loadAvailableDates(selectedEtfCode.value);
+      await loadDashboard();
+    }
   })();
 });
 
@@ -965,6 +1174,10 @@ watch(selectedEtfCode, async (etfCode) => {
     }
   }
 });
+
+watch(selectedGlobalEtfCode, () => {
+  if (activeMainTab.value === "global") syncRoute();
+});
 </script>
 
 <template>
@@ -975,12 +1188,29 @@ watch(selectedEtfCode, async (etfCode) => {
           <img src="/assets/logo-mark.svg" alt="" aria-hidden="true" />
         </div>
         <div>
-          <h1>台灣主動式ETF 調倉雷達</h1>
-          <p>跨 ETF 個股影響、單檔操作日報、折溢價與持股總表</p>
+          <h1>ETF 持倉雷達</h1>
+          <p>台灣主動式 ETF 調倉｜海外熱門 ETF 持股與權重變化</p>
         </div>
       </div>
 
       <div class="toolbar compact-toolbar">
+        <div class="product-switch" aria-label="產品線">
+          <button
+            type="button"
+            :class="{ active: activeProduct === 'taiwan' }"
+            @click="showTaiwanProduct"
+          >
+            台灣
+          </button>
+          <button
+            type="button"
+            :class="{ active: activeProduct === 'global' }"
+            @click="showGlobalProduct"
+          >
+            海外
+          </button>
+        </div>
+
         <a
           class="telegram-button"
           :class="{ disabled: telegramInfo && !telegramInfo.configured }"
@@ -993,14 +1223,28 @@ watch(selectedEtfCode, async (etfCode) => {
           <span>Telegram 訂閱</span>
         </a>
 
-        <label class="control">
+        <label v-if="activeMainTab === 'market' || activeMainTab === 'etf'" class="control">
           <span><Calendar :size="14" /> 指定日期</span>
           <select v-model="selectedDate" aria-label="指定日期" @change="loadDashboard">
             <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
           </select>
         </label>
+        <label v-else class="control">
+          <span><Calendar :size="14" /> 資料日期</span>
+          <select :value="globalDateLabel" aria-label="海外 ETF 資料日期" disabled>
+            <option :value="globalDateLabel">
+              {{ globalDateLabel }}
+            </option>
+          </select>
+        </label>
 
-        <button class="icon-button" type="button" :disabled="isLoading" aria-label="重新整理" @click="loadDashboard">
+        <button
+          class="icon-button"
+          type="button"
+          :disabled="(activeMainTab === 'market' || activeMainTab === 'etf') && isLoading"
+          aria-label="重新整理"
+          @click="activeMainTab === 'global' || activeMainTab === 'globalMarket' ? loadGlobalReport() : loadDashboard()"
+        >
           <RefreshCw :size="18" :class="{ spinning: isLoading }" />
         </button>
       </div>
@@ -1025,8 +1269,8 @@ watch(selectedEtfCode, async (etfCode) => {
     >
       <div class="section-heading">
         <div>
-          <span class="eyebrow">市場總覽</span>
-          <h2><Layers :size="19" /> {{ formatDateLabel(selectedDate) }} 跨 ETF 個股影響總表</h2>
+          <span class="eyebrow">台灣 ETF</span>
+          <h2><Layers :size="19" /> 台灣市場總覽</h2>
           <p>彙整所有已追蹤台灣主動式 ETF 的當日持股異動，先看哪些個股受到最大影響。</p>
         </div>
       </div>
@@ -1235,9 +1479,9 @@ watch(selectedEtfCode, async (etfCode) => {
     >
       <div class="section-heading report-heading">
         <div>
-          <span class="eyebrow">單檔 ETF</span>
-          <h2 v-if="activeEtfPage === 'report'"><ListChecks :size="19" /> 操作日報</h2>
-          <h2 v-else><LineChart :size="19" /> 折溢價歷史</h2>
+          <span class="eyebrow">台灣 ETF</span>
+          <h2 v-if="activeEtfPage === 'report'"><ListChecks :size="19" /> 台灣單檔 ETF</h2>
+          <h2 v-else><LineChart :size="19" /> 台灣 ETF 折溢價歷史</h2>
           <p v-if="activeEtfPage === 'report'">基金選擇、當日增減碼、折溢價與持股總表都集中在這裡。</p>
           <p v-else>查看 {{ selectedEtf?.etfCode }} 的歷史股價、淨值與折溢價走勢。</p>
         </div>
@@ -1612,6 +1856,159 @@ watch(selectedEtfCode, async (etfCode) => {
       />
     </section>
 
+    <section
+      id="global-market-panel"
+      v-show="activeMainTab === 'globalMarket'"
+      class="section-panel global-panel"
+    >
+      <div class="section-heading report-heading">
+        <div>
+          <span class="eyebrow">海外 ETF</span>
+          <h2><Globe2 :size="19" /> 海外市場總覽</h2>
+          <p>比較多檔海外 ETF 是否同步調整同一批標的。</p>
+        </div>
+      </div>
+
+      <section v-if="globalErrorMessage" class="alert">
+        <AlertCircle :size="18" />
+        <span>{{ globalErrorMessage }}</span>
+      </section>
+
+      <section class="holdings-panel global-detail-panel">
+        <div class="table-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 共同變化標的</h2>
+            <p>{{ globalDateLabel }}，依影響 ETF 數與權重變化排序。</p>
+          </div>
+        </div>
+
+        <div class="holdings-table global-market-table">
+          <div class="holdings-head">
+            <span>標的</span>
+            <span>影響 ETF</span>
+            <span>方向</span>
+            <span>最大變化</span>
+          </div>
+          <div v-for="row in globalMarketRows" :key="row.ticker ?? row.name" class="holding-row">
+            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+            <span class="global-etf-chip-list">
+              <button
+                v-for="etfCode in row.etfs"
+                :key="`${row.ticker ?? row.name}-${etfCode}`"
+                type="button"
+                class="primary-etf-link"
+                @click="showGlobalEtfs(etfCode)"
+              >
+                {{ etfCode }}
+              </button>
+              <small :class="{ 'increase-number': row.totalDeltaPp > 0, 'decrease-number': row.totalDeltaPp < 0 }">
+                {{ row.direction === "mixed" ? "多空混合" : row.direction === "increase" ? "增持" : "減持" }} ·
+                {{ formatGlobalPp(row.totalDeltaPp) }}
+              </small>
+            </span>
+            <span>
+              {{ row.direction === "mixed" ? "多空混合" : row.direction === "increase" ? "增持" : "減持" }}
+            </span>
+            <span :class="{ 'increase-number': row.totalDeltaPp > 0, 'decrease-number': row.totalDeltaPp < 0 }">
+              {{ formatGlobalPp(row.totalDeltaPp) }}
+            </span>
+          </div>
+          <p v-if="!globalMarketRows.length" class="empty-row">目前尚無可比較的海外 ETF 權重變化。</p>
+        </div>
+      </section>
+
+      <AdSlot
+        v-if="activeMainTab === 'globalMarket'"
+        slot="article-inline"
+        page="/global-etfs"
+        :tags="globalReport?.adContext.tags ?? ['global-etf', 'us-market', 'ai', 'semiconductor', 'macro', 'active-etf']"
+      />
+    </section>
+
+    <section
+      id="global-panel"
+      v-show="activeMainTab === 'global'"
+      class="section-panel global-panel"
+    >
+      <div class="section-heading report-heading">
+        <div>
+          <span class="eyebrow">海外 ETF</span>
+          <h2><Globe2 :size="19" /> 海外單檔 ETF</h2>
+        </div>
+        <div class="toolbar report-controls">
+          <label class="control wide-control">
+            <span>ETF</span>
+            <select v-model="selectedGlobalEtfCode" aria-label="海外 ETF">
+              <option v-for="etf in globalEtfOptions" :key="etf.etfCode" :value="etf.etfCode">
+                {{ etf.etfCode }} {{ etf.fundName }}
+              </option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <section v-if="globalErrorMessage" class="alert">
+        <AlertCircle :size="18" />
+        <span>{{ globalErrorMessage }}</span>
+      </section>
+
+      <section v-if="selectedGlobalSection" class="holdings-panel global-detail-panel">
+        <div class="table-title">
+          <div>
+            <h2><Database :size="18" /> {{ selectedGlobalSection.etfCode }} Top 10 持股</h2>
+            <p>{{ selectedGlobalSection.takeaway }}｜資料日期 {{ selectedGlobalSection.sourceAsOf }}</p>
+          </div>
+          <a class="source-link" :href="selectedGlobalSection.sourceUrl" target="_blank" rel="noreferrer">官方來源</a>
+        </div>
+
+        <div class="holdings-table global-holdings-table">
+          <div class="holdings-head">
+            <span>標的</span>
+            <span>產業 / 類型</span>
+            <span>權重</span>
+            <span>市值</span>
+          </div>
+          <div v-for="row in selectedGlobalSection.topHoldings" :key="row.ticker ?? row.name" class="holding-row">
+            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+            <span>{{ row.sector ?? row.assetType ?? "-" }}</span>
+            <span>{{ formatGlobalWeight(row.weightPercent) }}</span>
+            <span>{{ formatMoney(row.marketValue ?? null) }}</span>
+          </div>
+        </div>
+
+        <div class="global-change-panel">
+          <div class="operation-title">
+            <div>
+              <h2><BarChart3 :size="18" /> 權重變化</h2>
+              <p class="tag-movement-subtitle">被動 ETF 使用持倉權重變化；主動 ETF 才標示經理人主題移動。</p>
+            </div>
+          </div>
+          <div class="global-mover-list compact">
+            <div
+              v-for="row in selectedGlobalSection.weightChanges.slice(0, 8)"
+              :key="`${selectedGlobalSection.etfCode}-${row.ticker ?? row.name}`"
+              class="global-mover-row"
+            >
+              <span><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+              <span>{{ formatGlobalWeight(row.currentWeightPercent) }}</span>
+              <span :class="{ 'increase-number': (row.deltaPp ?? 0) > 0, 'decrease-number': (row.deltaPp ?? 0) < 0 }">
+                {{ formatGlobalPp(row.deltaPp) }}
+              </span>
+            </div>
+            <p v-if="!selectedGlobalSection.weightChanges.length" class="empty-row">此檔尚無可比較的權重變化。</p>
+          </div>
+        </div>
+      </section>
+
+      <AdSlot
+        v-if="activeMainTab === 'global'"
+        slot="article-inline"
+        page="/global-etfs"
+        :etf-code="selectedGlobalEtfCode"
+        :tags="globalReport?.adContext.tags ?? ['global-etf', 'us-market', 'ai', 'semiconductor', 'macro', 'active-etf']"
+      />
+    </section>
+
     <footer class="disclaimer">
       本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。ETF 持股揭露可能有時間差，請以投信與交易所公告為準。
       <a href="/active-etfs/">查看追蹤 ETF 清單</a>
@@ -1620,18 +2017,18 @@ watch(selectedEtfCode, async (etfCode) => {
     <nav class="bottom-tabs" aria-label="主要頁籤">
       <button
         type="button"
-        :class="{ active: activeMainTab === 'market' }"
-        aria-controls="market-panel"
-        @click="showMarketTab"
+        :class="{ active: activeViewMode === 'market' }"
+        :aria-controls="activeProduct === 'global' ? 'global-market-panel' : 'market-panel'"
+        @click="showCurrentProductMarket"
       >
         <Layers :size="19" />
         <span>市場總覽</span>
       </button>
       <button
         type="button"
-        :class="{ active: activeMainTab === 'etf' }"
-        aria-controls="report-panel"
-        @click="showEtfReport()"
+        :class="{ active: activeViewMode === 'single' }"
+        :aria-controls="activeProduct === 'global' ? 'global-panel' : 'report-panel'"
+        @click="showCurrentProductSingle"
       >
         <ListChecks :size="19" />
         <span>單檔 ETF</span>

@@ -36,6 +36,30 @@ Returns cross-ETF active-signal ranking.
 
 Returns stock-level impact ranking across all tracked active ETFs for a date. Rows include ETF active holding impact plus joined `sector`, daily market quote/trading fields, and 三大法人 net buy/sell fields when available.
 
+## Get Global ETFs
+
+`GET /api/global-etfs/enabled`
+
+Returns the enabled overseas ETF product line and the candidate universe that still needs official endpoint verification. These rows are separate from `src/config/etfs.ts`.
+
+## Get Global ETF Daily Report
+
+`GET /api/global-etfs/daily-report`
+
+Returns the Traditional Chinese Global ETF Holdings Radar report with source status rows, all-ETF movers, per-ETF Top 10 holdings, source links, and Forvix ad context tags. If no `global_etf_snapshots` exist in local development, the dev API returns a `demoMode: true` report so the UI can be inspected without polluting production data.
+
+## Get Global ETF Holdings
+
+`GET /api/global-etf/{etfCode}/holdings`
+
+Returns the latest normalized Top 10 holdings for one enabled overseas ETF.
+
+## Get Global ETF Changes
+
+`GET /api/global-etf/{etfCode}/changes`
+
+Returns new/exited positions, weight/share/market-value changes, and sector/country aggregates for one enabled overseas ETF.
+
 ## Admin Sync Holdings
 
 `POST /api/jobs/etf/{etfCode}/sync-holdings`
@@ -73,6 +97,16 @@ Returns the current enabled ETF list from `src/config/etfs.ts` for external sche
 Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, sector-flow calculation, and TWSE/TPEx daily market intelligence sync for every refreshed trade date. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 For Azure Static Web Apps managed Functions, prefer the split Logic App flow when the full refresh risks backend timeout: call `discover-active-etfs`, `etfs/enabled`, loop through per-ETF `sync-holdings` and `calculate-changes`, then call `aggregates`.
+
+## Admin Global ETF Sync Holdings
+
+`POST /api/jobs/global-etfs/sync-holdings`
+
+Runs official-source holdings sync for all enabled overseas ETFs (`DRAM`, `NASA`, `BAI`, `EUV`). Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+
+`POST /api/jobs/global-etf/{etfCode}/sync-holdings`
+
+Runs official-source holdings sync for one enabled overseas ETF. Raw responses are saved under `global_etf_raw_snapshots`, normalized snapshots under `global_etf_snapshots`, and changes under `global_etf_holding_changes`.
 
 ## Admin Daily Aggregates
 

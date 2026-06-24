@@ -159,6 +159,69 @@ Important fields:
 - `lastSeenAt`
 - `lastNotifiedAt`
 
+### `global_etf_raw_snapshots`
+
+Raw official-source evidence for the overseas ETF product line. Shape follows `raw_snapshots`, but it is stored separately so global ETF sync cannot pollute Taiwan active ETF evidence workflows.
+
+Important fields:
+
+- `source`
+- `etfCode`
+- `dataType`
+- `tradeDate`
+- `url`
+- `responseStatus`
+- `rawContentType`
+- `rawBody`
+- `parsedOk`
+- `parseError`
+
+### `global_etf_snapshots`
+
+Normalized overseas ETF snapshot document. One document contains metadata plus the normalized `holdings` array for a single source date/fetch.
+
+Important fields:
+
+- `snapshotId`
+- `etfCode`
+- `sourceAsOf`
+- `fetchedAt`
+- `sourceUrl`
+- `sourceStatus`
+- `productGroup: "global_etf"`
+- `market: "US"`
+- `strategyType`
+- `rowCount`
+- `rawRowCount`
+- `signature`
+- `holdings`
+- `unusableReason`
+
+EUV snapshots that look like historical aggregation pollution should be marked unusable and skipped as previous-comparison baselines.
+
+### `global_etf_holding_changes`
+
+Overseas ETF position-level changes calculated from the latest usable snapshot versus the previous usable snapshot.
+
+Important fields:
+
+- `etfCode`
+- `sourceAsOf`
+- `prevSourceAsOf`
+- `positionKey`
+- `ticker`
+- `name`
+- `prevWeightPercent`
+- `currentWeightPercent`
+- `deltaPp`
+- `prevShares`
+- `currentShares`
+- `deltaShares`
+- `prevMarketValue`
+- `currentMarketValue`
+- `deltaMarketValue`
+- `status`
+
 ### `telegram_subscribers`
 
 Telegram users, chats, groups, and their notification preferences. A row is created or updated when Telegram sends a message to `/api/telegram/webhook`, including `/start`.

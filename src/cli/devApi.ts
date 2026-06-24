@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { URL } from "node:url";
 import type { Db } from "mongodb";
 import { configuredEtfs } from "../config/etfs.js";
+import { enabledGlobalEtfs, findGlobalEtfConfig, globalEtfCandidates } from "../config/globalEtfs.js";
 import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
@@ -21,6 +22,7 @@ import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
+import { getGlobalEtfDailyReport, syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
 
@@ -94,6 +96,14 @@ let dbPromise: Promise<Db> | null = null;
 function getDevDb(): Promise<Db> {
   dbPromise ??= getDb();
   return dbPromise;
+}
+
+async function getDevGlobalEtfReport() {
+  try {
+    return await getGlobalEtfDailyReport(await getDevDb());
+  } catch {
+    return getGlobalEtfDailyReport();
+  }
 }
 
 const server = createServer(async (req, res) => {
@@ -286,6 +296,78 @@ const server = createServer(async (req, res) => {
       });
 
       sendJson(res, 200, body);
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "global-etfs" && parts[2] === "enabled") {
+      sendJson(res, 200, {
+        productGroup: "global_etf",
+        enabled: enabledGlobalEtfs,
+        candidates: globalEtfCandidates.filter((etf) => !etf.enabled)
+      });
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "global-etfs" && parts[2] === "daily-report") {
+      sendJson(res, 200, await getDevGlobalEtfReport());
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "global-etf" && parts[2]) {
+      const etfCode = parts[2].toUpperCase();
+      if (!findGlobalEtfConfig(etfCode)) {
+        sendJson(res, 400, { error: "known global ETF code is required" });
+        return;
+      }
+      const report = await getDevGlobalEtfReport();
+      const section = report.sections.find((item) => item.etfCode === etfCode);
+      if (parts[3] === "holdings") {
+        sendJson(res, 200, { etfCode, date: section?.sourceAsOf ?? null, holdings: section?.topHoldings ?? [], demoMode: report.demoMode });
+        return;
+      }
+      if (parts[3] === "changes") {
+        sendJson(res, 200, {
+          etfCode,
+          date: section?.sourceAsOf ?? null,
+          changes: section
+            ? {
+                newPositions: section.newPositions,
+                exitedPositions: section.exitedPositions,
+                weightChanges: section.weightChanges,
+                shareChanges: section.shareChanges,
+                marketValueChanges: section.marketValueChanges,
+                sectorChanges: section.sectorChanges,
+                countryChanges: section.countryChanges
+              }
+            : null,
+          demoMode: report.demoMode
+        });
+        return;
+      }
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "global-etfs" && parts[3] === "sync-holdings") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const results = await syncAllGlobalEtfHoldings(await getDevDb());
+      sendJson(res, 200, { ok: results.every((result) => result.ok), job: "globalEtfsSyncHoldings", results });
+      return;
+    }
+
+    if (req.method === "POST" && parts[1] === "jobs" && parts[2] === "global-etf" && parts[4] === "sync-holdings") {
+      const authError = adminAuthError(req);
+      if (authError) {
+        sendJson(res, authError.status, { error: authError.message });
+        return;
+      }
+
+      const etfCode = required(parts[3] ?? null, "etfCode").toUpperCase();
+      const result = await syncGlobalEtfHoldings(await getDevDb(), etfCode);
+      sendJson(res, 200, { ok: true, job: "globalEtfSyncHoldings", result });
       return;
     }
 

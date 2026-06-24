@@ -62,6 +62,27 @@ issuer -> issuer
 
 The discovery job stores the complete raw JSON response in `raw_snapshots` with source `twse_etfortune`, then upserts `active_etf_discoveries`.
 
+## Global ETF Holdings Radar sources
+
+The overseas product line uses `src/config/globalEtfs.ts` and must not reuse Taiwan ranking collections. Enabled sources:
+
+- `DRAM` Roundhill Memory ETF
+  - Landing page: `https://www.roundhillinvestments.com/etf/dram/`
+  - Holdings CSV pattern: `https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_MMDDYYYY.csv`
+  - The provider scans the latest 15 calendar days and filters `Account == "DRAM"`.
+- `NASA` Tema Space Innovators ETF
+  - Holdings CSV: `https://temaetfs.com/hubfs/Website/Holdings/NASA-holdings.csv`
+  - `percent_of_nav` is a fraction and is multiplied by 100.
+- `BAI` iShares A.I. Innovation and Tech Active ETF
+  - Product page: `https://www.ishares.com/us/products/339081/ishares-a-i-innovation-and-tech-active-etf`
+  - BlackRock fund download endpoint returns SpreadsheetML `.xls`, not `.xlsx`.
+  - Parser sanitizes HTML fragments and bare ampersands, then reads worksheet `Holdings`.
+- `EUV` Corgi Lithography & Semiconductor Photonics ETF
+  - API: `https://cmltk98h4m.execute-api.us-east-2.amazonaws.com/api/v1/holdings?account=EUV&limit=1000`
+  - Provider follows `pagination.has_more`, then filters rows to the newest `holding_date` only. Historical rows must not be aggregated with the latest day.
+
+ARK, JPMorgan, Capital Group, Amplify, T. Rowe Price, Goldman Sachs, and PIMCO candidates remain `needs_endpoint_verification` until official holdings endpoint behavior, source date, and parser fixtures are captured.
+
 ## TWSE listed stock daily market data
 
 URL: `https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX`

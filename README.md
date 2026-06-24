@@ -13,6 +13,12 @@
 - 產生跨 ETF consensus 與 sector flow 聚合資料。
 - 提供 API 與 Telegram digest。
 
+## 海外 ETF 熱門持倉雷達
+
+本專案另有第二產品線「海外 ETF 熱門持倉雷達」，入口為 `/global-etfs` 與 `/global-etfs/{etfCode}`。海外 ETF 使用 `src/config/globalEtfs.ts` 與 `global_etf_*` collections，和台灣主動式 ETF 的首頁、ranking、sector flow、stock-impact 聚合分開。
+
+第一階段啟用 `DRAM`、`NASA`、`BAI`、`EUV` 四檔已反查官方持股來源的主題 ETF。ARK、JPMorgan、Capital Group 等高關注候選 ETF 只列入待驗證 universe，必須完成官方 issuer endpoint、AUM/volume 與 fixture 驗證後才能啟用。
+
 ## Provider 架構
 
 Provider 介面與 registry 位於：
@@ -287,9 +293,11 @@ http://127.0.0.1:5173/
 /etf/{etfCode}
 /etf/{etfCode}/changes
 /etf/{etfCode}/premium-history
+/global-etfs
+/global-etfs/{etfCode}
 ```
 
-Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到市場總覽、單檔 ETF、持股變化或折溢價歷史。新增 enabled ETF 時，請同步更新 `public/sitemap.xml`。
+Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到台灣市場總覽、台灣單檔 ETF、持股變化、折溢價歷史、海外市場總覽或海外單檔 ETF。新增 enabled ETF 或 enabled global ETF 時，請同步更新 `public/sitemap.xml`。
 
 ## 已知限制
 
