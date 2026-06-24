@@ -270,6 +270,27 @@ interface GlobalReport {
   demoMode?: boolean;
 }
 
+interface InsightChip {
+  label: string;
+  value?: string;
+  action?: "focusTaiwanStock" | "showGlobalEtf";
+  actionValue?: string;
+}
+
+interface InsightCard {
+  id: string;
+  title: string;
+  metric: string;
+  subMetric: string;
+  detail: string;
+  value: number;
+  barValue: number;
+  tone: "increase" | "decrease" | "mixed" | "neutral";
+  chips: InsightChip[];
+  action?: "toggleTaiwanSector" | "showGlobalEtf";
+  actionValue?: string;
+}
+
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
@@ -452,15 +473,6 @@ const marketTotals = computed(() => ({
   institutionalNetLots: stockImpacts.value.reduce((sum, row) => sum + (row.institutional?.totalNetShares ?? 0) / 1000, 0),
   turnover: stockImpacts.value.reduce((sum, row) => sum + (row.market?.turnover ?? 0), 0)
 }));
-const topSectorRows = computed(() =>
-  [...sectorSummaryRows.value]
-    .sort((a, b) => {
-      if (a.sector === "其他" && b.sector !== "其他") return 1;
-      if (b.sector === "其他" && a.sector !== "其他") return -1;
-      return Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots);
-    })
-    .slice(0, 6)
-);
 const expandedSectorStocks = computed(() => {
   if (!expandedSector.value) return [];
   return stockImpacts.value
@@ -493,6 +505,56 @@ const helpTexts = {
   rawLots: "表面張數是不做規模校正的持股張數變化，也就是今日股數減前日股數再除以 1000。",
   adjustedLots: "校正張數會先用 ETF 總受益權單位變化估算應有持股，再用實際持股扣掉應有持股。"
 } as const;
+
+function globalPositionKey(row: Pick<GlobalHolding | GlobalChange | GlobalCommonHolding, "ticker" | "name"> & { positionKey?: string }): string {
+  return row.positionKey ?? row.ticker ?? row.name;
+}
+
+function selectedGlobalChangeMap(): Map<string, GlobalChange> {
+  const map = new Map<string, GlobalChange>();
+  for (const row of selectedGlobalSection.value?.weightChanges ?? []) {
+    map.set(globalPositionKey(row), row);
+  }
+  return map;
+}
+
+function globalHoldingDelta(row: GlobalHolding, changeMap = selectedGlobalChangeMap()): number {
+  return changeMap.get(globalPositionKey(row))?.deltaPp ?? 0;
+}
+
+function insightTone(value: number, mixed = false): InsightCard["tone"] {
+  if (mixed) return "mixed";
+  if (value > 0) return "increase";
+  if (value < 0) return "decrease";
+  return "neutral";
+}
+
+function maxAbsInsightValue(cards: InsightCard[]): number {
+  return Math.max(1, ...cards.map((card) => Math.abs(card.barValue)));
+}
+
+function insightBarStyle(card: InsightCard, maxValue: number): Record<string, string> {
+  const percent = Math.max(4, Math.min(100, (Math.abs(card.barValue) / maxValue) * 100));
+  return {
+    "--bar-width": `${card.tone === "neutral" ? percent : percent / 2}%`
+  };
+}
+
+function handleInsightCardClick(card: InsightCard): void {
+  if (card.action === "toggleTaiwanSector" && card.actionValue) {
+    toggleSector(card.actionValue);
+  } else if (card.action === "showGlobalEtf" && card.actionValue) {
+    void showGlobalEtfs(card.actionValue);
+  }
+}
+
+function handleInsightChipClick(chip: InsightChip): void {
+  if (chip.action === "focusTaiwanStock" && chip.actionValue) {
+    void focusStockImpact(chip.actionValue);
+  } else if (chip.action === "showGlobalEtf" && chip.actionValue) {
+    void showGlobalEtfs(chip.actionValue);
+  }
+}
 
 function normalizedEtfCode(value: string | undefined): string | null {
   if (!value) return null;
@@ -737,6 +799,181 @@ const operationCounts = computed(() => ({
   decrease: operationRows.value.filter((row) => row.operationStatus === "decrease").length,
   total: operationRows.value.length
 }));
+
+const marketInsightCards = computed<InsightCard[]>(() =>
+  [...sectorSummaryRows.value]
+    .filter((row) => row.sector !== "其他")
+    .sort((a, b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots))
+    .slice(0, 8)
+    .map((row) => {
+      const topStocks = stockImpacts.value
+        .filter((stock) => sectorLabel(stock) === row.sector)
+        .sort((a, b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots))
+        .slice(0, 4);
+      return {
+        id: `market-sector-${row.sector}`,
+        title: row.sector,
+        metric: `${formatLots(row.totalActiveDiffLots)} 張`,
+        subMetric: `法人 ${formatLots(row.totalInstitutionalNetLots)}`,
+        detail: `${row.stockCount} 股 / ${row.etfCount} ETF`,
+        value: row.totalActiveDiffLots,
+        barValue: row.totalActiveDiffLots,
+        tone: insightTone(row.totalActiveDiffLots),
+        action: "toggleTaiwanSector",
+        actionValue: row.sector,
+        chips: topStocks.map((stock) => ({
+          label: `${stock.stockId} ${stock.stockName}`,
+          value: `${formatLots(stock.totalActiveDiffLots)} 張`,
+          action: "focusTaiwanStock",
+          actionValue: stock.stockId
+        }))
+      };
+    })
+);
+const maxMarketInsightValue = computed(() => maxAbsInsightValue(marketInsightCards.value));
+
+const taiwanEtfThemeInsightCards = computed<InsightCard[]>(() =>
+  tagMovementRows.value.slice(0, 6).map((row) => ({
+    id: `etf-theme-${row.tag}`,
+    title: row.tag,
+    metric: `${formatLots(row.totalActiveDiffLots)} 張`,
+    subMetric: formatPct(row.totalDiffWeightPoint, 2),
+    detail: `${tagDirectionLabel(row)}｜加 ${row.increaseStockCount} / 減 ${row.decreaseStockCount}`,
+    value: row.totalActiveDiffLots,
+    barValue: row.totalActiveDiffLots || row.totalDiffWeightPoint,
+    tone: insightTone(row.totalActiveDiffLots || row.totalDiffWeightPoint, row.direction === "mixed"),
+    chips: row.topStocks.map((stock) => ({
+      label: `${stock.stockId} ${stock.stockName}`,
+      value: `${formatLots(stock.activeDiffLots)} 張`
+    }))
+  }))
+);
+const maxTaiwanEtfThemeInsightValue = computed(() => maxAbsInsightValue(taiwanEtfThemeInsightCards.value));
+
+const taiwanEtfOperationInsightCards = computed<InsightCard[]>(() =>
+  operationRows.value.slice(0, 8).map((row) => {
+    const activeLots = row.activeDiffLots ?? row.diffLots;
+    return {
+      id: `etf-operation-${row.stockId}`,
+      title: row.stockId,
+      metric: `${operationLabel(row.operationStatus)} ${formatLots(activeLots)} 張`,
+      subMetric: formatWeight(row.currentWeight),
+      detail: row.stockName,
+      value: activeLots,
+      barValue: activeLots || row.diffWeightPoint || 0,
+      tone: row.operationStatus === "new" ? "increase" : row.operationStatus === "delete" ? "decrease" : insightTone(activeLots || row.diffWeightPoint || 0),
+      chips: [
+        { label: "持股變動", value: `${formatLots(row.diffLots)} 張` },
+        { label: "權重變動", value: formatPct(row.diffWeightPoint, 2) }
+      ]
+    };
+  })
+);
+const maxTaiwanEtfOperationInsightValue = computed(() => maxAbsInsightValue(taiwanEtfOperationInsightCards.value));
+
+const globalCommonInsightCards = computed<InsightCard[]>(() =>
+  globalCommonHoldingRows.value.slice(0, 8).map((row) => ({
+    id: `global-common-${row.positionKey}`,
+    title: row.ticker ?? "-",
+    metric: formatGlobalWeight(row.totalWeightPercent),
+    subMetric: `${row.etfCount} 檔共同持有`,
+    detail: row.name,
+    value: row.totalWeightPercent,
+    barValue: row.totalWeightPercent,
+    tone: "neutral",
+    action: "showGlobalEtf",
+    actionValue: row.etfs[0]?.etfCode,
+    chips: row.etfs.slice(0, 5).map((etf) => ({
+      label: etf.etfCode,
+      value: formatGlobalWeight(etf.weightPercent),
+      action: "showGlobalEtf",
+      actionValue: etf.etfCode
+    }))
+  }))
+);
+const maxGlobalCommonInsightValue = computed(() => maxAbsInsightValue(globalCommonInsightCards.value));
+
+const globalMoverInsightCards = computed<InsightCard[]>(() =>
+  globalMarketRows.value.slice(0, 8).map((row) => ({
+    id: `global-mover-${row.ticker ?? row.name}`,
+    title: row.ticker ?? "-",
+    metric: formatGlobalPp(row.totalDeltaPp),
+    subMetric: `${row.etfs.length} 檔同步變化`,
+    detail: row.name,
+    value: row.totalDeltaPp,
+    barValue: row.totalDeltaPp,
+    tone: insightTone(row.totalDeltaPp, row.direction === "mixed"),
+    action: "showGlobalEtf",
+    actionValue: row.etfs[0],
+    chips: row.etfs.slice(0, 5).map((etfCode) => ({
+      label: etfCode,
+      action: "showGlobalEtf",
+      actionValue: etfCode
+    }))
+  }))
+);
+const maxGlobalMoverInsightValue = computed(() => maxAbsInsightValue(globalMoverInsightCards.value));
+
+const globalSingleTypeInsightCards = computed<InsightCard[]>(() => {
+  const section = selectedGlobalSection.value;
+  if (!section) return [];
+  const changeMap = selectedGlobalChangeMap();
+  const groups = new Map<string, { weight: number; delta: number; holdings: GlobalHolding[] }>();
+  for (const holding of section.topHoldings) {
+    const label = holding.sector ?? holding.assetType ?? "未分類";
+    const group = groups.get(label) ?? { weight: 0, delta: 0, holdings: [] };
+    group.weight += holding.weightPercent ?? 0;
+    group.delta += globalHoldingDelta(holding, changeMap);
+    group.holdings.push(holding);
+    groups.set(label, group);
+  }
+
+  return [...groups.entries()]
+    .sort((a, b) => b[1].weight - a[1].weight)
+    .slice(0, 8)
+    .map(([label, group]) => ({
+      id: `global-type-${section.etfCode}-${label}`,
+      title: label,
+      metric: formatGlobalWeight(group.weight),
+      subMetric: group.delta ? formatGlobalPp(group.delta) : "權重合計",
+      detail: `${group.holdings.length} 檔標的`,
+      value: group.weight,
+      barValue: group.delta || group.weight,
+      tone: group.delta ? insightTone(group.delta) : "neutral",
+      chips: group.holdings
+        .sort((a, b) => (b.weightPercent ?? 0) - (a.weightPercent ?? 0))
+        .slice(0, 4)
+        .map((holding) => ({
+          label: `${holdingIdentity(holding).symbol} ${holding.name}`,
+          value: formatGlobalWeight(holding.weightPercent)
+        }))
+    }));
+});
+const maxGlobalSingleTypeInsightValue = computed(() => maxAbsInsightValue(globalSingleTypeInsightCards.value));
+
+const globalSingleHoldingInsightCards = computed<InsightCard[]>(() => {
+  const section = selectedGlobalSection.value;
+  if (!section) return [];
+  const changeMap = selectedGlobalChangeMap();
+  return section.topHoldings.slice(0, 8).map((holding) => {
+    const delta = globalHoldingDelta(holding, changeMap);
+    return {
+      id: `global-holding-${section.etfCode}-${holding.ticker ?? holding.name}`,
+      title: holdingIdentity(holding).symbol,
+      metric: formatGlobalWeight(holding.weightPercent),
+      subMetric: delta ? formatGlobalPp(delta) : holding.sector ?? holding.assetType ?? "-",
+      detail: holding.name,
+      value: holding.weightPercent ?? 0,
+      barValue: delta || holding.weightPercent || 0,
+      tone: delta ? insightTone(delta) : "neutral",
+      chips: [
+        { label: "類型", value: holding.sector ?? holding.assetType ?? "-" },
+        { label: "市值", value: formatMoney(holding.marketValue ?? null) }
+      ]
+    };
+  });
+});
+const maxGlobalSingleHoldingInsightValue = computed(() => maxAbsInsightValue(globalSingleHoldingInsightCards.value));
 
 const maxActiveLots = computed(() => {
   const magnitudes = [...activeIncreaseRows.value, ...activeDecreaseRows.value].map((row) =>
@@ -1466,23 +1703,51 @@ watch(
         </div>
       </div>
 
-      <div v-if="topSectorRows.length" class="sector-strip">
-        <button
-          v-for="row in topSectorRows"
-          :key="row.sector"
-          class="sector-card"
-          :class="{ active: expandedSector === row.sector }"
-          type="button"
-          :aria-expanded="expandedSector === row.sector"
-          @click="toggleSector(row.sector)"
-        >
-          <b>{{ row.sector }}</b>
-          <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
-            {{ formatLots(row.totalActiveDiffLots) }} 張
-          </span>
-          <small>法人 {{ formatLots(row.totalInstitutionalNetLots) }}｜{{ row.stockCount }} 股 / {{ row.etfCount }} ETF</small>
-        </button>
-      </div>
+      <section v-if="marketInsightCards.length" class="insight-panel" aria-label="台灣產業資金與調倉">
+        <div class="insight-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 產業資金與調倉</h2>
+            <p>依主動淨變動張數排序；長條顯示正負規模，卡片下方列出主要影響個股。</p>
+          </div>
+          <span>長條 = 主動淨變動張數</span>
+        </div>
+        <div class="insight-card-grid">
+          <article
+            v-for="card in marketInsightCards"
+            :key="card.id"
+            class="insight-card"
+            :class="[card.tone, { active: expandedSector === card.actionValue, actionable: card.action }]"
+            role="button"
+            tabindex="0"
+            @click="handleInsightCardClick(card)"
+            @keydown.enter.prevent="handleInsightCardClick(card)"
+          >
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxMarketInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <button
+                v-for="chip in card.chips"
+                :key="`${card.id}-${chip.label}`"
+                type="button"
+                class="insight-chip"
+                @click.stop="handleInsightChipClick(chip)"
+              >
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value" :class="{ 'increase-number': chip.value.startsWith('+'), 'decrease-number': chip.value.startsWith('-') }">
+                  {{ chip.value }}
+                </small>
+              </button>
+            </span>
+          </article>
+        </div>
+      </section>
       <div v-if="expandedSector" class="sector-stock-panel">
         <div class="sector-stock-heading">
           <b>{{ expandedSector }}</b>
@@ -1735,7 +2000,69 @@ watch(
         </section>
       </template>
 
-      <section v-else class="premium-history-page">
+      <section v-if="activeEtfPage === 'report' && taiwanEtfThemeInsightCards.length" class="insight-panel" aria-label="台灣單檔 ETF 主題移動">
+        <div class="insight-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 主題移動概覽</h2>
+            <p>依主題彙整主動淨變動與權重變化，直接列出主要標的。</p>
+          </div>
+          <span>長條 = 主動淨變動張數</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in taiwanEtfThemeInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxTaiwanEtfThemeInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <span v-for="chip in card.chips" :key="`${card.id}-${chip.label}`" class="insight-chip">
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value" :class="{ 'increase-number': chip.value.startsWith('+'), 'decrease-number': chip.value.startsWith('-') }">
+                  {{ chip.value }}
+                </small>
+              </span>
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="activeEtfPage === 'report' && taiwanEtfOperationInsightCards.length" class="insight-panel subtle" aria-label="台灣單檔 ETF 主要異動標的">
+        <div class="insight-title">
+          <div>
+            <h2><ListChecks :size="18" /> 主要異動標的</h2>
+            <p>依新增、刪除、加減碼與權重排序，長條顯示調倉方向與大小。</p>
+          </div>
+          <span>長條 = 校正或持股變動張數</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in taiwanEtfOperationInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxTaiwanEtfOperationInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <span v-for="chip in card.chips" :key="`${card.id}-${chip.label}`" class="insight-chip">
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value" :class="{ 'increase-number': chip.value.startsWith('+'), 'decrease-number': chip.value.startsWith('-') }">
+                  {{ chip.value }}
+                </small>
+              </span>
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="activeEtfPage !== 'report'" class="premium-history-page">
         <div class="premium-page-title">
           <div>
             <h2>
@@ -2031,6 +2358,75 @@ watch(
         <span>{{ globalErrorMessage }}</span>
       </section>
 
+      <section v-if="globalCommonInsightCards.length" class="insight-panel" aria-label="海外共同持有概覽">
+        <div class="insight-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 共同持有概覽</h2>
+            <p>依合計權重排序，直接列出共同持有的 ETF / 13F。</p>
+          </div>
+          <span>長條 = 合計持有權重</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in globalCommonInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxGlobalCommonInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <button
+                v-for="chip in card.chips"
+                :key="`${card.id}-${chip.label}`"
+                type="button"
+                class="insight-chip"
+                @click.stop="handleInsightChipClick(chip)"
+              >
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value">{{ chip.value }}</small>
+              </button>
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="globalMoverInsightCards.length" class="insight-panel subtle" aria-label="海外共同變化概覽">
+        <div class="insight-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 共同變化概覽</h2>
+            <p>依影響 ETF 數與權重變化排序，顯示哪些產品同步增減同一標的。</p>
+          </div>
+          <span>長條 = 合計權重變化</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in globalMoverInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxGlobalMoverInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <button
+                v-for="chip in card.chips"
+                :key="`${card.id}-${chip.label}`"
+                type="button"
+                class="insight-chip"
+                @click.stop="handleInsightChipClick(chip)"
+              >
+                <b>{{ chip.label }}</b>
+              </button>
+            </span>
+          </article>
+        </div>
+      </section>
+
       <section class="holdings-panel global-detail-panel">
         <div class="table-title">
           <div>
@@ -2202,6 +2598,64 @@ watch(
       <section v-if="globalErrorMessage" class="alert">
         <AlertCircle :size="18" />
         <span>{{ globalErrorMessage }}</span>
+      </section>
+
+      <section v-if="globalSingleTypeInsightCards.length" class="insight-panel" aria-label="海外單檔類型概覽">
+        <div class="insight-title">
+          <div>
+            <h2><BarChart3 :size="18" /> 類型與標的概覽</h2>
+            <p>依類型合計權重排序，卡片下方直接列出該類型中的主要標的。</p>
+          </div>
+          <span>長條 = 類型合計權重</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in globalSingleTypeInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxGlobalSingleTypeInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <span v-for="chip in card.chips" :key="`${card.id}-${chip.label}`" class="insight-chip">
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value">{{ chip.value }}</small>
+              </span>
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="globalSingleHoldingInsightCards.length" class="insight-panel subtle" aria-label="海外單檔標的權重概覽">
+        <div class="insight-title">
+          <div>
+            <h2><Database :size="18" /> 標的權重概覽</h2>
+            <p>依 Top holdings 權重排序，長條顯示單一標的權重或權重變化。</p>
+          </div>
+          <span>長條 = 權重 / 權重變化</span>
+        </div>
+        <div class="insight-card-grid compact">
+          <article v-for="card in globalSingleHoldingInsightCards" :key="card.id" class="insight-card" :class="card.tone">
+            <span class="insight-card-head">
+              <b>{{ card.title }}</b>
+              <small>{{ card.detail }}</small>
+            </span>
+            <strong>{{ card.metric }}</strong>
+            <span class="insight-submetric">{{ card.subMetric }}</span>
+            <span class="insight-bar-track">
+              <i class="insight-bar" :style="insightBarStyle(card, maxGlobalSingleHoldingInsightValue)"></i>
+            </span>
+            <span class="insight-chip-list">
+              <span v-for="chip in card.chips" :key="`${card.id}-${chip.label}`" class="insight-chip">
+                <b>{{ chip.label }}</b>
+                <small v-if="chip.value">{{ chip.value }}</small>
+              </span>
+            </span>
+          </article>
+        </div>
       </section>
 
       <section v-if="selectedGlobalSection" class="holdings-panel global-detail-panel">
