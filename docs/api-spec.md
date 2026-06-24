@@ -102,11 +102,13 @@ For Azure Static Web Apps managed Functions, prefer the split Logic App flow whe
 
 `POST /api/jobs/global-etfs/sync-holdings`
 
-Runs official-source holdings sync for all enabled overseas ETFs (`DRAM`, `NASA`, `BAI`, `EUV`). Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+Runs official-source holdings sync for all enabled overseas ETFs and 13F portfolios configured in `src/config/globalEtfs.ts`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
 `POST /api/jobs/global-etf/{etfCode}/sync-holdings`
 
 Runs official-source holdings sync for one enabled overseas ETF. Raw responses are saved under `global_etf_raw_snapshots`, normalized snapshots under `global_etf_snapshots`, and changes under `global_etf_holding_changes`.
+
+When `ENABLE_TIMER_TRIGGERS=true`, Azure Functions also runs `syncGlobalEtfHoldings` at `07:00` and `21:30` on weekdays. SEC 13F filings do not include exchange tickers, so ticker display is enriched only by the conservative CUSIP mapping in `src/config/globalHoldingTickerMap.ts`; unmapped or private/SPV positions remain `-`.
 
 ## Admin Daily Aggregates
 

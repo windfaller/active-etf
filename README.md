@@ -17,7 +17,7 @@
 
 本專案另有第二產品線「海外 ETF 熱門持倉雷達」，入口為 `/global-etfs` 與 `/global-etfs/{etfCode}`。海外 ETF 使用 `src/config/globalEtfs.ts` 與 `global_etf_*` collections，和台灣主動式 ETF 的首頁、ranking、sector flow、stock-impact 聚合分開。
 
-第一階段啟用 `DRAM`、`NASA`、`BAI`、`EUV` 四檔已反查官方持股來源的主題 ETF。ARK、JPMorgan、Capital Group 等高關注候選 ETF 只列入待驗證 universe，必須完成官方 issuer endpoint、AUM/volume 與 fixture 驗證後才能啟用。
+海外產品線啟用官方可同步持倉的主題 ETF、主動式 ETF 與 SEC 13F 組合。13F filing 不提供 exchange ticker，系統只會用保守的 CUSIP 對照表補上高信心 ticker；未對照或私募/SPV exposure 仍顯示 `-`，避免把不確定代號展示給使用者。
 
 ## Provider 架構
 

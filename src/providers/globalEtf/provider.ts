@@ -6,6 +6,7 @@ import {
   parseBlackRockBaiSpreadsheet,
   parseCorgiEuvRows,
   parseRoundhillDramCsv,
+  parseSec13fInformationTable,
   parseTemaNasaCsv
 } from "./parser.js";
 
@@ -97,6 +98,65 @@ async function fetchCorgiEuv() {
   return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: rawPages[0]?.url ?? etf.holdingsUrl }), raw: rawPages };
 }
 
+function secHeaders(): Record<string, string> {
+  return {
+    "User-Agent": process.env.SEC_USER_AGENT ?? "active-etf-monitor contact@example.com",
+    Accept: "application/json,application/xml,text/xml,*/*"
+  };
+}
+
+async function fetchSec13fHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.secCik) throw new Error(`${etfCode} SEC CIK missing`);
+  const cik = etf.secCik.padStart(10, "0");
+  const submissionsUrl = `https://data.sec.gov/submissions/CIK${cik}.json`;
+  const submissions = await fetchSource({ url: submissionsUrl, headers: secHeaders(), timeoutMs: 45000 });
+  if (submissions.responseStatus < 200 || submissions.responseStatus >= 300) {
+    throw new Error(`${etfCode} SEC submissions returned ${submissions.responseStatus}`);
+  }
+
+  const body = JSON.parse(submissions.rawBody) as {
+    filings?: {
+      recent?: {
+        form?: string[];
+        filingDate?: string[];
+        accessionNumber?: string[];
+      };
+    };
+  };
+  const recent = body.filings?.recent;
+  const index = recent?.form?.findIndex((form) => form === "13F-HR" || form === "13F-HR/A") ?? -1;
+  const accessionNumber = index >= 0 ? recent?.accessionNumber?.[index] : undefined;
+  const filingDate = index >= 0 ? recent?.filingDate?.[index] : undefined;
+  if (!accessionNumber || !filingDate) throw new Error(`${etfCode} latest 13F filing not found`);
+
+  const archiveCik = String(Number(cik));
+  const archiveBase = `https://www.sec.gov/Archives/edgar/data/${archiveCik}/${accessionNumber.replace(/-/gu, "")}/`;
+  const indexUrl = `${archiveBase}index.json`;
+  const filingIndex = await fetchSource({ url: indexUrl, headers: secHeaders(), timeoutMs: 45000 });
+  if (filingIndex.responseStatus < 200 || filingIndex.responseStatus >= 300) {
+    throw new Error(`${etfCode} SEC filing index returned ${filingIndex.responseStatus}`);
+  }
+  const indexBody = JSON.parse(filingIndex.rawBody) as {
+    directory?: {
+      item?: Array<{ name?: string; size?: string }>;
+    };
+  };
+  const informationTable = indexBody.directory?.item
+    ?.map((item) => item.name)
+    .find((name): name is string => Boolean(name && /\.xml$/iu.test(name) && name !== "primary_doc.xml"));
+  if (!informationTable) throw new Error(`${etfCode} SEC 13F information table not found`);
+
+  const tableUrl = `${archiveBase}${informationTable}`;
+  const raw = await fetchSource({ url: tableUrl, headers: secHeaders(), timeoutMs: 45000 });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) {
+    throw new Error(`${etfCode} SEC 13F table returned ${raw.responseStatus}`);
+  }
+
+  const parsed = parseSec13fInformationTable(raw.rawBody, etf, raw.url, filingDate);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw: [submissions, filingIndex, raw] };
+}
+
 export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtfFetchOutput> {
   const normalized = etfCode.trim().toUpperCase();
 
@@ -104,6 +164,7 @@ export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtf
   if (normalized === "NASA") return fetchTemaNasa();
   const etf = findGlobalEtfConfig(normalized);
   if (etf?.providerId === "blackrock") return fetchBlackRockHoldings(normalized);
+  if (etf?.providerId === "sec13f") return fetchSec13fHoldings(normalized);
   if (normalized === "EUV") return fetchCorgiEuv();
 
   throw new Error(`${normalized} is not enabled for Global ETF sync`);

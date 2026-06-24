@@ -248,6 +248,111 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(7, 132, 125, 0.12);
 }
 
+.global-combobox {
+  position: relative;
+}
+
+.combo-box {
+  position: relative;
+}
+
+.combo-box input {
+  width: 100%;
+  padding: 0 40px 0 12px;
+}
+
+.combo-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #5e6975;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.combo-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: 320px;
+  padding: 8px;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(31, 42, 55, 0.16);
+}
+
+.combo-group {
+  display: grid;
+  gap: 4px;
+}
+
+.combo-group + .combo-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e7ecf1;
+}
+
+.combo-group > strong {
+  padding: 4px 8px;
+  color: #6b7580;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.combo-option {
+  display: grid;
+  grid-template-columns: minmax(58px, 0.34fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 8px;
+  color: #20252b;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.combo-option:hover,
+.combo-option.active {
+  background: #eef6ff;
+}
+
+.combo-option b {
+  color: #26394f;
+  font-weight: 840;
+  white-space: nowrap;
+}
+
+.combo-option span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #3f4a56;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-empty {
+  margin: 0;
+  padding: 10px 8px;
+  color: #68737e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .icon-button {
   display: grid;
   width: 36px;
@@ -859,11 +964,19 @@ input:focus {
   min-width: min(430px, 100%);
 }
 
+.global-source-controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(240px, 1.2fr);
+  gap: 10px;
+  min-width: min(620px, 100%);
+}
+
   .report-controls .control {
     width: 100%;
   }
 
-  .report-controls select {
+  .report-controls select,
+  .report-controls input {
     width: 100%;
   }
 
@@ -1452,7 +1565,42 @@ input:focus {
 
 .global-holdings-table .holdings-head,
 .global-holdings-table .holding-row {
-  grid-template-columns: minmax(170px, 1.3fr) minmax(120px, 1fr) minmax(74px, 0.5fr) minmax(86px, 0.6fr);
+  grid-template-columns:
+    minmax(64px, 0.42fr)
+    minmax(170px, 1.25fr)
+    minmax(74px, 0.5fr)
+    minmax(86px, 0.6fr)
+    minmax(120px, 1fr);
+}
+
+.ticker-cell {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.ticker-cell b {
+  color: #20252b;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.ticker-cell small {
+  color: #6c7783;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.global-holdings-table .stock-name {
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .global-market-table .holdings-head,
@@ -1548,10 +1696,18 @@ input:focus {
 }
 
 .stock-cell b {
-  flex: 0 0 5ch;
+  flex: 0 0 auto;
+  min-width: 4ch;
   font-variant-numeric: tabular-nums;
   font-weight: 780;
   white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.stock-name {
+  min-width: 0;
+  white-space: normal;
   word-break: normal;
   overflow-wrap: normal;
 }
@@ -2025,9 +2181,21 @@ input:focus {
     grid-template-columns: minmax(0, 1.3fr) 0.65fr 0.65fr;
   }
 
+  .global-source-controls {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .global-holdings-table .holdings-head,
   .global-holdings-table .holding-row {
-    grid-template-columns: minmax(132px, 1.2fr) minmax(92px, 0.9fr) minmax(66px, 0.5fr) minmax(76px, 0.6fr);
+    grid-template-columns: minmax(58px, 0.45fr) minmax(0, 1fr) 56px minmax(76px, 0.62fr);
+    min-width: 0;
+  }
+
+  .global-holdings-table .holdings-head span:nth-child(4),
+  .global-holdings-table .holding-row > span:nth-child(4) {
+    display: none;
   }
 
   .global-market-table .holdings-head,
@@ -2042,7 +2210,7 @@ input:focus {
   }
 
   .global-market-table .stock-cell b {
-    flex-basis: 5ch;
+    flex-basis: auto;
   }
 
   .global-etf-chip-list small {

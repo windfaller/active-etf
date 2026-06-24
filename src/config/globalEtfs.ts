@@ -1,5 +1,5 @@
 export type GlobalEtfSourceStatus = "verified" | "needs_endpoint_verification" | "blocked" | "unavailable";
-export type GlobalEtfStrategyType = "active" | "index" | "covered_call" | "active_fixed_income" | "commodity" | "crypto";
+export type GlobalEtfStrategyType = "active" | "index" | "covered_call" | "active_fixed_income" | "commodity" | "crypto" | "13f";
 export type GlobalEtfTheme =
   | "ai"
   | "semiconductor"
@@ -11,7 +11,8 @@ export type GlobalEtfTheme =
   | "robotics"
   | "fintech"
   | "income"
-  | "macro";
+  | "macro"
+  | "13f";
 
 export interface GlobalEtfConfig {
   etfCode: string;
@@ -20,12 +21,26 @@ export interface GlobalEtfConfig {
   market: "US";
   currency: "USD";
   productGroup: "global_etf";
-  providerId: "roundhill" | "tema" | "blackrock" | "corgi" | "ark" | "jpmorganUs" | "capitalGroup" | "amplify" | "tRowePrice" | "goldmanSachs" | "pimco";
+  providerId:
+    | "roundhill"
+    | "tema"
+    | "blackrock"
+    | "corgi"
+    | "sec13f"
+    | "ark"
+    | "jpmorganUs"
+    | "capitalGroup"
+    | "amplify"
+    | "tRowePrice"
+    | "goldmanSachs"
+    | "pimco"
+    | "wedbush";
   strategyType: GlobalEtfStrategyType;
   enabled: boolean;
   sourceStatus: GlobalEtfSourceStatus;
   sourceUrl: string;
   holdingsUrl?: string;
+  secCik?: string;
   themes: GlobalEtfTheme[];
   notes?: string;
 }
@@ -170,6 +185,118 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     holdingsUrl:
       "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=330488&component=fundDownload&userType=individual",
     themes: ["income", "macro"]
+  },
+  {
+    etfCode: "ARK13F",
+    fundName: "ARK Investment Management 13F Portfolio",
+    issuer: "ARK Investment Management",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "sec13f",
+    strategyType: "13f",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.sec.gov/edgar/browse/?CIK=1697748",
+    holdingsUrl: "https://data.sec.gov/submissions/CIK0001697748.json",
+    secCik: "0001697748",
+    themes: ["13f", "innovation", "ai"]
+  },
+  {
+    etfCode: "BRK13F",
+    fundName: "Berkshire Hathaway 13F Portfolio",
+    issuer: "Berkshire Hathaway",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "sec13f",
+    strategyType: "13f",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.sec.gov/edgar/browse/?CIK=1067983",
+    holdingsUrl: "https://data.sec.gov/submissions/CIK0001067983.json",
+    secCik: "0001067983",
+    themes: ["13f", "macro"]
+  },
+  {
+    etfCode: "PSQ13F",
+    fundName: "Pershing Square Capital Management 13F Portfolio",
+    issuer: "Pershing Square Capital Management",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "sec13f",
+    strategyType: "13f",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.sec.gov/edgar/browse/?CIK=1336528",
+    holdingsUrl: "https://data.sec.gov/submissions/CIK0001336528.json",
+    secCik: "0001336528",
+    themes: ["13f", "macro"]
+  },
+  {
+    etfCode: "APP13F",
+    fundName: "Appaloosa LP 13F Portfolio",
+    issuer: "Appaloosa LP",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "sec13f",
+    strategyType: "13f",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.sec.gov/edgar/browse/?CIK=1656456",
+    holdingsUrl: "https://data.sec.gov/submissions/CIK0001656456.json",
+    secCik: "0001656456",
+    themes: ["13f", "macro", "ai"]
+  },
+  {
+    etfCode: "IDEF",
+    fundName: "iShares Defense Industrials Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/343529/ishares-defense-industrials-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=343529&component=fundDownload&userType=individual",
+    themes: ["macro", "ai"]
+  },
+  {
+    etfCode: "BDYN",
+    fundName: "iShares Dynamic Equity Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/345325/ishares-dynamic-equity-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=345325&component=fundDownload&userType=individual",
+    themes: ["macro", "innovation"]
+  },
+  {
+    etfCode: "IALT",
+    fundName: "iShares Systematic Alternatives Active ETF",
+    issuer: "iShares",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "blackrock",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.ishares.com/us/products/346898/ishares-systematic-alternatives-active-etf",
+    holdingsUrl:
+      "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=346898&component=fundDownload&userType=individual",
+    themes: ["macro"]
   }
 ];
 
@@ -182,6 +309,7 @@ export const globalEtfCandidates: GlobalEtfConfig[] = [
     ["ARKQ", "ARK Autonomous Technology & Robotics ETF", "ARK Invest", "ark", "active", ["robotics", "ai"]],
     ["ARKF", "ARK Fintech Innovation ETF", "ARK Invest", "ark", "active", ["fintech", "innovation"]],
     ["ARKX", "ARK Space Exploration & Innovation ETF", "ARK Invest", "ark", "active", ["space", "innovation"]],
+    ["IVES", "Dan IVES Wedbush AI Revolution ETF", "Wedbush", "wedbush", "index", ["ai", "innovation"]],
     ["JEPI", "JPMorgan Equity Premium Income ETF", "JPMorgan", "jpmorganUs", "covered_call", ["income", "macro"]],
     ["JEPQ", "JPMorgan Nasdaq Equity Premium Income ETF", "JPMorgan", "jpmorganUs", "covered_call", ["income", "ai"]],
     ["CGGR", "Capital Group Growth ETF", "Capital Group", "capitalGroup", "active", ["innovation", "macro"]],

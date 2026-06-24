@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BarChart3,
   Calendar,
+  ChevronDown,
   Database,
   Globe2,
   Layers,
@@ -252,6 +253,7 @@ interface GlobalReportSection {
 interface GlobalEtfOption {
   etfCode: string;
   fundName: string;
+  strategyType?: string;
 }
 
 interface GlobalReport {
@@ -281,6 +283,8 @@ const activeEtfSection = ref<EtfRouteSection>("overview");
 const selectedGlobalEtfCode = ref("DRAM");
 const marketQuery = ref("");
 const holdingQuery = ref("");
+const globalOptionQuery = ref("");
+const isGlobalOptionPickerOpen = ref(false);
 const expandedSector = ref("");
 const focusedStockImpactId = ref("");
 const isApplyingRoute = ref(false);
@@ -317,8 +321,29 @@ const selectedGlobalSection = computed(
 const globalEtfOptions = computed<GlobalEtfOption[]>(() =>
   globalReport.value?.sections.length
     ? globalReport.value.sections
-    : enabledGlobalEtfs.map((etf) => ({ etfCode: etf.etfCode, fundName: etf.fundName }))
+    : enabledGlobalEtfs.map((etf) => ({ etfCode: etf.etfCode, fundName: etf.fundName, strategyType: etf.strategyType }))
 );
+const selectedGlobalOption = computed(
+  () => globalEtfOptions.value.find((etf) => etf.etfCode === selectedGlobalEtfCode.value) ?? null
+);
+const selectedGlobalOptionLabel = computed(() =>
+  selectedGlobalOption.value ? `${selectedGlobalOption.value.etfCode} ${selectedGlobalOption.value.fundName}` : selectedGlobalEtfCode.value
+);
+const globalOptionSearchQuery = computed(() => {
+  const query = globalOptionQuery.value.trim();
+  return query === selectedGlobalOptionLabel.value ? "" : query.toLowerCase();
+});
+const filteredGlobalEtfOptions = computed(() => {
+  const query = globalOptionSearchQuery.value;
+  if (!query) return globalEtfOptions.value;
+  return globalEtfOptions.value.filter((etf) =>
+    `${etf.etfCode} ${etf.fundName} ${etf.strategyType ?? ""}`.toLowerCase().includes(query)
+  );
+});
+const globalEtfOptionGroups = computed(() => ({
+  etfs: filteredGlobalEtfOptions.value.filter((etf) => etf.strategyType !== "13f"),
+  filings13f: filteredGlobalEtfOptions.value.filter((etf) => etf.strategyType === "13f")
+}));
 const globalDateLabel = computed(() =>
   selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? (isGlobalLoading.value ? "載入中" : "-")
 );
@@ -452,7 +477,7 @@ const selectedEtfLatestDate = computed(() => selectedEtfCoverage.value?.latestTr
 const telegramSubscribeUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const loadingText = computed(() => {
   if (activeProduct.value === "global") {
-    return globalReport.value ? "正在更新海外 ETF 持股與權重變化資料。" : "正在載入海外 ETF 持股與權重變化資料。";
+    return globalReport.value ? "正在更新海外 ETF / 13F 持股與權重變化資料。" : "正在載入海外 ETF / 13F 持股與權重變化資料。";
   }
 
   return hasLoaded.value ? "正在更新資料，畫面先保留上一筆結果。" : "正在載入 ETF 持股、折溢價與跨 ETF 影響資料。";
@@ -593,14 +618,14 @@ function updateDocumentMetadata(): void {
   let description = "查看台灣主動式 ETF 跨 ETF 個股影響、主動淨變動、三大法人與產業資金流總覽。";
 
   if (activeMainTab.value === "globalMarket") {
-    title = "海外 ETF 市場總覽｜ETF 持倉雷達";
-    description = "查看海外熱門 ETF 是否同時增減同一批標的，並比較 DRAM、NASA、BAI、EUV 等關注 ETF 的跨 ETF 權重變化。";
+    title = "海外 ETF / 13F 市場總覽｜ETF 持倉雷達";
+    description = "查看海外熱門 ETF 與 13F 組合是否同時持有或增減同一批標的，並比較跨產品權重變化。";
   } else if (activeMainTab.value === "global") {
     const section = selectedGlobalSection.value;
-    title = section ? `${section.etfCode} ${section.fundName}｜海外單檔 ETF` : "海外單檔 ETF｜ETF 持倉雷達";
+    title = section ? `${section.etfCode} ${section.fundName}｜海外單檔` : "海外單檔｜ETF 持倉雷達";
     description = section
       ? `查看 ${section.etfCode} ${section.fundName} 的官方 Top 10 持股、權重變化與資料日期。`
-      : "查看海外熱門 ETF 官方 Top 10 持股、權重變化與資料日期。";
+      : "查看海外熱門 ETF / 13F 官方 Top 10 持股、權重變化與資料日期。";
   } else if (activeMainTab.value === "etf" && etf) {
     if (activeEtfPage.value === "premiumHistory") {
       title = `${etf.etfCode} ${etf.name}｜台灣 ETF 折溢價歷史`;
@@ -787,6 +812,48 @@ function formatGlobalWeight(value: number | undefined): string {
 
 function formatGlobalPp(value: number | undefined): string {
   return value === undefined ? "-" : `${value >= 0 ? "+" : ""}${formatNumber(value, 1)}pp`;
+}
+
+function globalOptionLabel(etf: GlobalEtfOption): string {
+  return `${etf.etfCode} ${etf.fundName}`;
+}
+
+const marketSuffixes = new Set(["CN", "HK", "JP", "KS", "LN", "NA", "SW", "T", "TO", "TW", "US"]);
+
+function splitTicker(ticker: string | undefined): { symbol: string; region: string } {
+  const rawTicker = ticker?.trim() || "-";
+  const match = /^(.+?)[.\s]([A-Z]{1,3})$/u.exec(rawTicker);
+  if (!match) return { symbol: rawTicker, region: "" };
+  if (!marketSuffixes.has(match[2])) return { symbol: rawTicker, region: "" };
+  return { symbol: match[1], region: match[2] };
+}
+
+function holdingIdentity(row: GlobalHolding): { symbol: string; region: string } {
+  if (row.ticker) return splitTicker(row.ticker);
+  return { symbol: "-", region: "" };
+}
+
+function openGlobalOptionPicker(event?: FocusEvent): void {
+  isGlobalOptionPickerOpen.value = true;
+  if (event?.target instanceof HTMLInputElement) {
+    event.target.select();
+  }
+}
+
+function closeGlobalOptionPicker(): void {
+  isGlobalOptionPickerOpen.value = false;
+  globalOptionQuery.value = selectedGlobalOptionLabel.value;
+}
+
+function selectGlobalOption(etf: GlobalEtfOption): void {
+  selectedGlobalEtfCode.value = etf.etfCode;
+  globalOptionQuery.value = globalOptionLabel(etf);
+  isGlobalOptionPickerOpen.value = false;
+}
+
+function selectFirstGlobalOption(): void {
+  const firstOption = filteredGlobalEtfOptions.value[0];
+  if (firstOption) selectGlobalOption(firstOption);
 }
 
 function operationLabel(status: "new" | "delete" | "increase" | "decrease"): string {
@@ -1255,6 +1322,16 @@ watch(selectedEtfCode, async (etfCode) => {
 watch(selectedGlobalEtfCode, () => {
   if (activeMainTab.value === "global") syncRoute();
 });
+
+watch(
+  selectedGlobalOptionLabel,
+  (label) => {
+    if (!isGlobalOptionPickerOpen.value) {
+      globalOptionQuery.value = label;
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -1266,7 +1343,7 @@ watch(selectedGlobalEtfCode, () => {
         </div>
         <div>
           <h1>ETF 持倉雷達</h1>
-          <p>台灣主動式 ETF 調倉｜海外熱門 ETF 持股與權重變化</p>
+          <p>台灣主動式 ETF 調倉｜海外熱門 ETF / 13F 持股與權重變化</p>
         </div>
       </div>
 
@@ -1565,7 +1642,7 @@ watch(selectedGlobalEtfCode, () => {
           <p v-if="activeEtfPage === 'report'">基金選擇、當日增減碼、折溢價與持股總表都集中在這裡。</p>
           <p v-else>查看 {{ selectedEtf?.etfCode }} 的歷史股價、淨值與折溢價走勢。</p>
         </div>
-        <div class="toolbar report-controls">
+        <div class="toolbar report-controls global-source-controls">
           <button
             v-if="activeEtfPage === 'premiumHistory'"
             class="secondary-button"
@@ -1943,9 +2020,9 @@ watch(selectedGlobalEtfCode, () => {
     >
       <div class="section-heading report-heading">
         <div>
-          <span class="eyebrow">海外 ETF</span>
+          <span class="eyebrow">海外 ETF / 13F</span>
           <h2><Globe2 :size="19" /> 海外市場總覽</h2>
-          <p>比較多檔海外 ETF 是否同步調整同一批標的。</p>
+          <p>比較多檔海外 ETF 與 13F 組合是否同步持有或調整同一批標的。</p>
         </div>
       </div>
 
@@ -1970,7 +2047,7 @@ watch(selectedGlobalEtfCode, () => {
             <span>最高權重</span>
           </div>
           <div v-for="row in globalCommonHoldingRows" :key="row.positionKey" class="holding-row">
-            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b><span class="stock-name">{{ row.name }}</span></span>
             <span class="global-etf-chip-list">
               <button
                 v-for="etf in row.etfs"
@@ -1988,7 +2065,7 @@ watch(selectedGlobalEtfCode, () => {
             <span>{{ formatGlobalWeight(row.totalWeightPercent) }}</span>
             <span>{{ formatGlobalWeight(row.maxWeightPercent) }}</span>
           </div>
-          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF 共同持倉。</p>
+          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF / 13F 共同持倉。</p>
           <p v-else-if="!globalCommonHoldingRows.length" class="empty-row">目前尚無多檔 ETF 共同持有的標的。</p>
         </div>
       </section>
@@ -2009,7 +2086,7 @@ watch(selectedGlobalEtfCode, () => {
             <span>最大變化</span>
           </div>
           <div v-for="row in globalMarketRows" :key="row.ticker ?? row.name" class="holding-row">
-            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
+            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b><span class="stock-name">{{ row.name }}</span></span>
             <span class="global-etf-chip-list">
               <button
                 v-for="etfCode in row.etfs"
@@ -2032,8 +2109,8 @@ watch(selectedGlobalEtfCode, () => {
               {{ formatGlobalPp(row.totalDeltaPp) }}
             </span>
           </div>
-          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF 權重變化。</p>
-          <p v-else-if="!globalMarketRows.length" class="empty-row">目前尚無可比較的海外 ETF 權重變化。</p>
+          <p v-if="isGlobalLoading && !globalReport" class="empty-row">正在載入海外 ETF / 13F 權重變化。</p>
+          <p v-else-if="!globalMarketRows.length" class="empty-row">目前尚無可比較的海外 ETF / 13F 權重變化。</p>
         </div>
       </section>
 
@@ -2052,18 +2129,73 @@ watch(selectedGlobalEtfCode, () => {
     >
       <div class="section-heading report-heading">
         <div>
-          <span class="eyebrow">海外 ETF</span>
-          <h2><Globe2 :size="19" /> 海外單檔 ETF</h2>
+          <span class="eyebrow">海外 ETF / 13F</span>
+          <h2><Globe2 :size="19" /> 海外單檔</h2>
         </div>
         <div class="toolbar report-controls">
-          <label class="control wide-control">
-            <span>ETF</span>
-            <select v-model="selectedGlobalEtfCode" aria-label="海外 ETF">
-              <option v-for="etf in globalEtfOptions" :key="etf.etfCode" :value="etf.etfCode">
-                {{ etf.etfCode }} {{ etf.fundName }}
-              </option>
-            </select>
-          </label>
+          <div class="control wide-control global-combobox">
+            <span><Search :size="14" /> ETF / 13F</span>
+            <div class="combo-box">
+              <input
+                v-model="globalOptionQuery"
+                type="search"
+                placeholder="搜尋 ETF、13F 或名稱"
+                aria-label="搜尋並選擇海外 ETF / 13F"
+                :aria-expanded="isGlobalOptionPickerOpen"
+                @focus="openGlobalOptionPicker"
+                @input="isGlobalOptionPickerOpen = true"
+                @keydown.enter.prevent="selectFirstGlobalOption"
+                @keydown.escape.prevent="closeGlobalOptionPicker"
+                @blur="closeGlobalOptionPicker"
+              />
+              <button
+                type="button"
+                class="combo-toggle"
+                aria-label="展開 ETF / 13F 選單"
+                @mousedown.prevent
+                @click="isGlobalOptionPickerOpen = !isGlobalOptionPickerOpen"
+              >
+                <ChevronDown :size="16" />
+              </button>
+              <div v-if="isGlobalOptionPickerOpen" class="combo-menu" role="listbox">
+                <section v-if="globalEtfOptionGroups.etfs.length" class="combo-group">
+                  <strong>ETF</strong>
+                  <button
+                    v-for="etf in globalEtfOptionGroups.etfs"
+                    :key="etf.etfCode"
+                    type="button"
+                    class="combo-option"
+                    :class="{ active: etf.etfCode === selectedGlobalEtfCode }"
+                    role="option"
+                    :aria-selected="etf.etfCode === selectedGlobalEtfCode"
+                    @mousedown.prevent
+                    @click="selectGlobalOption(etf)"
+                  >
+                    <b>{{ etf.etfCode }}</b>
+                    <span>{{ etf.fundName }}</span>
+                  </button>
+                </section>
+                <section v-if="globalEtfOptionGroups.filings13f.length" class="combo-group">
+                  <strong>13F 組合</strong>
+                  <button
+                    v-for="etf in globalEtfOptionGroups.filings13f"
+                    :key="etf.etfCode"
+                    type="button"
+                    class="combo-option"
+                    :class="{ active: etf.etfCode === selectedGlobalEtfCode }"
+                    role="option"
+                    :aria-selected="etf.etfCode === selectedGlobalEtfCode"
+                    @mousedown.prevent
+                    @click="selectGlobalOption(etf)"
+                  >
+                    <b>{{ etf.etfCode }}</b>
+                    <span>{{ etf.fundName }}</span>
+                  </button>
+                </section>
+                <p v-if="!filteredGlobalEtfOptions.length" class="combo-empty">沒有符合的選項</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2077,22 +2209,30 @@ watch(selectedGlobalEtfCode, () => {
           <div>
             <h2><Database :size="18" /> {{ selectedGlobalSection.etfCode }} Top 10 持股</h2>
             <p>{{ selectedGlobalSection.takeaway }}｜資料日期 {{ selectedGlobalSection.sourceAsOf }}</p>
+            <p v-if="selectedGlobalSection.strategyType === '13f'" class="source-note">
+              13F filing 不提供 ticker；代號以內建 CUSIP 對照表補齊，未對照顯示 -。
+            </p>
           </div>
           <a class="source-link" :href="selectedGlobalSection.sourceUrl" target="_blank" rel="noreferrer">官方來源</a>
         </div>
 
         <div class="holdings-table global-holdings-table">
           <div class="holdings-head">
-            <span>標的</span>
-            <span>產業 / 類型</span>
+            <span>代號</span>
+            <span>名稱</span>
             <span>權重</span>
             <span>市值</span>
+            <span>類型</span>
           </div>
           <div v-for="row in selectedGlobalSection.topHoldings" :key="row.ticker ?? row.name" class="holding-row">
-            <span class="stock-cell"><b>{{ row.ticker ?? "-" }}</b>{{ row.name }}</span>
-            <span>{{ row.sector ?? row.assetType ?? "-" }}</span>
+            <span class="ticker-cell">
+              <b>{{ holdingIdentity(row).symbol }}</b>
+              <small v-if="holdingIdentity(row).region">{{ holdingIdentity(row).region }}</small>
+            </span>
+            <span class="stock-name">{{ row.name }}</span>
             <span>{{ formatGlobalWeight(row.weightPercent) }}</span>
             <span>{{ formatMoney(row.marketValue ?? null) }}</span>
+            <span>{{ row.sector ?? row.assetType ?? "-" }}</span>
           </div>
         </div>
 
@@ -2121,7 +2261,7 @@ watch(selectedGlobalEtfCode, () => {
       </section>
       <section v-else class="holdings-panel global-detail-panel">
         <p class="empty-row">
-          {{ isGlobalLoading ? "正在載入海外 ETF 持股資料。" : "目前尚無可顯示的海外 ETF 持股資料。" }}
+          {{ isGlobalLoading ? "正在載入海外 ETF / 13F 持股資料。" : "目前尚無可顯示的海外 ETF / 13F 持股資料。" }}
         </p>
       </section>
 
@@ -2156,7 +2296,7 @@ watch(selectedGlobalEtfCode, () => {
         @click="showCurrentProductSingle"
       >
         <ListChecks :size="19" />
-        <span>單檔 ETF</span>
+        <span>單檔</span>
       </button>
     </nav>
   </main>

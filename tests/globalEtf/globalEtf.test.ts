@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
-import { parseBlackRockBaiSpreadsheet, parseCorgiEuvRows, parseRoundhillDramCsv, parseTemaNasaCsv } from "../../src/providers/globalEtf/parser.js";
+import { parseBlackRockBaiSpreadsheet, parseCorgiEuvRows, parseRoundhillDramCsv, parseSec13fInformationTable, parseTemaNasaCsv } from "../../src/providers/globalEtf/parser.js";
 import { buildGlobalSnapshot } from "../../src/providers/globalEtf/normalizer.js";
 import { calculateGlobalEtfChanges } from "../../src/services/globalEtf/changeCalculator.js";
 import { demoGlobalEtfSnapshots, getGlobalEtfDailyReport } from "../../src/services/globalEtf/globalEtfService.js";
@@ -22,7 +22,14 @@ describe("global ETF product line", () => {
       "BINC",
       "ICSH",
       "BALI",
-      "CLOA"
+      "CLOA",
+      "ARK13F",
+      "BRK13F",
+      "PSQ13F",
+      "APP13F",
+      "IDEF",
+      "BDYN",
+      "IALT"
     ]);
   });
 
@@ -44,7 +51,11 @@ describe("global ETF product line", () => {
     const etf = enabledGlobalEtfs.find((item) => item.etfCode === "NASA");
     expect(etf).toBeDefined();
     const parsed = parseTemaNasaCsv(
-      "holdings_date,ticker,proper_name,cusip,percent_of_nav,shares,market_value,country,sector,is_cash\n2026-06-23,RKLB,Rocket Lab,123,0.096,100,9600,US,Aerospace,0",
+      [
+        "holdings_date,ticker,proper_name,cusip,percent_of_nav,shares,market_value,country,sector,is_cash",
+        "2026-06-23,RKLB,Rocket Lab,123,0.096,100,9600,US,Aerospace,0",
+        "2026-06-23,SPACEX SPV,SPACEX SPV EXPOSURE,SPACEX SPV,0.12,100,12000,US,Aerospace,0"
+      ].join("\n"),
       etf!,
       etf!.holdingsUrl!
     );
@@ -57,6 +68,76 @@ describe("global ETF product line", () => {
         country: "US",
         sector: "Aerospace",
         assetType: "Equity"
+      })
+    );
+    expect(parsed.holdings.find((holding) => holding.name === "SPACEX SPV EXPOSURE")).toEqual(
+      expect.objectContaining({
+        ticker: undefined,
+        identifier: "SPACEX SPV",
+        weightPercent: 12
+      })
+    );
+  });
+
+  it("parses SEC 13F information tables, maps known CUSIPs, and derives weights", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "BRK13F");
+    expect(etf).toBeDefined();
+    const parsed = parseSec13fInformationTable(
+      `<informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+        <infoTable>
+          <nameOfIssuer>APPLE INC</nameOfIssuer>
+          <titleOfClass>COM</titleOfClass>
+          <cusip>037833100</cusip>
+          <value>750</value>
+          <shrsOrPrnAmt>
+            <sshPrnamt>10</sshPrnamt>
+            <sshPrnamtType>SH</sshPrnamtType>
+          </shrsOrPrnAmt>
+        </infoTable>
+        <infoTable>
+          <nameOfIssuer>AMERICAN EXPRESS CO</nameOfIssuer>
+          <titleOfClass>COM</titleOfClass>
+          <cusip>025816109</cusip>
+          <value>250</value>
+          <shrsOrPrnAmt>
+            <sshPrnamt>5</sshPrnamt>
+            <sshPrnamtType>SH</sshPrnamtType>
+          </shrsOrPrnAmt>
+        </infoTable>
+        <infoTable>
+          <nameOfIssuer>UNMAPPED PRIVATE HOLDING</nameOfIssuer>
+          <titleOfClass>COM</titleOfClass>
+          <cusip>999999999</cusip>
+          <value>0</value>
+          <shrsOrPrnAmt>
+            <sshPrnamt>1</sshPrnamt>
+            <sshPrnamtType>SH</sshPrnamtType>
+          </shrsOrPrnAmt>
+        </infoTable>
+      </informationTable>`,
+      etf!,
+      "https://www.sec.gov/example.xml",
+      "2026-05-15"
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-05-15");
+    expect(parsed.rawRowCount).toBe(3);
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: "AAPL",
+        name: "APPLE INC",
+        identifier: "037833100",
+        weightPercent: 75,
+        shares: 10,
+        marketValue: 750,
+        assetType: "Equity"
+      })
+    );
+    expect(parsed.holdings.find((holding) => holding.name === "UNMAPPED PRIVATE HOLDING")).toEqual(
+      expect.objectContaining({
+        ticker: undefined,
+        identifier: "999999999",
+        weightPercent: 0
       })
     );
   });

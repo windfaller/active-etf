@@ -76,6 +76,15 @@ function usableSnapshotClauses(): Filter<GlobalEtfSnapshot>[] {
 }
 
 function normalizeCommonHoldingKey(holding: GlobalEtfSnapshot["holdings"][number]): string {
+  const normalizedName = holding.name
+    .trim()
+    .toUpperCase()
+    .replace(/&/gu, " AND ")
+    .replace(/[^A-Z0-9]+/gu, " ")
+    .replace(/\b(CLASS|CL|COM|COMMON|SHS|SHARES|INCORPORATED)\b/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (normalizedName) return `name:${normalizedName}`;
   const ticker = holding.ticker?.trim().toUpperCase();
   if (ticker) return `ticker:${ticker.replace(/\.(?:KS|TW|T|JP)$/u, "")}`;
   return `name:${holding.name.trim().toUpperCase().replace(/\s+/gu, " ")}`;

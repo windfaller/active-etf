@@ -1,4 +1,5 @@
 import type { GlobalEtfConfig } from "../../config/globalEtfs.js";
+import { mappedTickerForSec13fCusip } from "../../config/globalHoldingTickerMap.js";
 import type { GlobalEtfHolding } from "../../models/GlobalEtf.js";
 
 type CsvRow = Record<string, string>;
@@ -226,7 +227,7 @@ export function parseTemaNasaCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: s
   const sourceAsOf = dateOnly(rows[0]?.holdings_date);
   const holdings = rows.map((row) =>
     buildHolding(etf, sourceAsOf, sourceUrl, row, {
-      ticker: stringFrom(row.ticker),
+      ticker: normalizeTemaTicker(stringFrom(row.ticker), stringFrom(row.proper_name)),
       name: stringFrom(row.proper_name) ?? stringFrom(row.ticker) ?? "Unknown",
       identifier: stringFrom(row.cusip),
       weightPercent: (numberFrom(row.percent_of_nav) ?? 0) * 100,
@@ -239,6 +240,15 @@ export function parseTemaNasaCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: s
   );
 
   return { sourceAsOf, rawRowCount: rows.length, holdings };
+}
+
+function normalizeTemaTicker(ticker: string | undefined, name: string | undefined): string | undefined {
+  const normalized = ticker?.trim();
+  if (!normalized) return undefined;
+  const upperTicker = normalized.toUpperCase();
+  const upperName = name?.toUpperCase() ?? "";
+  if (upperTicker.endsWith(" SPV") || upperName.includes("SPV EXPOSURE")) return undefined;
+  return normalized;
 }
 
 function decodeXmlText(value: string): string {
@@ -347,4 +357,43 @@ export function parseCorgiEuvRows(rows: unknown[], etf: GlobalEtfConfig, sourceU
   );
 
   return { sourceAsOf, rawRowCount: objects.length, holdings };
+}
+
+function xmlText(block: string, tagName: string): string | undefined {
+  const match = new RegExp(`<[^:>/]*:?${tagName}[^>]*>([\\s\\S]*?)<\\/[^:>]*:?${tagName}>`, "iu").exec(block);
+  return match ? decodeXmlText(match[1].replace(/<[^>]+>/gu, "")) : undefined;
+}
+
+export function parseSec13fInformationTable(
+  raw: string,
+  etf: GlobalEtfConfig,
+  sourceUrl: string,
+  sourceAsOf: string
+): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const rows = [...raw.matchAll(/<[^:>/]*:?infoTable\b[^>]*>([\s\S]*?)<\/[^:>]*:?infoTable>/giu)].map((match) => match[1]);
+  const rawHoldings = rows
+    .map((row) => ({
+      name: stringFrom(xmlText(row, "nameOfIssuer")),
+      titleOfClass: stringFrom(xmlText(row, "titleOfClass")),
+      cusip: stringFrom(xmlText(row, "cusip")),
+      value: numberFrom(xmlText(row, "value")),
+      shares: numberFrom(xmlText(row, "sshPrnamt")),
+      shareType: stringFrom(xmlText(row, "sshPrnamtType"))
+    }))
+    .filter((row) => row.name && row.value !== undefined);
+  const totalValue = rawHoldings.reduce((sum, row) => sum + (row.value ?? 0), 0);
+  const holdings = rawHoldings.map((row) =>
+    buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      ticker: mappedTickerForSec13fCusip(row.cusip)?.ticker,
+      name: row.name ?? "Unknown",
+      identifier: row.cusip,
+      weightPercent: totalValue > 0 && row.value !== undefined ? (row.value / totalValue) * 100 : undefined,
+      shares: row.shares,
+      marketValue: row.value,
+      assetType: row.shareType === "PRN" ? "Fixed Income" : "Equity",
+      industry: row.titleOfClass
+    })
+  );
+
+  return { sourceAsOf, rawRowCount: rows.length, holdings };
 }

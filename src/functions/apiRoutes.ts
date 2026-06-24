@@ -13,3 +13,4 @@ import "../api/getTelegramInfo.js";
 import "../api/postEtfAdminJobs.js";
 import "../api/postGlobalEtfJobs.js";
 import "../api/postTelegramWebhook.js";
+import "./syncGlobalEtfHoldings.js";

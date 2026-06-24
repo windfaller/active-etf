@@ -546,4 +546,46 @@
     <changefreq>daily</changefreq>
     <priority>0.76</priority>
   </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/ARK13F</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/BRK13F</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/PSQ13F</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/APP13F</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/IDEF</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/BDYN</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
+  <url>
+    <loc>https://active-etf.chicoo.co/global-etfs/IALT</loc>
+    <lastmod>2026-06-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.76</priority>
+  </url>
 </urlset>
