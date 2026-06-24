@@ -1,7 +1,7 @@
 import { logger } from "../../utils/logger.js";
 import { isRedisConfigured, redisDel, redisGet, redisSetEx } from "./redisClient.js";
 
-const namespace = "active-etf:v2";
+const namespace = "active-etf:v3";
 const commonDateLimits = [10, 30, 60, 90, 120, 180, 365];
 const commonSummaryHistoryLimits = [30, 60, 90, 120, 180];
 

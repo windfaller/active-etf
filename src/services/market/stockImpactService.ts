@@ -64,6 +64,12 @@ export interface StockImpactResponse {
   };
 }
 
+const unknownTagLabels = new Set(["未分類", "其他"]);
+
+function usableTags(tags: string[] = []): string[] {
+  return [...new Set(tags.filter((tag) => tag && !unknownTagLabels.has(tag)))].slice(0, 5);
+}
+
 function computeImpacts(changes: EtfHoldingChange[]): StockImpactRow[] {
   const rowsByStock = new Map<string, StockImpactRow>();
 
@@ -186,7 +192,11 @@ function buildSectorSummary(date: string, impacts: StockImpactRow[]): StockImpac
         totalTurnover: row.hasTurnover ? row.totalTurnover : null,
         topStocks: row.topStocks.sort((a, b) => b.impactScore - a.impactScore).slice(0, 3)
       }))
-      .sort((a, b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots))
+      .sort((a, b) => {
+        if (a.sector === "其他" && b.sector !== "其他") return 1;
+        if (b.sector === "其他" && a.sector !== "其他") return -1;
+        return Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots);
+      })
   };
 }
 
@@ -213,10 +223,14 @@ export async function stockImpactsForDate(db: Db, date: string, changes: EtfHold
     const market = marketByStockId.get(impact.stockId);
     const institutional = institutionalByStockId.get(impact.stockId);
     const profile = profileByStockId.get(impact.stockId);
+    const fallback = sectorProfileForStock(impact.stockId, impact.stockName);
+    const sector = profile?.sector && profile.sector !== "其他" ? profile.sector : impact.sector !== "其他" ? impact.sector : fallback.sector;
+    const themeTags = usableTags([...(profile?.themeTags ?? []), ...impact.themeTags, ...fallback.themeTags]);
+
     return {
       ...impact,
-      sector: profile?.sector ?? impact.sector,
-      themeTags: profile?.themeTags?.length ? profile.themeTags : impact.themeTags,
+      sector,
+      themeTags,
       market: market
         ? {
             market: market.market,

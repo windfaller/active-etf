@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EtfHoldingChange } from "../../src/models/EtfHoldingChange.js";
+import type { StockSectorProfile } from "../../src/models/StockSectorProfile.js";
 import { buildTagMovementRows } from "../../src/services/sector/tagMovementService.js";
 
 function change(input: Partial<EtfHoldingChange> & Pick<EtfHoldingChange, "stockId" | "stockName">): EtfHoldingChange {
@@ -51,5 +52,31 @@ describe("ETF tag movement rows", () => {
       decreaseStockCount: 1,
       totalActiveDiffLots: -20
     });
+  });
+
+  it("falls back to current mapping when stored profiles are stale or unclassified", () => {
+    const profiles = new Map<string, StockSectorProfile>([
+      [
+        "2330",
+        {
+          stockId: "2330",
+          stockName: "台積電",
+          sector: "其他",
+          themeTags: ["未分類"],
+          source: "unknown",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]
+    ]);
+
+    const rows = buildTagMovementRows(
+      [change({ stockId: "2330", stockName: "台積電", activeDiffLots: 80, diffWeightPoint: 0.3, currentWeight: 8 })],
+      profiles
+    );
+
+    expect(rows.map((row) => row.tag)).toEqual(expect.arrayContaining(["AI", "晶圓代工", "CoWoS"]));
+    expect(rows.map((row) => row.tag)).not.toContain("未分類");
+    expect(rows.map((row) => row.tag)).not.toContain("其他");
   });
 });

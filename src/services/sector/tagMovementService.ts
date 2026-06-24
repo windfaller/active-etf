@@ -26,10 +26,17 @@ export interface TagMovementRow {
   topStocks: TagMovementStock[];
 }
 
+const unknownTagLabels = new Set(["未分類", "其他"]);
+
+function usableTags(tags: string[] = []): string[] {
+  return [...new Set(tags.filter((tag) => tag && !unknownTagLabels.has(tag)))];
+}
+
 function tagsForChange(change: EtfHoldingChange, profile?: StockSectorProfile): string[] {
   const fallback = sectorProfileForStock(change.stockId, change.stockName);
-  const tags = profile?.themeTags?.length ? profile.themeTags : fallback.themeTags;
+  const tags = usableTags([...(profile?.themeTags ?? []), ...fallback.themeTags]);
   if (tags.length) return tags;
+  if (profile?.sector && profile.sector !== "其他") return [profile.sector];
   return fallback.sector === "其他" ? ["未分類"] : [fallback.sector];
 }
 
@@ -44,7 +51,9 @@ export function buildTagMovementRows(
     const diffWeightPoint = change.diffWeightPoint ?? 0;
     if (activeDiffLots === 0 && diffWeightPoint === 0 && change.status === "unchanged") continue;
 
-    const tags = tagsForChange(change, profileByStockId.get(change.stockId));
+    const tags = tagsForChange(change, profileByStockId.get(change.stockId)).filter((tag) => !unknownTagLabels.has(tag));
+    if (!tags.length) continue;
+
     for (const tag of tags) {
       const row =
         rowsByTag.get(tag) ??
@@ -98,8 +107,6 @@ export function buildTagMovementRows(
       };
     })
     .sort((a, b) => {
-      if (a.tag === "未分類" && b.tag !== "未分類") return 1;
-      if (b.tag === "未分類" && a.tag !== "未分類") return -1;
       return b.movementScore - a.movementScore || Math.abs(b.totalDiffWeightPoint) - Math.abs(a.totalDiffWeightPoint);
     });
 }

@@ -15,6 +15,7 @@ import {
 } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
 import AdSlot from "../components/ads/AdSlot";
+import { sectorProfileForStock } from "../services/sector/sectorMapping";
 
 type NullableNumber = number | null;
 type MainTab = "market" | "etf";
@@ -282,7 +283,10 @@ const premiumRange = computed(() => {
 const latestPremiumDate = computed(() => premiumRows.value[0]?.tradeDate ?? "-");
 const activeIncreaseRows = computed(() => changes.value.topActiveIncreases.slice(0, 12));
 const activeDecreaseRows = computed(() => changes.value.topActiveDecreases.slice(0, 12));
-const tagMovementRows = computed(() => (changes.value.tagMovements ?? []).slice(0, 8));
+const tagMovementRows = computed(() => {
+  const apiRows = (changes.value.tagMovements ?? []).filter((row) => isMeaningfulThemeTag(row.tag));
+  return (apiRows.length ? apiRows : buildClientTagMovementRows()).slice(0, 8);
+});
 const maxTagMovementScore = computed(() => Math.max(1, ...tagMovementRows.value.map((row) => row.movementScore)));
 
 const marketTotals = computed(() => ({
@@ -291,7 +295,15 @@ const marketTotals = computed(() => ({
   institutionalNetLots: stockImpacts.value.reduce((sum, row) => sum + (row.institutional?.totalNetShares ?? 0) / 1000, 0),
   turnover: stockImpacts.value.reduce((sum, row) => sum + (row.market?.turnover ?? 0), 0)
 }));
-const topSectorRows = computed(() => sectorSummaryRows.value.slice(0, 6));
+const topSectorRows = computed(() =>
+  [...sectorSummaryRows.value]
+    .sort((a, b) => {
+      if (a.sector === "其他" && b.sector !== "其他") return 1;
+      if (b.sector === "其他" && a.sector !== "其他") return -1;
+      return Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots);
+    })
+    .slice(0, 6)
+);
 const expandedSectorStocks = computed(() => {
   if (!expandedSector.value) return [];
   return stockImpacts.value
@@ -627,6 +639,96 @@ function tagMovementWidth(row: TagMovement): string {
   return `${Math.max(8, Math.min(100, (row.movementScore / maxTagMovementScore.value) * 100))}%`;
 }
 
+function isMeaningfulThemeTag(tag: string): boolean {
+  return tag !== "未分類" && tag !== "其他";
+}
+
+function allChangeRows(): Change[] {
+  const rowsByStock = new Map<string, Change>();
+  [
+    ...changes.value.topActiveIncreases,
+    ...changes.value.topActiveDecreases,
+    ...changes.value.topIncreases,
+    ...changes.value.topDecreases,
+    ...changes.value.newHoldings,
+    ...changes.value.exitedHoldings
+  ].forEach((row) => rowsByStock.set(row.stockId, row));
+  return [...rowsByStock.values()];
+}
+
+function themeTagsForChange(row: Change): string[] {
+  const profile = sectorProfileForStock(row.stockId, row.stockName);
+  const tags = profile.themeTags.filter(isMeaningfulThemeTag);
+  if (tags.length) return tags;
+  return profile.sector && profile.sector !== "其他" ? [profile.sector] : [];
+}
+
+function buildClientTagMovementRows(): TagMovement[] {
+  const rowsByTag = new Map<string, TagMovement>();
+
+  for (const change of allChangeRows()) {
+    const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+    const diffWeightPoint = change.diffWeightPoint ?? 0;
+    if (activeDiffLots === 0 && diffWeightPoint === 0 && change.status === "unchanged") continue;
+
+    for (const tag of themeTagsForChange(change)) {
+      const row =
+        rowsByTag.get(tag) ??
+        ({
+          tag,
+          direction: "flat",
+          stockCount: 0,
+          increaseStockCount: 0,
+          decreaseStockCount: 0,
+          totalActiveDiffLots: 0,
+          totalDiffWeightPoint: 0,
+          totalCurrentWeight: 0,
+          movementScore: 0,
+          topStocks: []
+        } satisfies TagMovement);
+
+      row.stockCount += 1;
+      row.increaseStockCount += activeDiffLots > 0 || diffWeightPoint > 0 ? 1 : 0;
+      row.decreaseStockCount += activeDiffLots < 0 || diffWeightPoint < 0 ? 1 : 0;
+      row.totalActiveDiffLots += activeDiffLots;
+      row.totalDiffWeightPoint += diffWeightPoint;
+      row.totalCurrentWeight += change.currentWeight ?? 0;
+      row.topStocks.push({
+        stockId: change.stockId,
+        stockName: change.stockName,
+        activeDiffLots,
+        diffWeightPoint,
+        currentWeight: change.currentWeight,
+        status: change.status
+      });
+      rowsByTag.set(tag, row);
+    }
+  }
+
+  return [...rowsByTag.values()]
+    .map((row) => {
+      const direction: TagMovement["direction"] =
+        row.totalActiveDiffLots > 0 && row.increaseStockCount >= row.decreaseStockCount
+          ? "increase"
+          : row.totalActiveDiffLots < 0 && row.decreaseStockCount >= row.increaseStockCount
+            ? "decrease"
+            : row.increaseStockCount > 0 && row.decreaseStockCount > 0
+              ? "mixed"
+              : "flat";
+
+      return {
+        ...row,
+        direction,
+        totalActiveDiffLots: Math.round(row.totalActiveDiffLots),
+        totalDiffWeightPoint: Math.round(row.totalDiffWeightPoint * 10000) / 10000,
+        totalCurrentWeight: Math.round(row.totalCurrentWeight * 10000) / 10000,
+        movementScore: Math.round((Math.abs(row.totalActiveDiffLots) * 100 + Math.abs(row.totalDiffWeightPoint) * 10000) / 100),
+        topStocks: row.topStocks.sort((a, b) => Math.abs(b.activeDiffLots) - Math.abs(a.activeDiffLots)).slice(0, 4)
+      };
+    })
+    .sort((a, b) => b.movementScore - a.movementScore || Math.abs(b.totalDiffWeightPoint) - Math.abs(a.totalDiffWeightPoint));
+}
+
 function tagDirectionLabel(row: TagMovement): string {
   if (row.direction === "increase") return "偏加碼";
   if (row.direction === "decrease") return "偏減碼";
@@ -925,7 +1027,7 @@ watch(selectedEtfCode, async (etfCode) => {
         <div>
           <span class="eyebrow">市場總覽</span>
           <h2><Layers :size="19" /> {{ formatDateLabel(selectedDate) }} 跨 ETF 個股影響總表</h2>
-          <p>彙整所有已追蹤統一主動式 ETF 的當日持股異動，先看哪些個股受到最大影響。</p>
+          <p>彙整所有已追蹤台灣主動式 ETF 的當日持股異動，先看哪些個股受到最大影響。</p>
         </div>
       </div>
 
@@ -1342,8 +1444,8 @@ watch(selectedEtfCode, async (etfCode) => {
         <div class="operation-title">
           <div>
             <h2><Layers :size="18" /> 經理人主題移動</h2>
+            <p class="tag-movement-subtitle">依主題彙整加減碼、權重變化與主要標的</p>
           </div>
-          <span>{{ selectedEtf?.etfCode }}｜{{ selectedDate }}</span>
         </div>
 
         <div class="tag-movement-list">
