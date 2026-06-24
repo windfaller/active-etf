@@ -1,0 +1,20 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/api/*",
+      "/assets/*",
+      "/active-etfs/*",
+      "/sitemap.xml",
+      "/robots.txt",
+      "/favicon.svg",
+      "/*.json",
+      "/*.xml",
+      "/*.txt",
+      "/*.svg",
+      "/*.png",
+      "/*.webp",
+      "/*.ico"
+    ]
+  }
+}

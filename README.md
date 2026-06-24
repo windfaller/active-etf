@@ -272,6 +272,17 @@ http://127.0.0.1:5173/
 
 前端預設 API base URL 是 `http://127.0.0.1:7072`，可用 `VITE_API_BASE_URL` 覆蓋。
 
+前端支援可分享與可索引的 SPA RESTful routes：
+
+```txt
+/market
+/etf/{etfCode}
+/etf/{etfCode}/changes
+/etf/{etfCode}/premium-history
+```
+
+Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到市場總覽、單檔 ETF、持股變化或折溢價歷史。新增 enabled ETF 時，請同步更新 `public/sitemap.xml`。
+
 ## 已知限制
 
 - 已確認統一投信 `GetPCF` JSON endpoint 可取得 PCF、持股股數、持股權重、基金淨資產與已發行單位數。

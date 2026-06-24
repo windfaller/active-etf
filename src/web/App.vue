@@ -19,6 +19,15 @@ import AdSlot from "../components/ads/AdSlot";
 type NullableNumber = number | null;
 type MainTab = "market" | "etf";
 type EtfPage = "report" | "premiumHistory";
+type EtfRouteSection = "overview" | "changes";
+
+interface AppRoute {
+  mainTab: MainTab;
+  etfCode: string;
+  etfPage: EtfPage;
+  etfSection: EtfRouteSection;
+  canonicalPath: string;
+}
 
 interface Holding {
   stockId: string;
@@ -173,10 +182,13 @@ const selectedDate = ref("");
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const activeMainTab = ref<MainTab>("market");
 const activeEtfPage = ref<EtfPage>("report");
+const activeEtfSection = ref<EtfRouteSection>("overview");
 const marketQuery = ref("");
 const holdingQuery = ref("");
 const expandedSector = ref("");
 const focusedStockImpactId = ref("");
+const isApplyingRoute = ref(false);
+const pendingScrollTarget = ref<EtfRouteSection | "top">("top");
 const isLoading = ref(false);
 const hasLoaded = ref(false);
 const errorMessage = ref("");
@@ -283,6 +295,181 @@ const helpTexts = {
   rawLots: "表面張數是不做規模校正的持股張數變化，也就是今日股數減前日股數再除以 1000。",
   adjustedLots: "校正張數會先用 ETF 總受益權單位變化估算應有持股，再用實際持股扣掉應有持股。"
 } as const;
+
+function normalizedEtfCode(value: string | undefined): string | null {
+  if (!value) return null;
+  const upperValue = decodeURIComponent(value).trim().toUpperCase();
+  return etfOptions.some((etf) => etf.etfCode === upperValue) ? upperValue : null;
+}
+
+function cleanPath(pathname: string): string {
+  const path = pathname.replace(/\/+$/u, "");
+  return path || "/";
+}
+
+function routeForState(): string {
+  if (activeMainTab.value === "market") return "/market";
+
+  const code = selectedEtf.value?.etfCode ?? selectedEtfCode.value;
+  if (activeEtfPage.value === "premiumHistory") return `/etf/${code}/premium-history`;
+  if (activeEtfSection.value === "changes") return `/etf/${code}/changes`;
+  return `/etf/${code}`;
+}
+
+function routeFromPath(pathname: string): AppRoute {
+  const fallbackCode = selectedEtfCode.value;
+  const parts = cleanPath(pathname).split("/").filter(Boolean);
+
+  if (parts[0] === "etf") {
+    const code = normalizedEtfCode(parts[1]) ?? fallbackCode;
+    const routePart = parts[2]?.toLowerCase();
+    if (routePart === "premium-history" || routePart === "premium") {
+      return {
+        mainTab: "etf",
+        etfCode: code,
+        etfPage: "premiumHistory",
+        etfSection: "overview",
+        canonicalPath: `/etf/${code}/premium-history`
+      };
+    }
+
+    if (routePart === "changes" || routePart === "change") {
+      return {
+        mainTab: "etf",
+        etfCode: code,
+        etfPage: "report",
+        etfSection: "changes",
+        canonicalPath: `/etf/${code}/changes`
+      };
+    }
+
+    return {
+      mainTab: "etf",
+      etfCode: code,
+      etfPage: "report",
+      etfSection: "overview",
+      canonicalPath: `/etf/${code}`
+    };
+  }
+
+  return {
+    mainTab: "market",
+    etfCode: fallbackCode,
+    etfPage: "report",
+    etfSection: "overview",
+    canonicalPath: "/market"
+  };
+}
+
+function setMeta(name: string, content: string): void {
+  if (typeof document === "undefined") return;
+  let element = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
+  if (!element) {
+    element = document.createElement("meta");
+    element.name = name;
+    document.head.appendChild(element);
+  }
+  element.content = content;
+}
+
+function setPropertyMeta(property: string, content: string): void {
+  if (typeof document === "undefined") return;
+  let element = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute("property", property);
+    document.head.appendChild(element);
+  }
+  element.content = content;
+}
+
+function setLink(rel: string, href: string): void {
+  if (typeof document === "undefined") return;
+  let element = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+  if (!element) {
+    element = document.createElement("link");
+    element.rel = rel;
+    document.head.appendChild(element);
+  }
+  element.href = href;
+}
+
+function updateDocumentMetadata(): void {
+  if (typeof document === "undefined") return;
+
+  const baseUrl = "https://active-etf.chicoo.co";
+  const path = routeForState();
+  const url = `${baseUrl}${path}`;
+  const etf = selectedEtf.value;
+
+  let title = "台灣主動式 ETF 調倉雷達｜市場總覽";
+  let description = "查看台灣主動式 ETF 跨 ETF 個股影響、主動淨變動、三大法人與產業資金流總覽。";
+
+  if (activeMainTab.value === "etf" && etf) {
+    if (activeEtfPage.value === "premiumHistory") {
+      title = `${etf.etfCode} ${etf.name}｜折溢價歷史`;
+      description = `查看 ${etf.etfCode} ${etf.name} 的歷史股價、淨值與折溢價走勢。`;
+    } else if (activeEtfSection.value === "changes") {
+      title = `${etf.etfCode} ${etf.name}｜持股變化`;
+      description = `查看 ${etf.etfCode} ${etf.name} 的每日新增、刪除、加碼、減碼與規模校正後主動調倉訊號。`;
+    } else {
+      title = `${etf.etfCode} ${etf.name}｜單檔 ETF 日報`;
+      description = `查看 ${etf.etfCode} ${etf.name} 的持股總表、折溢價、資產配置與每日操作日報。`;
+    }
+  }
+
+  document.title = title;
+  setMeta("description", description);
+  setPropertyMeta("og:title", title);
+  setPropertyMeta("og:description", description);
+  setPropertyMeta("og:url", url);
+  setLink("canonical", url);
+  setLink("alternate", url);
+}
+
+function syncRoute(replace = false): void {
+  if (typeof window === "undefined" || isApplyingRoute.value) return;
+
+  const nextPath = routeForState();
+  if (cleanPath(window.location.pathname) !== nextPath) {
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, "", nextPath);
+  }
+  updateDocumentMetadata();
+}
+
+function applyRouteFromLocation(replace = true): void {
+  if (typeof window === "undefined") return;
+
+  const route = routeFromPath(window.location.pathname);
+  isApplyingRoute.value = true;
+  activeMainTab.value = route.mainTab;
+  selectedEtfCode.value = route.etfCode;
+  activeEtfPage.value = route.etfPage;
+  activeEtfSection.value = route.etfSection;
+  pendingScrollTarget.value = route.etfSection === "changes" ? "changes" : "top";
+  void nextTick(() => {
+    isApplyingRoute.value = false;
+  });
+
+  if (cleanPath(window.location.pathname) !== route.canonicalPath) {
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, "", route.canonicalPath);
+  }
+  updateDocumentMetadata();
+}
+
+async function scrollToRouteTarget(): Promise<void> {
+  await nextTick();
+  if (pendingScrollTarget.value === "changes") {
+    document.getElementById("changes-panel")?.scrollIntoView({
+      block: "start",
+      behavior: "auto"
+    });
+    return;
+  }
+  scrollToPageTop();
+}
 
 function isNewLike(row: Change): boolean {
   return row.status === "new" || (row.prevShares === 0 && row.currentShares > 0);
@@ -509,10 +696,14 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 async function loadAvailableDates(etfCode = selectedEtfCode.value): Promise<void> {
-  const response = await getJson<{ dates: string[] }>(`/api/etf/${etfCode}/dates?limit=180`);
-  availableDates.value = response.dates;
-  if (!availableDates.value.length) {
+  try {
+    const response = await getJson<{ dates: string[] }>(`/api/etf/${etfCode}/dates?limit=180`);
+    availableDates.value = response.dates;
+  } catch (error) {
+    availableDates.value = [];
     selectedDate.value = "";
+    errorMessage.value =
+      error instanceof Error ? error.message : "日期資料讀取失敗，請確認 API server 是否啟動。";
     return;
   }
 
@@ -546,6 +737,7 @@ async function loadDashboard(): Promise<void> {
   } finally {
     isLoading.value = false;
     hasLoaded.value = true;
+    await scrollToRouteTarget();
   }
 }
 
@@ -564,37 +756,71 @@ function scrollToPageTop(): void {
 
 async function showMarketTab(): Promise<void> {
   activeMainTab.value = "market";
+  activeEtfSection.value = "overview";
+  syncRoute();
   await nextTick();
   scrollToPageTop();
 }
 
-async function showEtfReport(etfCode?: string): Promise<void> {
+async function showEtfReport(etfCode?: string, section: EtfRouteSection = "overview"): Promise<void> {
   activeMainTab.value = "etf";
   activeEtfPage.value = "report";
+  activeEtfSection.value = section;
 
   if (etfCode && etfCode !== selectedEtfCode.value) {
     selectedEtfCode.value = etfCode;
   }
 
+  syncRoute();
+  await nextTick();
+  if (section === "changes") {
+    document.getElementById("changes-panel")?.scrollIntoView({
+      block: "start",
+      behavior: "smooth"
+    });
+  } else {
+    scrollToPageTop();
+  }
+}
+
+async function showPremiumHistory(): Promise<void> {
+  activeMainTab.value = "etf";
+  activeEtfPage.value = "premiumHistory";
+  activeEtfSection.value = "overview";
+  syncRoute();
   await nextTick();
   scrollToPageTop();
 }
 
 onMounted(() => {
   void (async () => {
+    applyRouteFromLocation();
+    window.addEventListener("popstate", () => {
+      applyRouteFromLocation(false);
+      void loadAvailableDates(selectedEtfCode.value).then(loadDashboard);
+    });
     void loadTelegramInfo();
-    await loadAvailableDates();
+    await loadAvailableDates(selectedEtfCode.value);
     await loadDashboard();
   })();
 });
 
 watch(selectedEtfCode, async (etfCode) => {
+  if (isApplyingRoute.value) return;
   activeEtfPage.value = "report";
+  syncRoute();
   await loadAvailableDates(etfCode);
   await loadDashboard();
   if (activeMainTab.value === "etf") {
     await nextTick();
-    scrollToPageTop();
+    if (activeEtfSection.value === "changes") {
+      document.getElementById("changes-panel")?.scrollIntoView({
+        block: "start",
+        behavior: "auto"
+      });
+    } else {
+      scrollToPageTop();
+    }
   }
 });
 </script>
@@ -837,7 +1063,7 @@ watch(selectedEtfCode, async (etfCode) => {
               v-if="row.primaryImpactEtf"
               class="primary-etf-link"
               type="button"
-              @click="showEtfReport(row.primaryImpactEtf.etfCode)"
+              @click="showEtfReport(row.primaryImpactEtf.etfCode, 'changes')"
             >
               {{ row.primaryImpactEtf.etfCode }}
             </button>
@@ -875,7 +1101,7 @@ watch(selectedEtfCode, async (etfCode) => {
             v-if="activeEtfPage === 'premiumHistory'"
             class="secondary-button"
             type="button"
-            @click="activeEtfPage = 'report'"
+            @click="showEtfReport(selectedEtfCode)"
           >
             返回日報
           </button>
@@ -920,7 +1146,7 @@ watch(selectedEtfCode, async (etfCode) => {
             </span>
             <strong>{{ formatPct(summary?.premiumDiscount ?? null, 2) }}</strong>
             <em>股價 {{ formatNumber(summary?.marketPrice ?? null, 2) }}｜淨值 {{ formatNumber(summary?.nav ?? null, 2) }}</em>
-            <button class="kpi-action" type="button" @click="activeEtfPage = 'premiumHistory'">
+            <button class="kpi-action" type="button" @click="showPremiumHistory">
               <LineChart :size="16" />
               歷史
             </button>
@@ -1019,7 +1245,7 @@ watch(selectedEtfCode, async (etfCode) => {
         </div>
       </section>
 
-      <section v-if="activeEtfPage === 'report'" class="operation-panel">
+      <section v-if="activeEtfPage === 'report'" id="changes-panel" class="operation-panel">
         <div class="operation-title">
           <div>
             <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
