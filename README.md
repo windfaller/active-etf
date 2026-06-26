@@ -92,6 +92,7 @@ TELEGRAM_CHAT_ID=
 PUBLIC_BASE_URL=https://active-etf.chicoo.co
 ADMIN_JOB_TOKEN=
 ENABLE_TIMER_TRIGGERS=false
+ENABLE_ADS=false
 VITE_ENABLE_ADS=false
 ENABLE_AD_TRACKING=false
 REDIS_GOGOWINNERS_HOST=
@@ -102,7 +103,7 @@ CRAWLER_TIMEOUT_MS=30000
 ENABLE_BACKUP_SOURCES=true
 ```
 
-廣告系統預設關閉。只有在建置前設定 `VITE_ENABLE_ADS=true` 時，前端才會渲染 enabled ads；追蹤事件仍由 `ENABLE_AD_TRACKING=true` 另外控制，預設不送真實 tracking。
+廣告系統預設關閉，並透過 runtime config 控制。正式站請到 Azure Static Web Apps 的 Configuration / Application settings 設定 `ENABLE_ADS=true` 後重啟 Functions runtime 或等待設定生效；`VITE_ENABLE_ADS=true` 也會被 `/api/config` 接受作為相容舊設定的 alias。追蹤事件仍由 `ENABLE_AD_TRACKING=true` 另外控制，預設不送真實 tracking。
 
 Azure Functions 本機也可用 `local.settings.json` 管理相同設定。Redis 是每日 API response cache；若未設定 Redis，API 會自動回到直接查 MongoDB。
 

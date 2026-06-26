@@ -1,15 +1,8 @@
 import type { AdItem, AdSlotName, AdTrackingEvent } from "./types.js";
-
-type ViteImportMeta = ImportMeta & {
-  env?: Record<string, string | boolean | undefined>;
-};
-
-function viteEnv(): Record<string, string | boolean | undefined> {
-  return (import.meta as ViteImportMeta).env ?? {};
-}
+import { isAdTrackingRuntimeEnabled, isAdsRuntimeEnabled } from "./runtimeConfig.js";
 
 export function isAdsFeatureEnabled(): boolean {
-  return viteEnv().VITE_ENABLE_ADS === "true";
+  return isAdsRuntimeEnabled();
 }
 
 export function buildAdTrackingEvent(input: {
@@ -30,7 +23,7 @@ export function buildAdTrackingEvent(input: {
 }
 
 async function postTrackingEvent(endpoint: string | undefined, event: AdTrackingEvent): Promise<void> {
-  if (!endpoint || !isAdsFeatureEnabled()) return;
+  if (!endpoint || !isAdsFeatureEnabled() || !isAdTrackingRuntimeEnabled()) return;
 
   await fetch(endpoint, {
     method: "POST",

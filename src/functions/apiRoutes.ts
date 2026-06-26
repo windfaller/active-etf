@@ -9,6 +9,7 @@ import "../api/getEtfSummaryHistory.js";
 import "../api/getGlobalEtfs.js";
 import "../api/getMarketStockImpact.js";
 import "../api/getDashboard.js";
+import "../api/getRuntimeConfig.js";
 import "../api/getTelegramInfo.js";
 import "../api/postEtfAdminJobs.js";
 import "../api/postGlobalEtfJobs.js";

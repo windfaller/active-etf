@@ -51,6 +51,16 @@ function adminAuthError(req: IncomingMessage): { status: number; message: string
   return null;
 }
 
+function envFlag(name: string): boolean | null {
+  const value = process.env[name];
+  if (value === undefined) return null;
+  return value.toLowerCase() === "true";
+}
+
+function runtimeAdsEnabled(): boolean {
+  return envFlag("ENABLE_ADS") ?? envFlag("VITE_ENABLE_ADS") ?? false;
+}
+
 function enabledEtfSummaries() {
   return configuredEtfs
     .filter((item) => item.enabled)
@@ -113,6 +123,16 @@ const server = createServer(async (req, res) => {
 
     if (parts[0] !== "api") {
       sendJson(res, 404, { error: "Not found" });
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "config") {
+      sendJson(res, 200, {
+        ads: {
+          enabled: runtimeAdsEnabled(),
+          trackingEnabled: envFlag("ENABLE_AD_TRACKING") ?? false
+        }
+      });
       return;
     }
 

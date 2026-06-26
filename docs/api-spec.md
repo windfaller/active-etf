@@ -1,5 +1,11 @@
 # API Spec
 
+## Runtime Config
+
+`GET /api/config`
+
+Returns public runtime feature flags for the frontend. `ads.enabled` is controlled by the Azure Static Web Apps runtime app setting `ENABLE_ADS=true`; `VITE_ENABLE_ADS=true` is also accepted as a backward-compatible alias. Defaults to disabled. `ads.trackingEnabled` is controlled separately by `ENABLE_AD_TRACKING=true`.
+
 ## Get Holdings
 
 `GET /api/etf/{etfCode}/holdings?date=YYYY-MM-DD`

@@ -1,7 +1,7 @@
 import { computed, type ComputedRef } from "vue";
 import { getRegisteredAds } from "./registry.js";
+import { useAdsRuntimeConfig } from "./runtimeConfig.js";
 import { selectAdsForSlot } from "./selector.js";
-import { isAdsFeatureEnabled } from "./tracking.js";
 import type { AdItem, AdRenderMode, AdSelectionContext, AdSlotName } from "./types.js";
 
 export interface UseAdSlotOptions {
@@ -20,7 +20,8 @@ export interface UseAdSlotResult {
 }
 
 export function useAdSlot(slot: AdSlotName, options: UseAdSlotOptions = {}): UseAdSlotResult {
-  const enabled = computed(() => isAdsFeatureEnabled());
+  const runtimeConfig = useAdsRuntimeConfig();
+  const enabled = computed(() => runtimeConfig.adsEnabled.value);
   const context = computed<AdSelectionContext>(() => ({
     slot,
     now: options.now,
