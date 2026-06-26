@@ -92,6 +92,8 @@ TELEGRAM_CHAT_ID=
 PUBLIC_BASE_URL=https://active-etf.chicoo.co
 ADMIN_JOB_TOKEN=
 ENABLE_TIMER_TRIGGERS=false
+VITE_ENABLE_ADS=false
+ENABLE_AD_TRACKING=false
 REDIS_GOGOWINNERS_HOST=
 REDIS_GOGOWINNERS_PORT=6380
 REDIS_GOGOWINNERS_KEY=
@@ -99,6 +101,8 @@ REDIS_DAILY_CACHE_TTL_SECONDS=86400
 CRAWLER_TIMEOUT_MS=30000
 ENABLE_BACKUP_SOURCES=true
 ```
+
+廣告系統預設關閉。只有在建置前設定 `VITE_ENABLE_ADS=true` 時，前端才會渲染 enabled ads；追蹤事件仍由 `ENABLE_AD_TRACKING=true` 另外控制，預設不送真實 tracking。
 
 Azure Functions 本機也可用 `local.settings.json` 管理相同設定。Redis 是每日 API response cache；若未設定 Redis，API 會自動回到直接查 MongoDB。
 
