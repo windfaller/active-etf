@@ -534,9 +534,9 @@ function maxAbsInsightValue(cards: InsightCard[]): number {
 }
 
 function insightBarStyle(card: InsightCard, maxValue: number): Record<string, string> {
-  const percent = Math.max(4, Math.min(100, (Math.abs(card.barValue) / maxValue) * 100));
+  const percent = Math.max(5, Math.min(48, (Math.abs(card.barValue) / maxValue) * 48));
   return {
-    "--bar-width": `${card.tone === "neutral" ? percent : percent / 2}%`
+    "--bar-width": `${card.tone === "neutral" ? Math.min(100, percent * 2) : percent}%`
   };
 }
 
@@ -1709,7 +1709,7 @@ watch(
             <h2><BarChart3 :size="18" /> 產業資金與調倉</h2>
             <p>依主動淨變動張數排序；長條顯示正負規模，卡片下方列出主要影響個股。</p>
           </div>
-          <span>長條 = 主動淨變動張數</span>
+          <span>中線 = 0；紅右買超 / 綠左賣超</span>
         </div>
         <div class="insight-card-grid">
           <article

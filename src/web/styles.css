@@ -1162,6 +1162,7 @@ input:focus {
 .insight-card-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
   gap: 10px;
   padding: 12px;
 }
@@ -1172,8 +1173,10 @@ input:focus {
 
 .insight-card {
   display: grid;
+  align-content: start;
   gap: 9px;
   min-width: 0;
+  overflow: hidden;
   padding: 13px;
   color: #20252b;
   text-align: left;
@@ -1258,7 +1261,7 @@ input:focus {
   display: block;
   height: 8px;
   overflow: hidden;
-  background: #edf2f6;
+  background: linear-gradient(90deg, #eef4f1 0 50%, #f7eeee 50% 100%);
   border-radius: 999px;
 }
 
@@ -1267,9 +1270,11 @@ input:focus {
   top: -2px;
   bottom: -2px;
   left: 50%;
-  width: 1px;
+  z-index: 2;
+  width: 2px;
   content: "";
-  background: rgba(91, 102, 114, 0.28);
+  background: rgba(96, 110, 125, 0.34);
+  transform: translateX(-50%);
 }
 
 .insight-card.neutral .insight-bar-track::before {
@@ -1281,7 +1286,8 @@ input:focus {
   top: 0;
   bottom: 0;
   width: var(--bar-width, 0%);
-  border-radius: inherit;
+  max-width: 48%;
+  border-radius: 999px;
 }
 
 .insight-card.increase .insight-bar,
@@ -1290,19 +1296,21 @@ input:focus {
 }
 
 .insight-card.decrease .insight-bar {
-  right: 50%;
+  left: 50%;
+  transform: translateX(-100%);
 }
 
 .insight-card.neutral .insight-bar {
   left: 0;
+  max-width: 100%;
 }
 
 .insight-card.increase .insight-bar {
-  background: #d45a5c;
+  background: linear-gradient(90deg, #d45a5c, #e06a6c);
 }
 
 .insight-card.decrease .insight-bar {
-  background: #5cad98;
+  background: linear-gradient(90deg, #56a88f, #62b79f);
 }
 
 .insight-card.mixed .insight-bar {
@@ -1317,14 +1325,20 @@ input:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .insight-chip {
   display: inline-flex;
+  flex: 0 1 auto;
   max-width: 100%;
+  min-width: 0;
   min-height: 30px;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
+  overflow: hidden;
   padding: 5px 8px;
   color: #345986;
   background: #f8fafc;
@@ -1336,6 +1350,10 @@ input:focus {
   text-align: left;
 }
 
+.insight-card-grid:not(.compact) .insight-chip {
+  flex-basis: 100%;
+}
+
 button.insight-chip {
   cursor: pointer;
 }
@@ -1343,6 +1361,7 @@ button.insight-chip {
 .insight-chip b {
   min-width: 0;
   overflow: hidden;
+  max-width: 100%;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
