@@ -14,6 +14,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 兆豐投信 `mega` | `00996A` | Verified and enabled | Official Mega ETF product page renders current holdings and summary server-side. The PCF page was also verified through ASP.NET form POST and confirms `fund_id=23`, but complete stock holdings are on the product page. Production daily refresh is enabled. |
 | 富邦投信 `fubon` | `00405A` | Verified and enabled | Official Fubon ETF assets page renders equity holdings and summary server-side. Production daily refresh is enabled for `00405A`. |
 | 富邦投信 `fubon` | `00982D`, `00983D` | Verified, disabled for equity-only sync | Official Fubon ETF assets page renders fixed-income holdings and summary server-side. Bond ISINs and ETF tickers are normalized into the shared holding schema, but production daily refresh is disabled while the dashboard focuses on stock-type active ETFs. |
+| 凱基投信 `kgi` | `00407A` | Verified and enabled | Official KGI redemption list page maps `00407A` to `fundID=J024`; `POST /Fund/RedemptionVC` renders complete PCF summary and stock holdings server-side. Production daily refresh is enabled. |
 | 聯博投信 `allianceBernstein` | `00404A` | Verified and enabled | Official AllianceBernstein React page calls `webapi.alliancebernstein.com` JSON endpoints `/holdings` and `/basket`; `00404A` maps to shareClassId `TW00000404A5`. Production daily refresh is enabled. |
 | 聯博投信 `allianceBernstein` | `00984D` | Verified, disabled for equity-only sync | Official AllianceBernstein React page calls `webapi.alliancebernstein.com` JSON endpoints `/holdings` and `/basket`; holdings, NAV, AUM, total units and PCF summary were verified, but production daily refresh is disabled while the dashboard focuses on stock-type active ETFs. |
 | 摩根投信 `jpmorgan` | `00989A`, `00401A` | Verified and enabled | Official product pages expose ETF supplement PCF XLSX files. The files are fetched with browser Excel headers and parsed as OOXML; production daily refresh is enabled. |
@@ -125,6 +126,23 @@ This project does not guess provider APIs. A provider can be enabled for product
   - stock table with code, name, shares and weight
 - Important source note: the official PCF page and its `Pcf.js` only perform page navigation for date/ETF changes; no JSON, CSV or XLSX endpoint was present in the captured code. The implementation therefore uses the allowed HTML fallback and validates the table headers before parsing.
 - Limitation: this source does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Taishin holdings/NAV sync.
+
+### KGI RedemptionVC
+
+- PCF page: `https://www.kgifund.com.tw/Fund/RedemptionList`
+- Official page JavaScript reviewed: `UpdateRedemption` loads `/Fund/RedemptionVC` with `fundID` and `queryDate`; the page's embedded fund list maps `主動凱基台灣` to `fundID=J024`.
+- Method: `POST`
+- URL: `https://www.kgifund.com.tw/Fund/RedemptionVC`
+- Body: `fundID=J024&queryDate=YYYY/MM/DD`
+- Confirmed ETF codes:
+  - `00407A`: official response on `2026-06-29` rendered `主動凱基台灣(00407A)`, actual NAV/holdings date `2026-06-26`, NAV `9.4`, total units `2,342,239,000`, fund size `22,009,908,545`, and complete stock rows.
+- Response type: server-rendered HTML partial
+- Contains:
+  - hidden `DataDate` for PCF announcement date
+  - summary list rows for fund size, total units, NAV and unit delta
+  - stock table with stock code, stock name, shares and weight
+- Important date rule: `DataDate` is the PCF announcement date. The saved `tradeDate` is detected from the dated NAV label such as `(2026/06/26)每受益權單位淨資產價值(元)`.
+- Limitation: this source does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after KGI NAV sync.
 
 ### JPMorgan ETF Supplement PCF XLSX
 

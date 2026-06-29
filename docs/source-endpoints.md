@@ -145,6 +145,39 @@ Field mapping:
 
 Raw snapshots are stored with source `twse_institutional`.
 
+## KGI 00407A PCF
+
+Page: `https://www.kgifund.com.tw/Fund/RedemptionList`
+
+URL: `https://www.kgifund.com.tw/Fund/RedemptionVC`
+
+Method: POST
+
+Payload:
+
+```txt
+fundID=J024&queryDate=YYYY/MM/DD
+```
+
+Status: verified official source for `00407A 主動凱基台灣` holdings and PCF summary. The official redemption list page embeds the fund mapping `主動凱基台灣 -> J024` and loads this endpoint through `UpdateRedemption`.
+
+Field mapping:
+
+```txt
+hidden DataDate -> PCF announcement date
+dated NAV label -> holdings/NAV trade date
+基金淨資產價值(元) -> fund size
+已發行受益權單位總數 -> total units
+與前日已發行單位差異數 -> net creation units
+每受益權單位淨資產價值(元) -> NAV
+股票代號 -> stock ID
+股票名稱 -> stock name
+股數 -> shares
+權重(%) -> weight
+```
+
+Raw snapshots are stored with source `kgi`.
+
 ## TPEx OTC stock daily market data
 
 URL: `https://www.tpex.org.tw/www/zh-tw/afterTrading/otc`

@@ -257,6 +257,22 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00407A",
+    fundCode: "J024",
+    name: "主動凱基台灣",
+    issuer: "凱基投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "kgi",
+      infoUrl: "https://www.kgifund.com.tw/Fund/RedemptionList",
+      pcfUrl: "https://www.kgifund.com.tw/Fund/RedemptionVC"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00986A",
     fundCode: "00986A",
     name: "主動台新龍頭成長",

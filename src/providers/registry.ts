@@ -7,6 +7,7 @@ import { fhProvider } from "./fh/provider.js";
 import { firstProvider } from "./first/provider.js";
 import { fubonProvider } from "./fubon/provider.js";
 import { jpmorganProvider } from "./jpmorgan/provider.js";
+import { kgiProvider } from "./kgi/provider.js";
 import { megaProvider } from "./mega/provider.js";
 import { nomuraProvider } from "./nomura/provider.js";
 import { taishinProvider } from "./taishin/provider.js";
@@ -29,6 +30,7 @@ export const providerRegistry = new Map<ProviderId, EtfProvider>(
     allianzProvider,
     megaProvider,
     fubonProvider,
+    kgiProvider,
     allianceBernsteinProvider
   ].map((provider) => [provider.providerId, provider])
 );
