@@ -76,4 +76,18 @@ export async function invalidateDailyCache(etfCode: string, tradeDate: string): 
   }
 }
 
+export async function invalidateGlobalEtfCache(): Promise<void> {
+  if (!isRedisConfigured()) return;
+
+  const keys = [buildCacheKey(["global-etfs", "daily-report"])];
+
+  try {
+    await redisDel(keys);
+  } catch (error) {
+    logger.warn("Redis global ETF cache invalidation skipped", {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
 export const dailyCacheKey = buildCacheKey;

@@ -1,8 +1,15 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { enabledGlobalEtfs, findGlobalEtfConfig, globalEtfCandidates } from "../config/globalEtfs.js";
 import { getDb } from "../db/mongo.js";
+import type { GlobalEtfDailyReport } from "../models/GlobalEtf.js";
+import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { getGlobalEtfDailyReport } from "../services/globalEtf/globalEtfService.js";
 import { badRequest, jsonResponse } from "./response.js";
+
+async function getCachedGlobalEtfDailyReport(): Promise<GlobalEtfDailyReport> {
+  const db = await getDb();
+  return getOrSetDailyCache(["global-etfs", "daily-report"], () => getGlobalEtfDailyReport(db));
+}
 
 export async function getEnabledGlobalEtfs(_request: HttpRequest, _context: InvocationContext) {
   return jsonResponse({
@@ -13,15 +20,13 @@ export async function getEnabledGlobalEtfs(_request: HttpRequest, _context: Invo
 }
 
 export async function getGlobalEtfDailyReportApi(_request: HttpRequest, _context: InvocationContext) {
-  const db = await getDb();
-  return jsonResponse(await getGlobalEtfDailyReport(db));
+  return jsonResponse(await getCachedGlobalEtfDailyReport());
 }
 
 export async function getGlobalEtfHoldings(request: HttpRequest, _context: InvocationContext) {
   const etfCode = request.params.etfCode?.toUpperCase();
   if (!etfCode || !findGlobalEtfConfig(etfCode)) return badRequest("known global ETF code is required");
-  const db = await getDb();
-  const report = await getGlobalEtfDailyReport(db);
+  const report = await getCachedGlobalEtfDailyReport();
   const section = report.sections.find((item) => item.etfCode === etfCode);
   return jsonResponse({ etfCode, date: section?.sourceAsOf ?? null, holdings: section?.topHoldings ?? [], demoMode: report.demoMode });
 }
@@ -29,8 +34,7 @@ export async function getGlobalEtfHoldings(request: HttpRequest, _context: Invoc
 export async function getGlobalEtfChanges(request: HttpRequest, _context: InvocationContext) {
   const etfCode = request.params.etfCode?.toUpperCase();
   if (!etfCode || !findGlobalEtfConfig(etfCode)) return badRequest("known global ETF code is required");
-  const db = await getDb();
-  const report = await getGlobalEtfDailyReport(db);
+  const report = await getCachedGlobalEtfDailyReport();
   const section = report.sections.find((item) => item.etfCode === etfCode);
   return jsonResponse({
     etfCode,

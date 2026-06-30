@@ -3,6 +3,7 @@ import type { Db, Filter } from "mongodb";
 import { enabledGlobalEtfs, findGlobalEtfConfig } from "../../config/globalEtfs.js";
 import type { GlobalEtfCommonHolding, GlobalEtfDailyReport, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { fetchGlobalEtfSnapshot } from "../../providers/globalEtf/provider.js";
+import { invalidateGlobalEtfCache } from "../cache/dailyDataCache.js";
 import { createRawSnapshot } from "../source/rawSnapshotService.js";
 import { calculateGlobalEtfAggregateChanges, calculateGlobalEtfChanges, splitGlobalEtfChanges } from "./changeCalculator.js";
 import { buildGlobalEtfDailyReport, buildTakeaway } from "./reportGenerator.js";
@@ -354,6 +355,7 @@ export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
   const changes = calculateGlobalEtfChanges(snapshot, previous ?? null);
   await db.collection("global_etf_holding_changes").deleteMany({ etfCode: snapshot.etfCode, sourceAsOf: snapshot.sourceAsOf });
   if (changes.length) await db.collection("global_etf_holding_changes").insertMany(changes.map((change) => ({ ...change, changeId: randomUUID(), createdAt: new Date() })));
+  await invalidateGlobalEtfCache();
 
   return {
     etfCode: snapshot.etfCode,
