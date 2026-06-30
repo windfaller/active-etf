@@ -534,9 +534,9 @@ function maxAbsInsightValue(cards: InsightCard[]): number {
 }
 
 function insightBarStyle(card: InsightCard, maxValue: number): Record<string, string> {
-  const percent = Math.max(5, Math.min(48, (Math.abs(card.barValue) / maxValue) * 48));
+  const percent = Math.max(5, Math.min(98, (Math.abs(card.barValue) / maxValue) * 98));
   return {
-    "--bar-width": `${card.tone === "neutral" ? Math.min(100, percent * 2) : percent}%`
+    "--bar-width": `${percent}%`
   };
 }
 
