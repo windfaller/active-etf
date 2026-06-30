@@ -24,6 +24,7 @@ type NullableNumber = number | null;
 type MainTab = "market" | "etf" | "globalMarket" | "global";
 type EtfPage = "report" | "premiumHistory";
 type EtfRouteSection = "overview" | "changes";
+type DisplayMode = "cards" | "table";
 
 interface AppRoute {
   mainTab: MainTab;
@@ -310,6 +311,8 @@ const expandedSector = ref("");
 const focusedStockImpactId = ref("");
 const isApplyingRoute = ref(false);
 const pendingScrollTarget = ref<EtfRouteSection | "top">("top");
+const themeMovementDisplay = ref<DisplayMode>("cards");
+const operationDisplay = ref<DisplayMode>("cards");
 const isLoading = ref(false);
 const hasLoaded = ref(false);
 const errorMessage = ref("");
@@ -730,6 +733,7 @@ function applyRouteFromLocation(replace = true): void {
   selectedEtfCode.value = route.etfCode;
   activeEtfPage.value = route.etfPage;
   activeEtfSection.value = route.etfSection;
+  if (route.etfSection === "changes") operationDisplay.value = "table";
   pendingScrollTarget.value = route.etfSection === "changes" ? "changes" : "top";
   void nextTick(() => {
     isApplyingRoute.value = false;
@@ -1489,6 +1493,7 @@ async function showEtfReport(etfCode?: string, section: EtfRouteSection = "overv
   activeMainTab.value = "etf";
   activeEtfPage.value = "report";
   activeEtfSection.value = section;
+  if (section === "changes") operationDisplay.value = "table";
 
   if (etfCode && etfCode !== selectedEtfCode.value) {
     selectedEtfCode.value = etfCode;
@@ -2003,12 +2008,19 @@ watch(
       <section v-if="activeEtfPage === 'report' && taiwanEtfThemeInsightCards.length" class="insight-panel" aria-label="台灣單檔 ETF 主題移動">
         <div class="insight-title">
           <div>
-            <h2><BarChart3 :size="18" /> 主題移動概覽</h2>
-            <p>依主題彙整主動淨變動與權重變化，直接列出主要標的。</p>
+            <h2><Layers :size="18" /> 經理人主題移動</h2>
+            <p>依主題彙整加減碼、權重變化與主要標的</p>
           </div>
-          <span>長條 = 主動淨變動張數</span>
+          <div class="view-toggle" aria-label="經理人主題移動顯示方式">
+            <button type="button" :class="{ active: themeMovementDisplay === 'cards' }" @click="themeMovementDisplay = 'cards'">
+              <BarChart3 :size="14" /> 卡片
+            </button>
+            <button type="button" :class="{ active: themeMovementDisplay === 'table' }" @click="themeMovementDisplay = 'table'">
+              <ListChecks :size="14" /> 表格
+            </button>
+          </div>
         </div>
-        <div class="insight-card-grid compact">
+        <div v-if="themeMovementDisplay === 'cards'" class="insight-card-grid compact">
           <article v-for="card in taiwanEtfThemeInsightCards" :key="card.id" class="insight-card" :class="card.tone">
             <span class="insight-card-head">
               <b>{{ card.title }}</b>
@@ -2029,17 +2041,52 @@ watch(
             </span>
           </article>
         </div>
+        <div v-else class="tag-movement-list embedded">
+          <article
+            v-for="row in tagMovementRows"
+            :key="row.tag"
+            class="tag-movement-row"
+            :class="row.direction"
+          >
+            <div class="tag-movement-meter" :style="{ width: tagMovementWidth(row) }"></div>
+            <div class="tag-movement-main">
+              <span class="tag-movement-name">
+                <b>{{ row.tag }}</b>
+                <small>{{ tagDirectionLabel(row) }}</small>
+              </span>
+              <span :class="{ 'increase-number': row.totalActiveDiffLots > 0, 'decrease-number': row.totalActiveDiffLots < 0 }">
+                {{ formatLots(row.totalActiveDiffLots) }} 張
+              </span>
+              <span :class="{ 'increase-number': row.totalDiffWeightPoint > 0, 'decrease-number': row.totalDiffWeightPoint < 0 }">
+                {{ formatPct(row.totalDiffWeightPoint, 2) }}
+              </span>
+              <span>{{ formatWeight(row.totalCurrentWeight) }}</span>
+              <span>加 {{ row.increaseStockCount }} / 減 {{ row.decreaseStockCount }}</span>
+            </div>
+            <div class="tag-movement-stocks">
+              <span v-for="stock in row.topStocks" :key="`${row.tag}-${stock.stockId}`">
+                <b>{{ stock.stockId }}</b>{{ stock.stockName }}
+              </span>
+            </div>
+          </article>
+        </div>
       </section>
 
-      <section v-if="activeEtfPage === 'report' && taiwanEtfOperationInsightCards.length" class="insight-panel subtle" aria-label="台灣單檔 ETF 主要異動標的">
+      <section v-if="activeEtfPage === 'report' && taiwanEtfOperationInsightCards.length" id="changes-panel" class="insight-panel subtle" aria-label="台灣單檔 ETF 主要異動標的">
         <div class="insight-title">
           <div>
             <h2><ListChecks :size="18" /> 主要異動標的</h2>
-            <p>依新增、刪除、加減碼與權重排序，長條顯示調倉方向與大小。</p>
           </div>
-          <span>長條 = 校正或持股變動張數</span>
+          <div class="view-toggle" aria-label="主要異動標的顯示方式">
+            <button type="button" :class="{ active: operationDisplay === 'cards' }" @click="operationDisplay = 'cards'">
+              <BarChart3 :size="14" /> 卡片
+            </button>
+            <button type="button" :class="{ active: operationDisplay === 'table' }" @click="operationDisplay = 'table'">
+              <ListChecks :size="14" /> 表格
+            </button>
+          </div>
         </div>
-        <div class="insight-card-grid compact">
+        <div v-if="operationDisplay === 'cards'" class="insight-card-grid compact">
           <article v-for="card in taiwanEtfOperationInsightCards" :key="card.id" class="insight-card" :class="card.tone">
             <span class="insight-card-head">
               <b>{{ card.title }}</b>
@@ -2059,6 +2106,32 @@ watch(
               </span>
             </span>
           </article>
+        </div>
+        <div v-else class="operation-table embedded">
+          <div class="operation-head">
+            <span>標的</span>
+            <span>狀態</span>
+            <span class="term-with-help">
+              持股變動<br />張數
+              <button class="help-button" type="button" aria-label="持股變動張數說明">?</button>
+              <span class="help-popover" role="tooltip">{{ helpTexts.holdingLots }}</span>
+            </span>
+            <span>變動幅度</span>
+            <span>目前權重<br />變動%</span>
+          </div>
+          <div v-for="row in operationRows" :key="`summary-${row.operationStatus}-${row.stockId}`" class="operation-row">
+            <span class="operation-stock">
+              <b>{{ row.stockName }}</b>
+              <small>{{ row.stockId }}</small>
+            </span>
+            <span class="status-pill" :class="row.operationStatus">{{ operationLabel(row.operationStatus) }}</span>
+            <span :class="['operation-number', row.operationStatus]">{{ formatLots(row.diffLots) }}</span>
+            <span>{{ formatPlainPct(row.diffPct, 1) }}</span>
+            <span class="weight-stack">
+              <b>{{ formatWeight(row.currentWeight) }}</b>
+              <small>{{ formatPct(row.diffWeightPoint, 2) }}</small>
+            </span>
+          </div>
         </div>
       </section>
 
@@ -2118,7 +2191,7 @@ watch(
         </div>
       </section>
 
-      <section v-if="activeEtfPage === 'report'" id="changes-panel" class="operation-panel">
+      <section v-if="activeEtfPage === 'report' && operationDisplay === 'table' && !taiwanEtfOperationInsightCards.length" id="changes-panel" class="operation-panel">
         <div class="operation-title">
           <div>
             <h2><ListChecks :size="18" /> 共 {{ operationCounts.total }} 檔異動</h2>
@@ -2168,7 +2241,7 @@ watch(
         </div>
       </section>
 
-      <section v-if="activeEtfPage === 'report'" class="tag-movement-panel">
+      <section v-if="activeEtfPage === 'report' && themeMovementDisplay === 'table' && !taiwanEtfThemeInsightCards.length" class="tag-movement-panel">
         <div class="operation-title">
           <div>
             <h2><Layers :size="18" /> 經理人主題移動</h2>

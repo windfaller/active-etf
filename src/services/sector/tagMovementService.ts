@@ -34,6 +34,8 @@ function usableTags(tags: string[] = []): string[] {
 
 function tagsForChange(change: EtfHoldingChange, profile?: StockSectorProfile): string[] {
   const fallback = sectorProfileForStock(change.stockId, change.stockName);
+  if (fallback.source === "static") return usableTags(fallback.themeTags);
+
   const tags = usableTags([...(profile?.themeTags ?? []), ...fallback.themeTags]);
   if (tags.length) return tags;
   if (profile?.sector && profile.sector !== "其他") return [profile.sector];

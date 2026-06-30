@@ -182,7 +182,7 @@ function dedupeTags(tags: string[]): string[] {
 
 function heuristicSector(stockId: string, stockName?: string): SectorName {
   if (/^28/u.test(stockId) || /金|銀|壽|保險|證/u.test(stockName ?? "")) return "金融";
-  if (/^26/u.test(stockId) || /航|運|海/u.test(stockName ?? "")) return "航運";
+  if (/^26/u.test(stockId) || /航運|航空|貨櫃|散裝|長榮航|萬海|慧洋/u.test(stockName ?? "")) return "航運";
   if (/光|聯亞|波若威|華星光|上詮/u.test(stockName ?? "")) return "光通訊";
   if (/半導體|晶圓|矽|封測|日月光|精測/u.test(stockName ?? "")) return "半導體";
   if (/記憶體|華邦|南亞科|群聯|旺宏/u.test(stockName ?? "")) return "記憶體";
@@ -195,7 +195,7 @@ function heuristicTags(stockId: string, stockName?: string): string[] {
   const name = stockName ?? "";
   const tags: string[] = [];
   if (/^28/u.test(stockId) || /金|銀|壽|保險|證/u.test(name)) tags.push("金融");
-  if (/^26/u.test(stockId) || /航|運|海/u.test(name)) tags.push("航運");
+  if (/^26/u.test(stockId) || /航運|航空|貨櫃|散裝|長榮航|萬海|慧洋/u.test(name)) tags.push("航運");
   if (/AI|伺服器|廣達|緯創|緯穎|英業達|神達/u.test(name)) tags.push("AI伺服器");
   if (/光|CPO|矽光|光通訊|光聖|聯亞|波若威|華星光|上詮/u.test(name)) tags.push("光通訊");
   if (/半導體|晶圓|矽|封測|精測/u.test(name)) tags.push("半導體");
@@ -212,10 +212,15 @@ function heuristicTags(stockId: string, stockName?: string): string[] {
 export function themeTagsForStock(stockId: string, stockName?: string): string[] {
   const mapping = mappingByStockId.get(stockId);
   const sector = mapping?.sector ?? heuristicSector(stockId, stockName);
-  return dedupeTags([
+  const mappedTags = [
     ...(mapping?.tags ?? []),
     ...(explicitTagsByStockId.get(stockId) ?? []),
-    ...(defaultTagsBySector[sector] ?? []),
+    ...(defaultTagsBySector[sector] ?? [])
+  ];
+  if (mapping) return dedupeTags(mappedTags);
+
+  return dedupeTags([
+    ...mappedTags,
     ...heuristicTags(stockId, stockName)
   ]);
 }

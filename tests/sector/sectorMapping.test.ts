@@ -16,6 +16,14 @@ describe("sector theme tags", () => {
     });
   });
 
+  it("does not tag Hon Hai as shipping because its name contains 海", () => {
+    expect(sectorProfileForStock("2317", "鴻海")).toMatchObject({
+      sector: "AI Server",
+      themeTags: expect.arrayContaining(["AI伺服器", "EMS", "電動車"])
+    });
+    expect(themeTagsForStock("2317", "鴻海")).not.toContain("航運");
+  });
+
   it("keeps heuristic tags for unmapped power equipment names", () => {
     expect(themeTagsForStock("9999", "台灣重電")).toContain("電力設備");
   });

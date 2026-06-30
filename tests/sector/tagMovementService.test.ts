@@ -79,4 +79,29 @@ describe("ETF tag movement rows", () => {
     expect(rows.map((row) => row.tag)).not.toContain("未分類");
     expect(rows.map((row) => row.tag)).not.toContain("其他");
   });
+
+  it("uses current static tags over stale stored labels for known stocks", () => {
+    const profiles = new Map<string, StockSectorProfile>([
+      [
+        "2317",
+        {
+          stockId: "2317",
+          stockName: "鴻海",
+          sector: "AI Server",
+          themeTags: ["AI伺服器", "EMS", "航運"],
+          source: "static",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]
+    ]);
+
+    const rows = buildTagMovementRows(
+      [change({ stockId: "2317", stockName: "鴻海", activeDiffLots: -2000, diffWeightPoint: -0.2, currentWeight: 0.4 })],
+      profiles
+    );
+
+    expect(rows.map((row) => row.tag)).toEqual(expect.arrayContaining(["AI伺服器", "EMS", "電動車"]));
+    expect(rows.map((row) => row.tag)).not.toContain("航運");
+  });
 });
