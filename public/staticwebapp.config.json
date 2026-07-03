@@ -19,6 +19,30 @@
       }
     },
     {
+      "route": "/market",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/etf/*",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/global-etfs",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/global-etfs/*",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
       "route": "/assets/*",
       "headers": {
         "cache-control": "public, max-age=31536000, immutable"

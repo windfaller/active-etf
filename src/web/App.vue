@@ -1792,6 +1792,12 @@ watch(
         </div>
       </div>
 
+      <AdSlot
+        v-if="activeMainTab === 'market'"
+        slot="article-inline"
+        page="/market"
+      />
+
       <div class="table-title">
         <div>
           <h2>
@@ -1889,12 +1895,6 @@ watch(
         </div>
         <p v-if="!isLoading && !displayedImpacts.length" class="empty-row">此日期尚無跨 ETF 異動資料。</p>
       </div>
-
-      <AdSlot
-        v-if="activeMainTab === 'market'"
-        slot="article-inline"
-        page="/market"
-      />
     </section>
 
     <section

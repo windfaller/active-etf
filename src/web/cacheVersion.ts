@@ -2,6 +2,17 @@ declare const __APP_VERSION__: string;
 
 const VERSION_STORAGE_KEY = "active-etf:app-version";
 const RELOAD_GUARD_KEY = "active-etf:version-reload-pending";
+const VERSION_QUERY_PARAM = "appVersion";
+
+export function buildVersionedReloadUrl(currentHref: string, deployedVersion: string): string {
+  const url = new URL(currentHref);
+  url.searchParams.set(VERSION_QUERY_PARAM, deployedVersion);
+  return url.toString();
+}
+
+function reloadWithVersionedUrl(deployedVersion: string): void {
+  window.location.replace(buildVersionedReloadUrl(window.location.href, deployedVersion));
+}
 
 async function clearBrowserCaches(): Promise<void> {
   if ("caches" in window) {
@@ -38,27 +49,27 @@ export async function reloadWhenAppVersionChanges(): Promise<boolean> {
 
   try {
     const deployedVersion = await latestDeployedVersion();
-    if (!deployedVersion) return;
+    if (!deployedVersion) return false;
 
     const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY);
     const pendingReload = window.sessionStorage.getItem(RELOAD_GUARD_KEY);
 
     if (!storedVersion) {
-        window.localStorage.setItem(VERSION_STORAGE_KEY, deployedVersion);
-        return false;
-      }
+      window.localStorage.setItem(VERSION_STORAGE_KEY, deployedVersion);
+      return false;
+    }
 
-      if (storedVersion !== deployedVersion && pendingReload !== deployedVersion) {
-        window.sessionStorage.setItem(RELOAD_GUARD_KEY, deployedVersion);
-        window.localStorage.setItem(VERSION_STORAGE_KEY, deployedVersion);
-        await clearBrowserCaches();
-        window.location.reload();
-        return true;
-      }
+    if (storedVersion !== deployedVersion && pendingReload !== deployedVersion) {
+      window.sessionStorage.setItem(RELOAD_GUARD_KEY, deployedVersion);
+      window.localStorage.setItem(VERSION_STORAGE_KEY, deployedVersion);
+      await clearBrowserCaches();
+      reloadWithVersionedUrl(deployedVersion);
+      return true;
+    }
 
-      if (storedVersion === deployedVersion && pendingReload === deployedVersion) {
-        window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
-      }
+    if (storedVersion === deployedVersion && pendingReload === deployedVersion) {
+      window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
+    }
   } catch {
     if (!window.localStorage.getItem(VERSION_STORAGE_KEY)) {
       window.localStorage.setItem(VERSION_STORAGE_KEY, __APP_VERSION__);
