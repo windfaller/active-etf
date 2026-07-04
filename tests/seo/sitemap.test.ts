@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
-import { siteBaseUrlFromHost } from "../../src/services/seo/siteUrls.js";
+import { siteBaseUrlFromHost, siteBaseUrlFromHostCandidates } from "../../src/services/seo/siteUrls.js";
 import { buildRobotsTxt, buildSitemapXml, sitemapEntries } from "../../src/services/seo/sitemap.js";
 
 describe("SEO sitemap files", () => {
@@ -18,6 +18,23 @@ describe("SEO sitemap files", () => {
     expect(siteBaseUrlFromHost("www.inthewins.com")).toBe("https://active-etf.inthewins.com");
     expect(siteBaseUrlFromHost("chicoo.co")).toBe("https://active-etf.chicoo.co");
     expect(siteBaseUrlFromHost("www.chicoo.co")).toBe("https://active-etf.chicoo.co");
+  });
+
+  it("keeps built-in sitemap hosts available when PUBLIC_SITE_HOSTS is set", () => {
+    const originalValue = process.env.PUBLIC_SITE_HOSTS;
+    process.env.PUBLIC_SITE_HOSTS = "active-etf.chicoo.co";
+    try {
+      expect(siteBaseUrlFromHost("active-etf.inthewins.com")).toBe("https://active-etf.inthewins.com");
+    } finally {
+      if (originalValue === undefined) delete process.env.PUBLIC_SITE_HOSTS;
+      else process.env.PUBLIC_SITE_HOSTS = originalValue;
+    }
+  });
+
+  it("uses the first allowed request host candidate before forwarded fallback hosts", () => {
+    expect(siteBaseUrlFromHostCandidates(["https://active-etf.inthewins.com/api/sitemap.xml", "active-etf.chicoo.co"])).toBe(
+      "https://active-etf.inthewins.com"
+    );
   });
 
   it("falls back to the canonical production host for untrusted hosts", () => {

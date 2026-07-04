@@ -19,11 +19,15 @@ const canonicalHostByHost = new Map([
 ]);
 
 function parseHostList(value?: string): string[] {
-  if (!value) return defaultAllowedHosts;
+  if (!value) return [];
   return value
     .split(",")
     .map((host) => normalizedHostname(host))
     .filter((host): host is string => Boolean(host));
+}
+
+function allowedHostsFromEnv(value?: string): string[] {
+  return [...new Set([...defaultAllowedHosts, ...parseHostList(value)])];
 }
 
 export function normalizedHostname(hostHeader?: string | null): string | null {
@@ -45,9 +49,27 @@ export function siteBaseUrlFromHost(
   } = {}
 ): string {
   const fallbackBaseUrl = (options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl).replace(/\/+$/u, "");
-  const allowedHosts = options.allowedHosts ?? parseHostList(process.env.PUBLIC_SITE_HOSTS);
+  const allowedHosts = options.allowedHosts ?? allowedHostsFromEnv(process.env.PUBLIC_SITE_HOSTS);
   const hostname = normalizedHostname(hostHeader);
 
   if (!hostname || !allowedHosts.includes(hostname)) return fallbackBaseUrl;
   return `https://${canonicalHostByHost.get(hostname) ?? hostname}`;
+}
+
+export function siteBaseUrlFromHostCandidates(
+  hostHeaders: Array<string | null | undefined>,
+  options: {
+    allowedHosts?: string[];
+    fallbackBaseUrl?: string;
+  } = {}
+): string {
+  const fallbackBaseUrl = (options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl).replace(/\/+$/u, "");
+  const allowedHosts = options.allowedHosts ?? allowedHostsFromEnv(process.env.PUBLIC_SITE_HOSTS);
+
+  for (const hostHeader of hostHeaders) {
+    const hostname = normalizedHostname(hostHeader);
+    if (hostname && allowedHosts.includes(hostname)) return `https://${canonicalHostByHost.get(hostname) ?? hostname}`;
+  }
+
+  return fallbackBaseUrl;
 }

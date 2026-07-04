@@ -1,9 +1,21 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
-import { siteBaseUrlFromHost } from "../services/seo/siteUrls.js";
+import { siteBaseUrlFromHostCandidates } from "../services/seo/siteUrls.js";
 import { buildRobotsTxt, buildSitemapXml } from "../services/seo/sitemap.js";
 
-function requestHost(request: HttpRequest): string | null {
-  return request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+function forwardedHost(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/(?:^|[;,]\s*)host="?([^";,]+)"?/iu);
+  return match?.[1] ?? null;
+}
+
+function requestBaseUrl(request: HttpRequest): string {
+  return siteBaseUrlFromHostCandidates([
+    request.url,
+    request.headers.get("host"),
+    request.headers.get("x-original-host"),
+    forwardedHost(request.headers.get("forwarded")),
+    request.headers.get("x-forwarded-host")
+  ]);
 }
 
 function textResponse(body: string, contentType: string): HttpResponseInit {
@@ -18,11 +30,11 @@ function textResponse(body: string, contentType: string): HttpResponseInit {
 }
 
 export async function getSitemapXml(request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
-  return textResponse(buildSitemapXml(siteBaseUrlFromHost(requestHost(request))), "application/xml; charset=utf-8");
+  return textResponse(buildSitemapXml(requestBaseUrl(request)), "application/xml; charset=utf-8");
 }
 
 export async function getRobotsTxt(request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
-  return textResponse(buildRobotsTxt(siteBaseUrlFromHost(requestHost(request))), "text/plain; charset=utf-8");
+  return textResponse(buildRobotsTxt(requestBaseUrl(request)), "text/plain; charset=utf-8");
 }
 
 app.http("getSitemapXml", {
