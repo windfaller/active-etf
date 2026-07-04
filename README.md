@@ -302,7 +302,7 @@ http://127.0.0.1:5173/
 /global-etfs/{etfCode}
 ```
 
-Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到台灣市場總覽、台灣單檔 ETF、持股變化、折溢價歷史、海外市場總覽或海外單檔 ETF。`/sitemap.xml` 與 `/robots.txt` 會 rewrite 到 API，依照目前 Host 動態輸出 canonical 網域；新增 enabled ETF 或 enabled global ETF 時會自動跟著 `src/config/etfs.ts` 與 `src/config/globalEtfs.ts` 更新。
+Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到台灣市場總覽、台灣單檔 ETF、持股變化、折溢價歷史、海外市場總覽或海外單檔 ETF。`/sitemap.xml` 與 `/robots.txt` 會 rewrite 到 API，預設固定輸出 `https://active-etf.chicoo.co`；`/sitemap-inthewins.xml` 則固定輸出 `https://active-etf.inthewins.com`，供 inthewins Search Console 使用。新增 enabled ETF 或 enabled global ETF 時會自動跟著 `src/config/etfs.ts` 與 `src/config/globalEtfs.ts` 更新。
 
 ## 已知限制
 

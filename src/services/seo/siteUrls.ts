@@ -1,4 +1,5 @@
 export const defaultSiteBaseUrl = "https://active-etf.chicoo.co";
+export const inthewinsSiteBaseUrl = "https://active-etf.inthewins.com";
 
 const defaultAllowedHosts = [
   "active-etf.chicoo.co",

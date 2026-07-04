@@ -1,10 +1,33 @@
 import { describe, expect, it } from "vitest";
+import type { HttpRequest } from "@azure/functions";
+import { getInthewinsSitemapXml, getRobotsTxt, getSitemapXml } from "../../src/api/getSeoFiles.js";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
 import { siteBaseUrlFromHost, siteBaseUrlFromHostCandidates } from "../../src/services/seo/siteUrls.js";
 import { buildRobotsTxt, buildSitemapXml, sitemapEntries } from "../../src/services/seo/sitemap.js";
 
 describe("SEO sitemap files", () => {
+  const emptyRequest = {} as HttpRequest;
+  const emptyContext = {} as never;
+
+  it("keeps the default sitemap fixed to the chicoo host", async () => {
+    const response = await getSitemapXml(emptyRequest, emptyContext);
+    expect(response.body).toContain("<loc>https://active-etf.chicoo.co/</loc>");
+    expect(response.body).not.toContain("active-etf.inthewins.com");
+  });
+
+  it("builds an independent inthewins sitemap", async () => {
+    const response = await getInthewinsSitemapXml(emptyRequest, emptyContext);
+    expect(response.body).toContain("<loc>https://active-etf.inthewins.com/</loc>");
+    expect(response.body).toContain("<loc>https://active-etf.inthewins.com/etf/00981A</loc>");
+    expect(response.body).not.toContain("active-etf.chicoo.co");
+  });
+
+  it("keeps robots.txt on the default sitemap", async () => {
+    const response = await getRobotsTxt(emptyRequest, emptyContext);
+    expect(response.body).toContain("Sitemap: https://active-etf.chicoo.co/sitemap.xml");
+  });
+
   it("builds sitemap URLs from the request host", () => {
     const xml = buildSitemapXml(siteBaseUrlFromHost("active-etf.inthewins.com"));
 

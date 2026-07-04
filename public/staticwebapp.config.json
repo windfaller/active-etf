@@ -5,6 +5,10 @@
       "rewrite": "/api/sitemap.xml"
     },
     {
+      "route": "/sitemap-inthewins.xml",
+      "rewrite": "/api/sitemap-inthewins.xml"
+    },
+    {
       "route": "/robots.txt",
       "rewrite": "/api/robots.txt"
     },
