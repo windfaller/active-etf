@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://active-etf.chicoo.co/sitemap.xml

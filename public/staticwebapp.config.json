@@ -1,6 +1,14 @@
 {
   "routes": [
     {
+      "route": "/sitemap.xml",
+      "rewrite": "/api/sitemap.xml"
+    },
+    {
+      "route": "/robots.txt",
+      "rewrite": "/api/robots.txt"
+    },
+    {
       "route": "/",
       "headers": {
         "cache-control": "no-cache, no-store, must-revalidate"

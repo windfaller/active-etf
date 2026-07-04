@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVersionedReloadUrl } from "../../src/web/cacheVersion";
+import { buildVersionedReloadUrl } from "../../src/web/cacheVersion.js";
 
 describe("cache version reload URL", () => {
   it("adds the deployed app version to clean app routes", () => {

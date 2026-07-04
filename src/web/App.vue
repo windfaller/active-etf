@@ -19,6 +19,7 @@ import { configuredEtfs } from "../config/etfs";
 import { enabledGlobalEtfs } from "../config/globalEtfs";
 import AdSlot from "../components/ads/AdSlot";
 import { sectorProfileForStock } from "../services/sector/sectorMapping";
+import { canonicalOriginForLocation } from "./siteOrigin";
 
 type NullableNumber = number | null;
 type MainTab = "market" | "etf" | "globalMarket" | "global";
@@ -674,7 +675,7 @@ function setLink(rel: string, href: string): void {
 function updateDocumentMetadata(): void {
   if (typeof document === "undefined") return;
 
-  const baseUrl = "https://active-etf.chicoo.co";
+  const baseUrl = canonicalOriginForLocation(window.location);
   const path = routeForState();
   const url = `${baseUrl}${path}`;
   const etf = selectedEtf.value;
