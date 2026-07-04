@@ -13,6 +13,13 @@ describe("SEO sitemap files", () => {
     expect(xml).not.toContain("active-etf.chicoo.co");
   });
 
+  it("normalizes apex and www hosts to active-etf subdomain sitemap URLs", () => {
+    expect(siteBaseUrlFromHost("inthewins.com")).toBe("https://active-etf.inthewins.com");
+    expect(siteBaseUrlFromHost("www.inthewins.com")).toBe("https://active-etf.inthewins.com");
+    expect(siteBaseUrlFromHost("chicoo.co")).toBe("https://active-etf.chicoo.co");
+    expect(siteBaseUrlFromHost("www.chicoo.co")).toBe("https://active-etf.chicoo.co");
+  });
+
   it("falls back to the canonical production host for untrusted hosts", () => {
     expect(siteBaseUrlFromHost("attacker.example")).toBe("https://active-etf.chicoo.co");
   });

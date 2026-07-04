@@ -8,8 +8,16 @@
     "inthewins.com",
     "www.inthewins.com"
   ];
+  var canonicalHostByHost = {
+    "active-etf.chicoo.co": "active-etf.chicoo.co",
+    "chicoo.co": "active-etf.chicoo.co",
+    "www.chicoo.co": "active-etf.chicoo.co",
+    "active-etf.inthewins.com": "active-etf.inthewins.com",
+    "inthewins.com": "active-etf.inthewins.com",
+    "www.inthewins.com": "active-etf.inthewins.com"
+  };
   var hostname = window.location.hostname.toLowerCase();
-  var origin = allowedHosts.indexOf(hostname) >= 0 ? window.location.origin.replace(/\/+$/u, "") : defaultOrigin;
+  var origin = allowedHosts.indexOf(hostname) >= 0 ? "https://" + (canonicalHostByHost[hostname] || hostname) : defaultOrigin;
 
   if (origin === defaultOrigin) return;
 

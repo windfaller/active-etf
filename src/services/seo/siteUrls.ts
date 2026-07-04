@@ -9,6 +9,15 @@ const defaultAllowedHosts = [
   "www.inthewins.com"
 ];
 
+const canonicalHostByHost = new Map([
+  ["active-etf.chicoo.co", "active-etf.chicoo.co"],
+  ["chicoo.co", "active-etf.chicoo.co"],
+  ["www.chicoo.co", "active-etf.chicoo.co"],
+  ["active-etf.inthewins.com", "active-etf.inthewins.com"],
+  ["inthewins.com", "active-etf.inthewins.com"],
+  ["www.inthewins.com", "active-etf.inthewins.com"]
+]);
+
 function parseHostList(value?: string): string[] {
   if (!value) return defaultAllowedHosts;
   return value
@@ -40,5 +49,5 @@ export function siteBaseUrlFromHost(
   const hostname = normalizedHostname(hostHeader);
 
   if (!hostname || !allowedHosts.includes(hostname)) return fallbackBaseUrl;
-  return `https://${hostname}`;
+  return `https://${canonicalHostByHost.get(hostname) ?? hostname}`;
 }
