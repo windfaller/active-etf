@@ -6,10 +6,10 @@ import { buildRobotsTxt, buildSitemapXml, sitemapEntries } from "../../src/servi
 
 describe("SEO sitemap files", () => {
   it("builds sitemap URLs from the request host", () => {
-    const xml = buildSitemapXml(siteBaseUrlFromHost("inthewins.com"));
+    const xml = buildSitemapXml(siteBaseUrlFromHost("active-etf.inthewins.com"));
 
-    expect(xml).toContain("<loc>https://inthewins.com/</loc>");
-    expect(xml).toContain("<loc>https://inthewins.com/etf/00981A</loc>");
+    expect(xml).toContain("<loc>https://active-etf.inthewins.com/</loc>");
+    expect(xml).toContain("<loc>https://active-etf.inthewins.com/etf/00981A</loc>");
     expect(xml).not.toContain("active-etf.chicoo.co");
   });
 
@@ -23,6 +23,6 @@ describe("SEO sitemap files", () => {
   });
 
   it("builds a host-aware robots.txt sitemap pointer", () => {
-    expect(buildRobotsTxt("https://www.inthewins.com")).toContain("Sitemap: https://www.inthewins.com/sitemap.xml");
+    expect(buildRobotsTxt("https://active-etf.inthewins.com")).toContain("Sitemap: https://active-etf.inthewins.com/sitemap.xml");
   });
 });

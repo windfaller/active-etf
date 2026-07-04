@@ -1,5 +1,12 @@
 const defaultSiteOrigin = "https://active-etf.chicoo.co";
-const allowedPublicHosts = new Set(["active-etf.chicoo.co", "chicoo.co", "www.chicoo.co", "inthewins.com", "www.inthewins.com"]);
+const allowedPublicHosts = new Set([
+  "active-etf.chicoo.co",
+  "chicoo.co",
+  "www.chicoo.co",
+  "active-etf.inthewins.com",
+  "inthewins.com",
+  "www.inthewins.com"
+]);
 
 export function canonicalOriginForLocation(location: Pick<Location, "hostname" | "origin">): string {
   const hostname = location.hostname.toLowerCase();

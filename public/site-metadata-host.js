@@ -1,6 +1,13 @@
 (function () {
   var defaultOrigin = "https://active-etf.chicoo.co";
-  var allowedHosts = ["active-etf.chicoo.co", "chicoo.co", "www.chicoo.co", "inthewins.com", "www.inthewins.com"];
+  var allowedHosts = [
+    "active-etf.chicoo.co",
+    "chicoo.co",
+    "www.chicoo.co",
+    "active-etf.inthewins.com",
+    "inthewins.com",
+    "www.inthewins.com"
+  ];
   var hostname = window.location.hostname.toLowerCase();
   var origin = allowedHosts.indexOf(hostname) >= 0 ? window.location.origin.replace(/\/+$/u, "") : defaultOrigin;
 

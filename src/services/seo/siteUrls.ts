@@ -1,6 +1,13 @@
 export const defaultSiteBaseUrl = "https://active-etf.chicoo.co";
 
-const defaultAllowedHosts = ["active-etf.chicoo.co", "chicoo.co", "www.chicoo.co", "inthewins.com", "www.inthewins.com"];
+const defaultAllowedHosts = [
+  "active-etf.chicoo.co",
+  "chicoo.co",
+  "www.chicoo.co",
+  "active-etf.inthewins.com",
+  "inthewins.com",
+  "www.inthewins.com"
+];
 
 function parseHostList(value?: string): string[] {
   if (!value) return defaultAllowedHosts;

@@ -3,7 +3,9 @@ import { canonicalOriginForLocation } from "../../src/web/siteOrigin.js";
 
 describe("canonical origin", () => {
   it("uses known public hosts as their own canonical origin", () => {
-    expect(canonicalOriginForLocation({ hostname: "inthewins.com", origin: "https://inthewins.com" })).toBe("https://inthewins.com");
+    expect(canonicalOriginForLocation({ hostname: "active-etf.inthewins.com", origin: "https://active-etf.inthewins.com" })).toBe(
+      "https://active-etf.inthewins.com"
+    );
   });
 
   it("falls back to the production chicoo host for preview or local hosts", () => {
