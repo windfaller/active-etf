@@ -248,7 +248,7 @@ function normalizeTemaTicker(ticker: string | undefined, name: string | undefine
   const upperTicker = normalized.toUpperCase();
   const upperName = name?.toUpperCase() ?? "";
   if (upperTicker.endsWith(" SPV") || upperName.includes("SPV EXPOSURE")) return undefined;
-  return normalized;
+  return normalizeExchangeTicker(normalized);
 }
 
 function decodeXmlText(value: string): string {

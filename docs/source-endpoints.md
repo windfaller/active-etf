@@ -73,6 +73,14 @@ The overseas product line uses `src/config/globalEtfs.ts` and must not reuse Tai
 - `NASA` Tema Space Innovators ETF
   - Holdings CSV: `https://temaetfs.com/hubfs/Website/Holdings/NASA-holdings.csv`
   - `percent_of_nav` is a fraction and is multiplied by 100.
+- Tema ETFs listed fund family
+  - Official fund list: `https://temaetfs.com/funds`
+  - Enabled tickers: `WELD`, `HRTS`, `CANC`, `TOLL`, `VOLT`, `DSPY`, `ARMY`, `PRVT`, `NASA`, `DISK`, `LAZR`.
+  - `HLTH` is visible in navigation as coming soon and is not enabled until listed holdings are available.
+  - Standard holdings CSV pattern: `https://temaetfs.com/hubfs/Website/Holdings/{TICKER}-holdings.csv`
+  - `PRVT` exception: official holdings file remains `https://temaetfs.com/hubfs/Website/Holdings/AAUM-holdings.csv`.
+  - `DISK` and `LAZR` were announced by Tema on 2026-06-30 with fund pages `https://temaetfs.com/disk` and `https://temaetfs.com/lazr`.
+  - CSV fields follow the NASA schema: `holdings_date`, `ticker`, `cusip`, `proper_name`, `shares`, `market_value`, `percent_of_nav`, `is_cash`, `country`, `sector`; `percent_of_nav` is a fraction and is multiplied by 100.
 - `BAI` iShares A.I. Innovation and Tech Active ETF
   - Product page: `https://www.ishares.com/us/products/339081/ishares-a-i-innovation-and-tech-active-etf`
   - BlackRock fund download endpoint returns SpreadsheetML `.xls`, not `.xlsx`.

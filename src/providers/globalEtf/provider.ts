@@ -43,11 +43,11 @@ async function fetchRoundhillDram() {
   throw new Error(`DRAM holdings CSV not found in recent 15 calendar days: ${errors.slice(0, 3).join("; ")}`);
 }
 
-async function fetchTemaNasa() {
-  const etf = findGlobalEtfConfig("NASA");
-  if (!etf?.holdingsUrl) throw new Error("NASA holdings URL missing");
+async function fetchTemaHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
   const raw = await fetchSource({ url: etf.holdingsUrl, headers: defaultCrawlerHeaders(etf.sourceUrl) });
-  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`NASA holdings returned ${raw.responseStatus}`);
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
   const parsed = parseTemaNasaCsv(raw.rawBody, etf, raw.url);
   return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
 }
@@ -161,8 +161,8 @@ export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtf
   const normalized = etfCode.trim().toUpperCase();
 
   if (normalized === "DRAM") return fetchRoundhillDram();
-  if (normalized === "NASA") return fetchTemaNasa();
   const etf = findGlobalEtfConfig(normalized);
+  if (etf?.providerId === "tema") return fetchTemaHoldings(normalized);
   if (etf?.providerId === "blackrock") return fetchBlackRockHoldings(normalized);
   if (etf?.providerId === "sec13f") return fetchSec13fHoldings(normalized);
   if (normalized === "EUV") return fetchCorgiEuv();

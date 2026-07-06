@@ -16,6 +16,16 @@ describe("global ETF product line", () => {
     expect(enabledGlobalEtfs.map((etf) => etf.etfCode)).toEqual([
       "DRAM",
       "NASA",
+      "WELD",
+      "HRTS",
+      "CANC",
+      "TOLL",
+      "VOLT",
+      "DSPY",
+      "ARMY",
+      "PRVT",
+      "DISK",
+      "LAZR",
       "BAI",
       "EUV",
       "DYNF",
@@ -31,6 +41,15 @@ describe("global ETF product line", () => {
       "BDYN",
       "IALT"
     ]);
+  });
+
+  it("enables every listed Tema ETF with verified holdings URLs", () => {
+    const temaEtfs = enabledGlobalEtfs.filter((etf) => etf.providerId === "tema");
+
+    expect(temaEtfs.map((etf) => etf.etfCode)).toEqual(["NASA", "WELD", "HRTS", "CANC", "TOLL", "VOLT", "DSPY", "ARMY", "PRVT", "DISK", "LAZR"]);
+    expect(temaEtfs.every((etf) => etf.enabled && etf.sourceStatus === "verified")).toBe(true);
+    expect(temaEtfs.every((etf) => etf.holdingsUrl?.startsWith("https://temaetfs.com/hubfs/Website/Holdings/"))).toBe(true);
+    expect(temaEtfs.find((etf) => etf.etfCode === "PRVT")?.holdingsUrl).toBe("https://temaetfs.com/hubfs/Website/Holdings/AAUM-holdings.csv");
   });
 
   it("summarizes common holdings across global ETF snapshots", async () => {
@@ -54,6 +73,7 @@ describe("global ETF product line", () => {
       [
         "holdings_date,ticker,proper_name,cusip,percent_of_nav,shares,market_value,country,sector,is_cash",
         "2026-06-23,RKLB,Rocket Lab,123,0.096,100,9600,US,Aerospace,0",
+        "2026-06-23,285A JP,Kioxia Holdings Corp,,0.08,100,8000,Japan,Information Technology,0",
         "2026-06-23,SPACEX SPV,SPACEX SPV EXPOSURE,SPACEX SPV,0.12,100,12000,US,Aerospace,0"
       ].join("\n"),
       etf!,
@@ -77,6 +97,7 @@ describe("global ETF product line", () => {
         weightPercent: 12
       })
     );
+    expect(parsed.holdings.find((holding) => holding.name === "Kioxia Holdings Corp")?.ticker).toBe("285A.JP");
   });
 
   it("parses SEC 13F information tables, maps known CUSIPs, and derives weights", () => {

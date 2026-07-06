@@ -12,6 +12,10 @@ export type GlobalEtfTheme =
   | "fintech"
   | "income"
   | "macro"
+  | "manufacturing"
+  | "defense"
+  | "healthcare"
+  | "private_markets"
   | "13f";
 
 export interface GlobalEtfConfig {
@@ -74,6 +78,156 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     sourceUrl: "https://temaetfs.com/nasa",
     holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/NASA-holdings.csv",
     themes: ["space", "innovation", "macro"]
+  },
+  {
+    etfCode: "WELD",
+    fundName: "Tema U.S. Manufacturing & Reshoring ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/weld",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/WELD-holdings.csv",
+    themes: ["manufacturing", "macro", "innovation"]
+  },
+  {
+    etfCode: "HRTS",
+    fundName: "Tema Heart & Health ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/hrts",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/HRTS-holdings.csv",
+    themes: ["healthcare", "innovation"]
+  },
+  {
+    etfCode: "CANC",
+    fundName: "Tema Oncology ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/canc",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/CANC-holdings.csv",
+    themes: ["healthcare", "genomics", "innovation"]
+  },
+  {
+    etfCode: "TOLL",
+    fundName: "Tema Durable Quality ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/toll",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/TOLL-holdings.csv",
+    themes: ["macro"]
+  },
+  {
+    etfCode: "VOLT",
+    fundName: "Tema Electrification ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/volt",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/VOLT-holdings.csv",
+    themes: ["innovation", "macro"]
+  },
+  {
+    etfCode: "DSPY",
+    fundName: "Tema S&P 500 Historical Weight ETF Strategy",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "index",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/dspy",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/DSPY-holdings.csv",
+    themes: ["macro"]
+  },
+  {
+    etfCode: "ARMY",
+    fundName: "Tema International Defense ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/army",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/ARMY-holdings.csv",
+    themes: ["defense", "macro", "ai"]
+  },
+  {
+    etfCode: "PRVT",
+    fundName: "Tema Listed Private Managers ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/prvt",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/AAUM-holdings.csv",
+    themes: ["private_markets", "macro"]
+  },
+  {
+    etfCode: "DISK",
+    fundName: "Tema Memory ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/disk",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/DISK-holdings.csv",
+    themes: ["semiconductor", "memory", "ai"]
+  },
+  {
+    etfCode: "LAZR",
+    fundName: "Tema Photonics & Optical ETF",
+    issuer: "Tema ETFs",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tema",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://temaetfs.com/lazr",
+    holdingsUrl: "https://temaetfs.com/hubfs/Website/Holdings/LAZR-holdings.csv",
+    themes: ["semiconductor", "ai", "innovation"]
   },
   {
     etfCode: "BAI",
