@@ -1879,6 +1879,31 @@ button.insight-chip {
   padding: 0 18px;
 }
 
+.global-sponsor-footer {
+  width: min(680px, 100%);
+  margin: 8px auto 18px;
+  padding: 0 18px;
+}
+
+.global-sponsor-footer .ad-card {
+  min-height: 0;
+  opacity: 0.86;
+  box-shadow: 0 10px 22px rgba(9, 31, 47, 0.1);
+}
+
+.global-sponsor-footer .ad-card:hover {
+  opacity: 1;
+}
+
+.global-sponsor-footer .ad-card--visual.ad-card--image-only .ad-card__image {
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.market-sponsor-inline {
+  margin: 0 18px 16px;
+}
+
 .panel-title {
   justify-content: space-between;
   padding: 14px 16px 12px;

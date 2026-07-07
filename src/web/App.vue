@@ -1793,11 +1793,18 @@ watch(
         </div>
       </div>
 
-      <AdSlot
+      <section
         v-if="activeMainTab === 'market'"
-        slot="article-inline"
-        page="/market"
-      />
+        id="report-panel"
+        class="market-sponsor-inline"
+        aria-label="Forvix 贊助內容"
+        data-forvix-embed-anchor="market-inline"
+      >
+        <AdSlot
+          slot="article-inline"
+          page="/market"
+        />
+      </section>
 
       <div class="table-title">
         <div>
@@ -1899,7 +1906,7 @@ watch(
     </section>
 
     <section
-      id="report-panel"
+      :id="activeMainTab === 'etf' ? 'report-panel' : undefined"
       v-show="activeMainTab === 'etf'"
       class="section-panel report-panel"
       :class="{ 'is-updating': isLoading && hasLoaded }"
@@ -2584,12 +2591,6 @@ watch(
         </div>
       </section>
 
-      <AdSlot
-        v-if="activeMainTab === 'globalMarket'"
-        slot="article-inline"
-        page="/global-etfs"
-        :tags="globalReport?.adContext.tags ?? ['global-etf', 'us-market', 'ai', 'semiconductor', 'macro', 'active-etf']"
-      />
     </section>
 
     <section
@@ -2793,19 +2794,31 @@ watch(
         </p>
       </section>
 
-      <AdSlot
-        v-if="activeMainTab === 'global'"
-        slot="article-inline"
-        page="/global-etfs"
-        :etf-code="selectedGlobalEtfCode"
-        :tags="globalReport?.adContext.tags ?? ['global-etf', 'us-market', 'ai', 'semiconductor', 'macro', 'active-etf']"
-      />
     </section>
 
     <footer class="disclaimer">
       本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。ETF 持股揭露可能有時間差，請以投信與交易所公告為準。
       <a href="/active-etfs/">查看追蹤 ETF 清單</a>
     </footer>
+
+    <section
+      v-if="activeMainTab === 'globalMarket' || activeMainTab === 'global'"
+      id="report-panel"
+      class="global-sponsor-footer"
+      aria-label="Forvix 贊助內容"
+      data-forvix-embed-anchor="global-footer"
+    >
+      <div id="global-forvix-sponsor">
+        <AdSlot
+          slot="article-inline"
+          mode="compact"
+          compact
+          :page="activeMainTab === 'global' ? `/global-etfs/${selectedGlobalEtfCode}` : '/global-etfs'"
+          :etf-code="activeMainTab === 'global' ? selectedGlobalEtfCode : undefined"
+          :tags="globalReport?.adContext.tags ?? ['global-etf', 'us-market', 'ai', 'semiconductor', 'macro', 'active-etf']"
+        />
+      </div>
+    </section>
 
     <nav class="bottom-tabs" aria-label="主要頁籤">
       <button

@@ -32,7 +32,13 @@ export default defineConfig({
   plugins: [vue(), appVersionPlugin()],
   server: {
     port: 5173,
-    strictPort: false
+    strictPort: false,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:7072",
+        changeOrigin: true
+      }
+    }
   },
   build: {
     outDir: "dist",
