@@ -258,6 +258,12 @@ interface GlobalEtfOption {
   strategyType?: string;
 }
 
+interface GlobalEtfUniverseResponse {
+  productGroup: "global_etf";
+  enabled: GlobalEtfOption[];
+  candidates: GlobalEtfOption[];
+}
+
 interface GlobalReport {
   reportDate: string;
   coveredEtfs: string[];
@@ -296,6 +302,7 @@ interface InsightCard {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled);
 const etfNameByCode = new Map(etfOptions.map((etf) => [etf.etfCode, etf.name]));
+const defaultGlobalEtfOptions = enabledGlobalEtfs.map((etf) => ({ etfCode: etf.etfCode, fundName: etf.fundName, strategyType: etf.strategyType }));
 
 const availableDates = ref<string[]>([]);
 const selectedDate = ref("");
@@ -325,6 +332,7 @@ const sectorSummaryRows = ref<SectorSummaryRow[]>([]);
 const coverage = ref<EtfCoverageResponse | null>(null);
 const telegramInfo = ref<TelegramInfo | null>(null);
 const globalReport = ref<GlobalReport | null>(null);
+const globalEnabledEtfs = ref<GlobalEtfOption[]>(defaultGlobalEtfOptions);
 const globalErrorMessage = ref("");
 const isGlobalLoading = ref(false);
 const changes = ref<ChangesResponse>({
@@ -341,19 +349,36 @@ const selectedEtf = computed(
   () => etfOptions.find((etf) => etf.etfCode === selectedEtfCode.value) ?? etfOptions[0]
 );
 const selectedGlobalSection = computed(
-  () => globalReport.value?.sections.find((section) => section.etfCode === selectedGlobalEtfCode.value) ?? globalReport.value?.sections[0] ?? null
+  () => globalReport.value?.sections.find((section) => section.etfCode === selectedGlobalEtfCode.value) ?? null
 );
-const globalEtfOptions = computed<GlobalEtfOption[]>(() =>
-  globalReport.value?.sections.length
-    ? globalReport.value.sections
-    : enabledGlobalEtfs.map((etf) => ({ etfCode: etf.etfCode, fundName: etf.fundName, strategyType: etf.strategyType }))
-);
+const globalEtfOptions = computed<GlobalEtfOption[]>(() => {
+  const byCode = new Map<string, GlobalEtfOption>();
+  for (const etf of globalEnabledEtfs.value) {
+    byCode.set(etf.etfCode, { etfCode: etf.etfCode, fundName: etf.fundName, strategyType: etf.strategyType });
+  }
+  for (const section of globalReport.value?.sections ?? []) {
+    const current = byCode.get(section.etfCode);
+    byCode.set(section.etfCode, {
+      etfCode: section.etfCode,
+      fundName: section.fundName || current?.fundName || section.etfCode,
+      strategyType: section.strategyType ?? current?.strategyType
+    });
+  }
+  return [...byCode.values()];
+});
 const selectedGlobalOption = computed(
   () => globalEtfOptions.value.find((etf) => etf.etfCode === selectedGlobalEtfCode.value) ?? null
 );
 const selectedGlobalOptionLabel = computed(() =>
   selectedGlobalOption.value ? `${selectedGlobalOption.value.etfCode} ${selectedGlobalOption.value.fundName}` : selectedGlobalEtfCode.value
 );
+const selectedGlobalEmptyMessage = computed(() => {
+  if (isGlobalLoading.value) return "正在載入海外 ETF / 13F 持股資料。";
+  if (selectedGlobalOption.value) {
+    return `${selectedGlobalOption.value.etfCode} 已在追蹤清單中，尚未有可顯示的持股快照；資料同步完成後會自動出現在這裡。`;
+  }
+  return "目前尚無可顯示的海外 ETF / 13F 持股資料。";
+});
 const globalOptionSearchQuery = computed(() => {
   const query = globalOptionQuery.value.trim();
   return query === selectedGlobalOptionLabel.value ? "" : query.toLowerCase();
@@ -688,10 +713,16 @@ function updateDocumentMetadata(): void {
     description = "查看海外熱門 ETF 與 13F 組合是否同時持有或增減同一批標的，並比較跨產品權重變化。";
   } else if (activeMainTab.value === "global") {
     const section = selectedGlobalSection.value;
-    title = section ? `${section.etfCode} ${section.fundName}｜海外單檔` : "海外單檔｜ETF 持倉雷達";
+    const option = selectedGlobalOption.value;
+    const label = section
+      ? `${section.etfCode} ${section.fundName}`
+      : option
+        ? `${option.etfCode} ${option.fundName}`
+        : selectedGlobalEtfCode.value;
+    title = `${label}｜海外單檔`;
     description = section
       ? `查看 ${section.etfCode} ${section.fundName} 的官方 Top 10 持股、權重變化與資料日期。`
-      : "查看海外熱門 ETF / 13F 官方 Top 10 持股、權重變化與資料日期。";
+      : `查看 ${label} 的海外 ETF / 13F 官方持股資料；若尚未有快照，資料同步後會自動顯示。`;
   } else if (activeMainTab.value === "etf" && etf) {
     if (activeEtfPage.value === "premiumHistory") {
       title = `${etf.etfCode} ${etf.name}｜台灣 ETF 折溢價歷史`;
@@ -1313,6 +1344,14 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+function applyGlobalEtfUniverse(universe: GlobalEtfUniverseResponse): void {
+  globalEnabledEtfs.value = universe.enabled.map((etf) => ({
+    etfCode: etf.etfCode,
+    fundName: etf.fundName,
+    strategyType: etf.strategyType
+  }));
+}
+
 let globalReportPromise: Promise<void> | null = null;
 let availableDatesRequestId = 0;
 let dashboardRequestId = 0;
@@ -1325,10 +1364,20 @@ async function loadGlobalReport(): Promise<void> {
 
   globalReportPromise = (async () => {
     try {
-      const report = await getJson<GlobalReport>("/api/global-etfs/daily-report");
+      const [universeResult, report] = await Promise.all([
+        getJson<GlobalEtfUniverseResponse>("/api/global-etfs/enabled")
+          .then((universe) => ({ ok: true as const, universe }))
+          .catch((error) => ({ ok: false as const, error })),
+        getJson<GlobalReport>("/api/global-etfs/daily-report")
+      ]);
+
+      if (universeResult.ok) {
+        applyGlobalEtfUniverse(universeResult.universe);
+      }
+
       globalReport.value = report;
-      if (!report.sections.some((section) => section.etfCode === selectedGlobalEtfCode.value)) {
-        selectedGlobalEtfCode.value = report.sections[0]?.etfCode ?? enabledGlobalEtfs[0]?.etfCode ?? "DRAM";
+      if (!globalEtfOptions.value.some((etf) => etf.etfCode === selectedGlobalEtfCode.value)) {
+        selectedGlobalEtfCode.value = report.sections[0]?.etfCode ?? globalEtfOptions.value[0]?.etfCode ?? "DRAM";
       }
       if (activeMainTab.value === "global" || activeMainTab.value === "globalMarket") {
         updateDocumentMetadata();
@@ -2789,9 +2838,7 @@ watch(
         </div>
       </section>
       <section v-else class="holdings-panel global-detail-panel">
-        <p class="empty-row">
-          {{ isGlobalLoading ? "正在載入海外 ETF / 13F 持股資料。" : "目前尚無可顯示的海外 ETF / 13F 持股資料。" }}
-        </p>
+        <p class="empty-row">{{ selectedGlobalEmptyMessage }}</p>
       </section>
 
     </section>

@@ -1,4 +1,5 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
+import type { Db } from "mongodb";
 import { enabledGlobalEtfs, findGlobalEtfConfig, globalEtfCandidates } from "../config/globalEtfs.js";
 import { getDb } from "../db/mongo.js";
 import type { GlobalEtfDailyReport } from "../models/GlobalEtf.js";
@@ -6,9 +7,35 @@ import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { getGlobalEtfDailyReport } from "../services/globalEtf/globalEtfService.js";
 import { badRequest, jsonResponse } from "./response.js";
 
+async function globalEtfSnapshotVersion(db: Db): Promise<string> {
+  const enabledCodes = enabledGlobalEtfs.map((etf) => etf.etfCode);
+  const snapshotState = await db
+    .collection("global_etf_snapshots")
+    .aggregate<{ count: number; latestFetchedAt?: Date; latestSourceAsOf?: string }>([
+      { $match: { etfCode: { $in: enabledCodes } } },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          latestFetchedAt: { $max: "$fetchedAt" },
+          latestSourceAsOf: { $max: "$sourceAsOf" }
+        }
+      }
+    ])
+    .next();
+
+  return [
+    enabledCodes.join("."),
+    snapshotState?.count ?? 0,
+    snapshotState?.latestSourceAsOf ?? "none",
+    snapshotState?.latestFetchedAt instanceof Date ? snapshotState.latestFetchedAt.toISOString() : "none"
+  ].join(".");
+}
+
 async function getCachedGlobalEtfDailyReport(): Promise<GlobalEtfDailyReport> {
   const db = await getDb();
-  return getOrSetDailyCache(["global-etfs", "daily-report"], () => getGlobalEtfDailyReport(db));
+  const version = await globalEtfSnapshotVersion(db);
+  return getOrSetDailyCache(["global-etfs", "daily-report", version], () => getGlobalEtfDailyReport(db));
 }
 
 export async function getEnabledGlobalEtfs(_request: HttpRequest, _context: InvocationContext) {
