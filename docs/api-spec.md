@@ -100,9 +100,9 @@ Returns the current enabled ETF list from `src/config/etfs.ts` for external sche
 
 `POST /api/jobs/daily-refresh`
 
-Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, sector-flow calculation, and TWSE/TPEx daily market intelligence sync for every refreshed trade date. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
+Universal scheduler entrypoint. Runs active ETF discovery, holdings/NAV sync, TWSE closing-price sync, daily-change calculation, consensus calculation, sector-flow calculation, TWSE/TPEx daily market intelligence sync for every refreshed trade date, and Global ETF official holdings sync. Logic App should call this endpoint so future ETF or job-step changes can be handled in code without changing the workflow. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`.
 
-For Azure Static Web Apps managed Functions, prefer the split Logic App flow when the full refresh risks backend timeout: call `discover-active-etfs`, `etfs/enabled`, loop through per-ETF `sync-holdings` and `calculate-changes`, then call `aggregates`.
+For Azure Static Web Apps managed Functions, prefer the split Logic App flow when the full refresh risks backend timeout: call `discover-active-etfs`, `etfs/enabled`, loop through per-ETF `sync-holdings` and `calculate-changes`, call `aggregates`, then call `global-etfs/sync-holdings`.
 
 ## Admin Global ETF Sync Holdings
 

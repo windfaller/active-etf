@@ -5,6 +5,7 @@ import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 import { calculateConsensus } from "../services/consensus/consensusEngine.js";
 import { runActiveEtfDiscovery } from "../services/discovery/activeEtfDiscoveryService.js";
+import { syncAllGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { runCalculateDailyChangesJob, runSyncDailyHoldingsJob } from "../services/jobs/dailyJobs.js";
 import { sendTelegramDailyDigest } from "../services/notify/dailyDigestJob.js";
 import { setTelegramWebhook, telegramWebhookUrl } from "../services/notify/telegramSubscriberService.js";
@@ -184,7 +185,16 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
     await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
   }
 
-  return jsonResponse({ ok: results.every((result) => result.ok), job: "dailyRefresh", discovery, results, aggregates });
+  const globalEtfs = await syncAllGlobalEtfHoldings(db);
+
+  return jsonResponse({
+    ok: results.every((result) => result.ok) && globalEtfs.every((result) => result.ok),
+    job: "dailyRefresh",
+    discovery,
+    results,
+    aggregates,
+    globalEtfs
+  });
 }
 
 export async function postSyncMarketIntelligence(request: HttpRequest, _context: InvocationContext) {

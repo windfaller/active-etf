@@ -151,7 +151,7 @@ Logic App 應從 `etfs/enabled` 的 `result.etfs` 動態 foreach，不需要在 
 x-admin-token: <ADMIN_JOB_TOKEN>
 ```
 
-`daily-refresh` 會先執行證交所 e 添富主動式 ETF 偵測，再跑既有持股同步與計算；未追蹤的新上市 ETF 會寫入 `active_etf_discoveries`，若設定 Telegram 變數且偵測到新項目，會主動通知。
+`daily-refresh` 會先執行證交所 e 添富主動式 ETF 偵測，再跑既有持股同步與計算，最後同步海外 ETF 官方持股快照；未追蹤的新上市 ETF 會寫入 `active_etf_discoveries`，若設定 Telegram 變數且偵測到新項目，會主動通知。
 
 若 Logic App 要在每日資料更新後發送 Telegram 每日日報，請在 `daily-refresh` 成功後接著呼叫：
 
