@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
-import { parseBlackRockBaiSpreadsheet, parseCorgiEuvRows, parseRoundhillDramCsv, parseSec13fInformationTable, parseTemaNasaCsv } from "../../src/providers/globalEtf/parser.js";
+import {
+  parseAlgerDailyHoldingsCsv,
+  parseAllianceBernsteinUsTopHoldingsJson,
+  parseBlackRockBaiSpreadsheet,
+  parseCorgiEuvRows,
+  parseJanusHendersonFullHoldingsHtml,
+  parseRoundhillDramCsv,
+  parseSec13fInformationTable,
+  parseTemaNasaCsv,
+  parseTuttleNavstarHoldingsJson
+} from "../../src/providers/globalEtf/parser.js";
 import { buildGlobalSnapshot } from "../../src/providers/globalEtf/normalizer.js";
 import { calculateGlobalEtfChanges } from "../../src/services/globalEtf/changeCalculator.js";
 import { demoGlobalEtfSnapshots, getGlobalEtfDailyReport } from "../../src/services/globalEtf/globalEtfService.js";
@@ -73,6 +83,13 @@ describe("global ETF product line", () => {
     expect(temaEtfs.find((etf) => etf.etfCode === "PRVT")?.holdingsUrl).toBe("https://temaetfs.com/hubfs/Website/Holdings/AAUM-holdings.csv");
   });
 
+  it("enables user-priority AI ETFs with verified source endpoints", () => {
+    const userPriority = enabledGlobalEtfs.filter((etf) => ["HBMX", "JHAI", "ALAI", "FWD"].includes(etf.etfCode));
+
+    expect(userPriority.map((etf) => etf.etfCode)).toEqual(["HBMX", "JHAI", "ALAI", "FWD"]);
+    expect(userPriority.every((etf) => etf.sourceStatus === "verified" && Boolean(etf.holdingsUrl))).toBe(true);
+  });
+
   it("summarizes common holdings across global ETF snapshots", async () => {
     const report = await getGlobalEtfDailyReport();
     const asml = report.commonHoldings.find((row) => row.ticker === "ASML");
@@ -119,6 +136,148 @@ describe("global ETF product line", () => {
       })
     );
     expect(parsed.holdings.find((holding) => holding.name === "Kioxia Holdings Corp")?.ticker).toBe("285A.JP");
+  });
+
+  it("parses HBMX NavStar holdings JSON", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "HBMX");
+    expect(etf).toBeDefined();
+    const parsed = parseTuttleNavstarHoldingsJson(
+      JSON.stringify({
+        fund: { ticker: "HBMX" },
+        holdings: [
+          {
+            as_of_date: "2026-07-14",
+            security_name: "Micron Technology Inc",
+            security_ticker: "MU",
+            security_id: "595112103",
+            weight: 8.43,
+            market_value: 3143034.64,
+            quantity: 3197,
+            currency: "USD"
+          },
+          {
+            as_of_date: "2026-07-14",
+            security_name: "Cash & Other",
+            security_ticker: "Cash&Other",
+            security_id: "Cash&Other",
+            weight: -0.04,
+            market_value: -13073.34,
+            quantity: -13073.34,
+            currency: "USD"
+          }
+        ]
+      }),
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-07-14");
+    expect(parsed.rawRowCount).toBe(2);
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: "MU",
+        name: "Micron Technology Inc",
+        identifier: "595112103",
+        weightPercent: 8.43,
+        shares: 3197,
+        marketValue: 3143034.64,
+        assetType: "Equity"
+      })
+    );
+    expect(parsed.holdings[1]?.assetType).toBe("Cash");
+  });
+
+  it("parses JHAI full holdings HTML", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "JHAI");
+    expect(etf).toBeDefined();
+    const parsed = parseJanusHendersonFullHoldingsHtml(
+      `<p>(As of <span class="notranslate">07/14/2026</span>)</p>
+      <table id="full_holdings">
+        <tbody>
+          <tr>
+            <td>NVIDIA Corp</td>
+            <td class="data-key-ticker">NVDA US</td>
+            <td class="data-key-cusip">67066G104</td>
+            <td class="data-key-underlyingSecurity"></td>
+            <td class="data-key-quantity">1,000</td>
+            <td class="data-key-marketValue">$1,234,567</td>
+            <td class="data-key-percentOfPortfolio">6.78%</td>
+          </tr>
+        </tbody>
+      </table>`,
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-07-14");
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: "NVDA",
+        name: "NVIDIA Corp",
+        identifier: "67066G104",
+        shares: 1000,
+        marketValue: 1_234_567,
+        weightPercent: 6.78
+      })
+    );
+  });
+
+  it("parses ALAI daily holdings CSV", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "ALAI");
+    expect(etf).toBeDefined();
+    const parsed = parseAlgerDailyHoldingsCsv(
+      [
+        "Product Short Name,Effective Date,Ticker,CUSIP,Security Description,Quantity,Market Value,Percentage Weight",
+        'ALAI,07/14/2026,SE,81141R100,SEA LTD USD 0.0005 ADR,69289.0000,"7,572,595.00",1.65 %',
+        'ALAI,07/14/2026,9A9OA92,805991551,PFD SB TECHNOLOGY INC SERIES E PFD,51208.0000,"1,840,928.00",0.40 %'
+      ].join("\n"),
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-07-14");
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        ticker: "SE",
+        identifier: "81141R100",
+        name: "SEA LTD USD 0.0005 ADR",
+        shares: 69289,
+        marketValue: 7_572_595,
+        weightPercent: 1.65
+      })
+    );
+  });
+
+  it("parses FWD official AB daily Top 10 holdings JSON", () => {
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "FWD");
+    expect(etf).toBeDefined();
+    const parsed = parseAllianceBernsteinUsTopHoldingsJson(
+      JSON.stringify({
+        domesticHoldings: [
+          {
+            asOfDate: "07/15/2026",
+            holdingCategory: "holdings-section-top ten equity holdings",
+            holdings: [
+              { holding: "NVIDIA Corp.", classification: "Information Technology", holdingPerc: "3.20" },
+              { holding: "Total", classification: "", holdingPerc: "21.62" }
+            ]
+          }
+        ]
+      }),
+      etf!,
+      etf!.holdingsUrl!
+    );
+
+    expect(parsed.sourceAsOf).toBe("2026-07-15");
+    expect(parsed.rawRowCount).toBe(1);
+    expect(parsed.holdings[0]).toEqual(
+      expect.objectContaining({
+        name: "NVIDIA Corp.",
+        sector: "Information Technology",
+        weightPercent: 3.2,
+        assetType: "Equity"
+      })
+    );
   });
 
   it("parses SEC 13F information tables, maps known CUSIPs, and derives weights", () => {

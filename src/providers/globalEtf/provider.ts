@@ -3,11 +3,15 @@ import type { GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { defaultCrawlerHeaders, fetchSource, type SourceFetchResult } from "../../services/source/httpClient.js";
 import { buildGlobalSnapshot } from "./normalizer.js";
 import {
+  parseAlgerDailyHoldingsCsv,
+  parseAllianceBernsteinUsTopHoldingsJson,
   parseBlackRockBaiSpreadsheet,
   parseCorgiEuvRows,
+  parseJanusHendersonFullHoldingsHtml,
   parseRoundhillDramCsv,
   parseSec13fInformationTable,
-  parseTemaNasaCsv
+  parseTemaNasaCsv,
+  parseTuttleNavstarHoldingsJson
 } from "./parser.js";
 
 export interface GlobalEtfFetchOutput {
@@ -49,6 +53,70 @@ async function fetchTemaHoldings(etfCode: string) {
   const raw = await fetchSource({ url: etf.holdingsUrl, headers: defaultCrawlerHeaders(etf.sourceUrl) });
   if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
   const parsed = parseTemaNasaCsv(raw.rawBody, etf, raw.url);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+}
+
+async function fetchTuttleHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
+  const raw = await fetchSource({
+    url: etf.holdingsUrl,
+    headers: {
+      ...defaultCrawlerHeaders(etf.sourceUrl),
+      Accept: "application/json,text/plain,*/*"
+    },
+    timeoutMs: 45000
+  });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
+  const parsed = parseTuttleNavstarHoldingsJson(raw.rawBody, etf, raw.url);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+}
+
+async function fetchJanusHendersonHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
+  const raw = await fetchSource({
+    url: etf.holdingsUrl,
+    headers: {
+      ...defaultCrawlerHeaders(etf.sourceUrl),
+      Accept: "text/html,application/xhtml+xml,*/*"
+    },
+    timeoutMs: 45000
+  });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
+  const parsed = parseJanusHendersonFullHoldingsHtml(raw.rawBody, etf, raw.url);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+}
+
+async function fetchAlgerHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
+  const raw = await fetchSource({
+    url: etf.holdingsUrl,
+    headers: {
+      ...defaultCrawlerHeaders(etf.sourceUrl),
+      Accept: "text/csv,text/plain,*/*"
+    },
+    timeoutMs: 45000
+  });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
+  const parsed = parseAlgerDailyHoldingsCsv(raw.rawBody, etf, raw.url);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+}
+
+async function fetchAllianceBernsteinUsHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
+  const raw = await fetchSource({
+    url: etf.holdingsUrl,
+    headers: {
+      ...defaultCrawlerHeaders(etf.sourceUrl),
+      Accept: "application/json,text/plain,*/*"
+    },
+    timeoutMs: 45000
+  });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
+  const parsed = parseAllianceBernsteinUsTopHoldingsJson(raw.rawBody, etf, raw.url);
   return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
 }
 
@@ -163,6 +231,10 @@ export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtf
   if (normalized === "DRAM") return fetchRoundhillDram();
   const etf = findGlobalEtfConfig(normalized);
   if (etf?.providerId === "tema") return fetchTemaHoldings(normalized);
+  if (etf?.providerId === "tuttle") return fetchTuttleHoldings(normalized);
+  if (etf?.providerId === "janusHenderson") return fetchJanusHendersonHoldings(normalized);
+  if (etf?.providerId === "alger") return fetchAlgerHoldings(normalized);
+  if (etf?.providerId === "allianceBernsteinUs") return fetchAllianceBernsteinUsHoldings(normalized);
   if (etf?.providerId === "blackrock") return fetchBlackRockHoldings(normalized);
   if (etf?.providerId === "sec13f") return fetchSec13fHoldings(normalized);
   if (normalized === "EUV") return fetchCorgiEuv();

@@ -124,13 +124,14 @@ function buildHolding(
 function normalizeExchangeTicker(ticker: string | undefined): string | undefined {
   if (!ticker) return undefined;
   const normalized = ticker.trim().replace(/\s+/gu, " ");
-  const exchangeMatch = normalized.match(/^(.+?)\s+(KS|TT|JP)$/u);
+  const exchangeMatch = normalized.match(/^(.+?)\s+(KS|TT|JP|US)$/u);
   if (!exchangeMatch) return normalized;
 
   const [, symbol, exchange] = exchangeMatch;
   if (exchange === "KS") return `${symbol}.KS`;
   if (exchange === "TT") return `${symbol}.TW`;
   if (exchange === "JP") return `${symbol}.JP`;
+  if (exchange === "US") return symbol;
   return normalized;
 }
 
@@ -254,12 +255,25 @@ function normalizeTemaTicker(ticker: string | undefined, name: string | undefine
 function decodeXmlText(value: string): string {
   return value
     .replace(/<!\[CDATA\[(.*?)\]\]>/gsu, "$1")
+    .replace(/&nbsp;/gu, " ")
     .replace(/&amp;/gu, "&")
     .replace(/&lt;/gu, "<")
     .replace(/&gt;/gu, ">")
     .replace(/&quot;/gu, '"')
+    .replace(/&apos;/gu, "'")
     .replace(/&#39;/gu, "'")
     .trim();
+}
+
+function stripHtml(value: string): string {
+  return decodeXmlText(value.replace(/<[^>]+>/gu, " ").replace(/\s+/gu, " "));
+}
+
+function isCashLike(input: { ticker?: string; name?: string; assetType?: string }): boolean {
+  const ticker = input.ticker?.trim().toUpperCase();
+  const name = input.name?.trim().toUpperCase() ?? "";
+  const assetType = input.assetType?.trim().toUpperCase() ?? "";
+  return assetType.includes("CASH") || name.includes("CASH") || name.includes("TREASURY") || ticker === "USD" || ticker === "CASH&OTHER";
 }
 
 export function sanitizeSpreadsheetXml(raw: string): string {
@@ -357,6 +371,122 @@ export function parseCorgiEuvRows(rows: unknown[], etf: GlobalEtfConfig, sourceU
   );
 
   return { sourceAsOf, rawRowCount: objects.length, holdings };
+}
+
+export function parseTuttleNavstarHoldingsJson(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const body = JSON.parse(raw) as { holdings?: unknown[] };
+  const rows = (body.holdings ?? []).filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null);
+  const latestDate = rows
+    .map((row) => dateOnly(row.as_of_date))
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const sourceAsOf = latestDate ?? "";
+  const latestRows = rows.filter((row) => dateOnly(row.as_of_date) === sourceAsOf);
+  const holdings = latestRows.map((row) => {
+    const ticker = stringFrom(row.security_ticker);
+    const name = stringFrom(row.security_name) ?? ticker ?? "Unknown";
+    const assetType = stringFrom(row.asset_class) ?? (isCashLike({ ticker, name }) ? "Cash" : "Equity");
+    return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      ticker,
+      name,
+      identifier: stringFrom(row.security_id),
+      weightPercent: numberFrom(row.weight),
+      shares: numberFrom(row.quantity),
+      marketValue: numberFrom(row.market_value),
+      country: stringFrom(row.country),
+      sector: stringFrom(row.sector),
+      assetType
+    });
+  });
+
+  return { sourceAsOf, rawRowCount: rows.length, holdings };
+}
+
+export function parseJanusHendersonFullHoldingsHtml(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const sourceAsOf = dateOnly(
+    raw.match(/As of\s*<span[^>]*>([^<]+)<\/span>/iu)?.[1] ?? raw.match(/\(As of\s*([^)]+)\)/iu)?.[1]
+  );
+  const table = raw.match(/<table[^>]+id=["']full_holdings["'][^>]*>([\s\S]*?)<\/table>/iu)?.[1] ?? raw;
+  const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/giu)]
+    .map((rowMatch) => {
+      const cells: Record<string, string> = {};
+      for (const cellMatch of rowMatch[1].matchAll(/<td\b([^>]*)>([\s\S]*?)<\/td>/giu)) {
+        const key = cellMatch[1].match(/data-key-([A-Za-z0-9_-]+)/u)?.[1];
+        const value = stripHtml(cellMatch[2]);
+        if (key) cells[key] = value;
+        else if (value && !cells.name) cells.name = value;
+      }
+      return cells;
+    })
+    .filter((row) => Object.keys(row).length > 0);
+
+  const holdings = rows
+    .filter((row) => stringFrom(row.underlyingSecurity) || stringFrom(row.ticker))
+    .map((row) => {
+      const ticker = normalizeExchangeTicker(stringFrom(row.ticker));
+      const name = stringFrom(row.underlyingSecurity) ?? stringFrom(row.name) ?? ticker ?? "Unknown";
+      return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+        ticker,
+        name,
+        identifier: stringFrom(row.cusip),
+        weightPercent: numberFrom(row.percentOfPortfolio),
+        shares: numberFrom(row.quantity),
+        marketValue: numberFrom(row.marketValue) ?? numberFrom(row.currentMarketValue),
+        notionalValue: numberFrom(row.notionalValue),
+        assetType: isCashLike({ ticker, name }) ? "Cash" : "Equity"
+      });
+    });
+
+  return { sourceAsOf, rawRowCount: rows.length, holdings };
+}
+
+export function parseAlgerDailyHoldingsCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const rows = parseCsv(raw);
+  const filtered = rows.filter((row) => (stringFrom(row["Product Short Name"]) ?? etf.etfCode).toUpperCase() === etf.etfCode);
+  const sourceAsOf = dateOnly(filtered[0]?.["Effective Date"] ?? rows[0]?.["Effective Date"]);
+  const holdings = filtered.map((row) => {
+    const ticker = stringFrom(row.Ticker);
+    const name = stringFrom(row["Security Description"]) ?? ticker ?? "Unknown";
+    return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      ticker,
+      name,
+      identifier: stringFrom(row.CUSIP),
+      weightPercent: numberFrom(row["Percentage Weight"]),
+      shares: numberFrom(row.Quantity),
+      marketValue: numberFrom(row["Market Value"]),
+      assetType: isCashLike({ ticker, name }) ? "Cash" : "Equity"
+    });
+  });
+
+  return { sourceAsOf, rawRowCount: rows.length, holdings };
+}
+
+export function parseAllianceBernsteinUsTopHoldingsJson(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const body = JSON.parse(raw) as {
+    domesticHoldings?: Array<{
+      asOfDate?: string;
+      holdingCategory?: string;
+      holdings?: Array<Record<string, unknown>>;
+    }>;
+  };
+  const topTenSection = body.domesticHoldings?.find((section) => section.holdingCategory?.toLowerCase().includes("top ten"));
+  const rows = (topTenSection?.holdings ?? []).filter((row) => stringFrom(row.holding)?.toUpperCase() !== "TOTAL");
+  const sourceAsOf = dateOnly(topTenSection?.asOfDate);
+  const holdings = rows.map((row) => {
+    const name = stringFrom(row.holding) ?? "Unknown";
+    return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      name,
+      sector: stringFrom(row.classification),
+      weightPercent: numberFrom(row.holdingPerc),
+      shares: numberFrom(row.holdingShares),
+      marketValue: numberFrom(row.holdingValue),
+      identifier: stringFrom(row.holdingCode),
+      assetType: isCashLike({ name }) ? "Cash" : "Equity"
+    });
+  });
+
+  return { sourceAsOf, rawRowCount: rows.length, holdings };
 }
 
 function xmlText(block: string, tagName: string): string | undefined {

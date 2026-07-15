@@ -259,10 +259,11 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     providerId: "tuttle",
     strategyType: "active",
     enabled: true,
-    sourceStatus: "needs_endpoint_verification",
-    sourceUrl: "https://www.tuttlecap.com/",
+    sourceStatus: "verified",
+    sourceUrl: "https://www.hbmxetf.com/data",
+    holdingsUrl: "https://jdkfnvgkfwotjlyovbrk.supabase.co/functions/v1/fund-public-api?ticker=HBMX&view=holdings",
     themes: ["semiconductor", "memory", "ai"],
-    notes: "Nasdaq confirms HBMX as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+    notes: "Official HBMX fund data page uses the NavStar public API and returns daily holdings."
   },
   {
     etfCode: "JHAI",
@@ -274,10 +275,11 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     providerId: "janusHenderson",
     strategyType: "active",
     enabled: true,
-    sourceStatus: "needs_endpoint_verification",
-    sourceUrl: "https://www.janushenderson.com/",
+    sourceStatus: "verified",
+    sourceUrl: "https://www.janushenderson.com/en-us/advisor/product/global-artificial-intelligence-etf-jhai/",
+    holdingsUrl: "https://www.janushenderson.com/en-us/advisor/product/global-artificial-intelligence-etf-jhai/full-holdings/",
     themes: ["ai", "semiconductor", "innovation"],
-    notes: "Nasdaq confirms JHAI as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+    notes: "Official Janus Henderson full holdings page exposes an HTML table with current holdings."
   },
   {
     etfCode: "ALAI",
@@ -289,10 +291,11 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     providerId: "alger",
     strategyType: "active",
     enabled: true,
-    sourceStatus: "needs_endpoint_verification",
-    sourceUrl: "https://www.alger.com/",
+    sourceStatus: "verified",
+    sourceUrl: "https://www.alger.com/pages/Products.aspx?productCode=2494",
+    holdingsUrl: "https://www.alger.com/AlgerETFDailyHoldings/Daily_Holdings_Alger_AI_Enablers_%26_Adopters_ETF.csv",
     themes: ["ai", "semiconductor", "innovation"],
-    notes: "Nasdaq confirms ALAI as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+    notes: "Official Alger product page iframe exposes the daily holdings CSV link."
   },
   {
     etfCode: "FWD",
@@ -304,10 +307,11 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     providerId: "allianceBernsteinUs",
     strategyType: "active",
     enabled: true,
-    sourceStatus: "needs_endpoint_verification",
-    sourceUrl: "https://www.alliancebernstein.com/",
+    sourceStatus: "verified",
+    sourceUrl: "https://www.alliancebernstein.com/us/en-us/investments/products/etf/equities/ab-disruptors-etf.-.00039J509.html",
+    holdingsUrl: "https://webapi.alliancebernstein.com/v2/funds/us/en-us/investor/00039J509/holdings",
     themes: ["ai", "innovation", "macro"],
-    notes: "Nasdaq confirms FWD as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+    notes: "Official AB API currently exposes daily Top 10 holdings; full holdings are separate monthly files."
   },
   {
     etfCode: "EUV",

@@ -87,18 +87,28 @@ The overseas product line uses `src/config/globalEtfs.ts` and must not reuse Tai
   - Parser sanitizes HTML fragments and bare ampersands, then reads worksheet `Holdings`.
 - User priority AI / memory ETF watchlist additions
   - Enabled for routing and the `/api/global-etfs/enabled` universe: `HBMX`, `JHAI`, `ALAI`, `FWD`.
-  - Nasdaq quote info confirmed all four tickers are active ETF securities on 2026-07-15:
-    - `HBMX` Tuttle Capital Concentrated Memory Stack ETF
-    - `JHAI` Janus Henderson Global Artificial Intelligence ETF
-    - `ALAI` Alger AI Enablers & Adopters ETF
-    - `FWD` AB Disruptors ETF
-  - Source status remains `needs_endpoint_verification` until each issuer's official daily holdings endpoint, source date, and parser fixture are captured.
-  - The report generator now includes enabled ETFs with no usable `global_etf_snapshots` as `unavailable` status rows so direct pages and the global universe stay visible before the first successful sync.
+  - `HBMX` Tuttle Capital Concentrated Memory Stack ETF
+    - Product data page: `https://www.hbmxetf.com/data`
+    - Holdings API: `https://jdkfnvgkfwotjlyovbrk.supabase.co/functions/v1/fund-public-api?ticker=HBMX&view=holdings`
+    - The Webflow page loads `navstar-embed`, which points to the Supabase `fund-public-api`; `view=holdings` returns current holdings rows.
+  - `JHAI` Janus Henderson Global Artificial Intelligence ETF
+    - Product page: `https://www.janushenderson.com/en-us/advisor/product/global-artificial-intelligence-etf-jhai/`
+    - Holdings page: `https://www.janushenderson.com/en-us/advisor/product/global-artificial-intelligence-etf-jhai/full-holdings/`
+    - Parser reads the `full_holdings` HTML table and the page's `As of` date.
+  - `ALAI` Alger AI Enablers & Adopters ETF
+    - Product page: `https://www.alger.com/pages/Products.aspx?productCode=2494`
+    - Holdings CSV: `https://www.alger.com/AlgerETFDailyHoldings/Daily_Holdings_Alger_AI_Enablers_%26_Adopters_ETF.csv`
+    - The product iframe exposes the CSV link in `etfDailyHoldingsCSVLink`.
+  - `FWD` AB Disruptors ETF
+    - Product page: `https://www.alliancebernstein.com/us/en-us/investments/products/etf/equities/ab-disruptors-etf.-.00039J509.html`
+    - Daily Top 10 API: `https://webapi.alliancebernstein.com/v2/funds/us/en-us/investor/00039J509/holdings`
+    - The product page's holdings model currently links full holdings monthly `.xlsx` files only through May 2026; June and July guessed file paths returned 404 on 2026-07-16, so daily sync uses the official Top 10 API until AB publishes a current full-holdings endpoint.
+  - The report generator includes enabled ETFs with no usable `global_etf_snapshots` as `unavailable` status rows so direct pages and the global universe stay visible before the first successful sync.
 - `EUV` Corgi Lithography & Semiconductor Photonics ETF
   - API: `https://cmltk98h4m.execute-api.us-east-2.amazonaws.com/api/v1/holdings?account=EUV&limit=1000`
   - Provider follows `pagination.has_more`, then filters rows to the newest `holding_date` only. Historical rows must not be aggregated with the latest day.
 
-ARK, Tuttle, Janus Henderson, Alger, AllianceBernstein US, JPMorgan, Capital Group, Amplify, T. Rowe Price, Goldman Sachs, and PIMCO candidates remain `needs_endpoint_verification` until official holdings endpoint behavior, source date, and parser fixtures are captured.
+ARK, JPMorgan, Capital Group, Amplify, T. Rowe Price, Goldman Sachs, PIMCO, and other future candidates remain `needs_endpoint_verification` until official holdings endpoint behavior, source date, and parser fixtures are captured.
 
 ## TWSE listed stock daily market data
 
