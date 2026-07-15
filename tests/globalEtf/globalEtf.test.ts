@@ -480,6 +480,9 @@ describe("global ETF product line", () => {
         "Date,Account,StockTicker,CUSIP,SecurityName,Shares,MarketValue,Weightings,MoneyMarketFlag",
         "06/24/2026,DRAM,595112103 TRS 050427 NM,595112103 TRS 050427 NM,MICRON TECHNOLOGY INC SWAP NM,100,13,13.00%,",
         "06/24/2026,DRAM,MU,595112103,Micron Technology Inc,100,9,9.00%,",
+        "06/24/2026,DRAM,000660 KS,6450267,SK hynix Inc,100,7,7.00%,",
+        "06/24/2026,DRAM,SKHY,78392B206,SK hynix Inc,100,1,1.00%,",
+        "06/24/2026,DRAM,6450267 TRS 050427 NM,6450267 TRS 050427 NM,SK HYNIX INC SWAP NM,100,2,2.00%,",
         "06/24/2026,DRAM,2408 TT,6283,Nanya Technology Corp,100,3,3.00%,",
         "06/24/2026,DRAM,912797UP0,912797UP0,United States Treasury Bill 07/14/2026,100,16,16.00%,",
         "06/24/2026,DRAM,FGXXX,31846V336,First American Government Obligations Fund,100,10,10.00%,Y"
@@ -492,6 +495,13 @@ describe("global ETF product line", () => {
 
     expect(parsed.sourceAsOf).toBe("2026-06-24");
     expect(micron?.weightPercent).toBe(22);
+    expect(snapshot.holdings.find((holding) => holding.ticker === "SKHY")).toEqual(
+      expect.objectContaining({
+        name: "SK Hynix Inc",
+        weightPercent: 10
+      })
+    );
+    expect(snapshot.holdings.find((holding) => holding.ticker === "000660.KS")).toBeUndefined();
     expect(snapshot.holdings.find((holding) => holding.name === "Nanya Technology Corp")?.ticker).toBe("2408.TW");
     expect(snapshot.holdings.filter((holding) => holding.assetType === "Cash")).toHaveLength(2);
     expect(snapshot.holdings.find((holding) => holding.name.includes("Treasury"))?.assetType).toBe("Cash");

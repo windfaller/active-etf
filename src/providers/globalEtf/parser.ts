@@ -171,12 +171,12 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
     };
   }
 
-  if (upperName.includes("SK HYNIX") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
+  if (upperName.includes("SK HYNIX")) {
     return {
-      ticker: "000660.KS",
+      ticker: "SKHY",
       name: "SK Hynix Inc",
-      identifier: "000660.KS",
-      assetType: "Equity Swap"
+      identifier: "SKHY",
+      assetType: upperName.includes("SWAP") || rawTicker?.includes("TRS") ? "Equity Swap" : "Equity"
     };
   }
 
