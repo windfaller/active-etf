@@ -137,6 +137,7 @@ function normalizeExchangeTicker(ticker: string | undefined): string | undefined
 
 function normalizeRoundhillDramHolding(row: CsvRow): {
   ticker?: string;
+  sourceTicker?: string;
   name: string;
   identifier?: string;
   assetType: string;
@@ -156,6 +157,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   if (isCash) {
     return {
       ticker: displayTicker,
+      sourceTicker: displayTicker,
       name: rawName,
       identifier: stringFrom(row.CUSIP),
       assetType: "Cash"
@@ -165,6 +167,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   if (upperName.includes("MICRON") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
     return {
       ticker: "MU",
+      sourceTicker: "MU",
       name: "Micron Technology Inc",
       identifier: "MU",
       assetType: "Equity Swap"
@@ -174,6 +177,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   if (upperName.includes("SK HYNIX")) {
     return {
       ticker: "SKHY",
+      sourceTicker: upperName.includes("SWAP") || rawTicker?.includes("TRS") ? "SKHY" : displayTicker,
       name: "SK Hynix Inc",
       identifier: "SKHY",
       assetType: upperName.includes("SWAP") || rawTicker?.includes("TRS") ? "Equity Swap" : "Equity"
@@ -183,6 +187,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   if (upperName.includes("SAMSUNG ELECTRONICS") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
     return {
       ticker: "005930.KS",
+      sourceTicker: "005930.KS",
       name: "Samsung Electronics Co Ltd",
       identifier: "005930.KS",
       assetType: "Equity Swap"
@@ -192,6 +197,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   if (upperName.includes("KIOXIA") && (upperName.includes("SWAP") || rawTicker?.includes("TRS"))) {
     return {
       ticker: "285A.JP",
+      sourceTicker: "285A.JP",
       name: "Kioxia Holdings Corp",
       identifier: "285A.JP",
       assetType: "Equity Swap"
@@ -200,6 +206,7 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
 
   return {
     ticker: displayTicker,
+    sourceTicker: displayTicker,
     name: rawName,
     identifier: displayTicker,
     assetType: "Equity"

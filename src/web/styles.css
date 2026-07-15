@@ -1845,10 +1845,19 @@ button.insight-chip {
 }
 
 .global-holdings-table .stock-name {
+  display: grid;
+  gap: 3px;
   min-width: 0;
   line-height: 1.25;
   overflow-wrap: normal;
   word-break: normal;
+}
+
+.exposure-components {
+  color: #6c7783;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
 }
 
 .global-market-table .holdings-head,

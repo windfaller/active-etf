@@ -15,6 +15,7 @@ export interface GlobalEtfHolding {
   strategyType?: GlobalEtfStrategyType;
   positionKey: string;
   ticker?: string;
+  sourceTicker?: string;
   name: string;
   identifier?: string;
   weightPercent?: number;
@@ -27,6 +28,12 @@ export interface GlobalEtfHolding {
   sector?: string;
   industry?: string;
   assetType?: string;
+  exposureComponents?: Array<{
+    ticker?: string;
+    name: string;
+    weightPercent?: number;
+    assetType?: string;
+  }>;
   raw?: unknown;
 }
 

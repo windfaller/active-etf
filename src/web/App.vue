@@ -203,11 +203,18 @@ interface TelegramInfo {
 
 interface GlobalHolding {
   ticker?: string;
+  sourceTicker?: string;
   name: string;
   weightPercent?: number;
   marketValue?: number;
   sector?: string;
   assetType?: string;
+  exposureComponents?: Array<{
+    ticker?: string;
+    name: string;
+    weightPercent?: number;
+    assetType?: string;
+  }>;
 }
 
 interface GlobalChange {
@@ -1104,6 +1111,23 @@ function splitTicker(ticker: string | undefined): { symbol: string; region: stri
 function holdingIdentity(row: GlobalHolding): { symbol: string; region: string } {
   if (row.ticker) return splitTicker(row.ticker);
   return { symbol: "-", region: "" };
+}
+
+function exposureComponentSummary(row: GlobalHolding): string {
+  const components = row.exposureComponents ?? [];
+  const hasUsefulBreakdown =
+    components.length > 1 ||
+    components.some((component) => component.ticker && component.ticker !== row.ticker);
+  if (!hasUsefulBreakdown) return "";
+
+  return components
+    .filter((component) => component.weightPercent !== undefined || component.ticker)
+    .map((component) => {
+      const label = component.ticker ?? component.name;
+      const type = component.assetType?.includes("Swap") ? " swap" : "";
+      return `${label}${type} ${formatGlobalWeight(component.weightPercent)}`;
+    })
+    .join(" / ");
 }
 
 function openGlobalOptionPicker(event?: FocusEvent): void {
@@ -2807,7 +2831,10 @@ watch(
               <b>{{ holdingIdentity(row).symbol }}</b>
               <small v-if="holdingIdentity(row).region">{{ holdingIdentity(row).region }}</small>
             </span>
-            <span class="stock-name">{{ row.name }}</span>
+            <span class="stock-name">
+              {{ row.name }}
+              <small v-if="exposureComponentSummary(row)" class="exposure-components">{{ exposureComponentSummary(row) }}</small>
+            </span>
             <span>{{ formatGlobalWeight(row.weightPercent) }}</span>
             <span>{{ formatMoney(row.marketValue ?? null) }}</span>
             <span>{{ row.sector ?? row.assetType ?? "-" }}</span>

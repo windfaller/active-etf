@@ -495,11 +495,19 @@ describe("global ETF product line", () => {
 
     expect(parsed.sourceAsOf).toBe("2026-06-24");
     expect(micron?.weightPercent).toBe(22);
-    expect(snapshot.holdings.find((holding) => holding.ticker === "SKHY")).toEqual(
+    const skHynix = snapshot.holdings.find((holding) => holding.ticker === "SKHY");
+    expect(skHynix).toEqual(
       expect.objectContaining({
         name: "SK Hynix Inc",
         weightPercent: 10
       })
+    );
+    expect(skHynix?.exposureComponents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ticker: "000660.KS", weightPercent: 7, assetType: "Equity" }),
+        expect.objectContaining({ ticker: "SKHY", weightPercent: 1, assetType: "Equity" }),
+        expect.objectContaining({ weightPercent: 2, assetType: "Equity Swap" })
+      ])
     );
     expect(snapshot.holdings.find((holding) => holding.ticker === "000660.KS")).toBeUndefined();
     expect(snapshot.holdings.find((holding) => holding.name === "Nanya Technology Corp")?.ticker).toBe("2408.TW");

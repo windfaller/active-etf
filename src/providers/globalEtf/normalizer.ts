@@ -7,13 +7,25 @@ function addOptional(current: number | undefined, next: number | undefined): num
   return (current ?? 0) + (next ?? 0);
 }
 
+function exposureComponentFrom(holding: GlobalEtfHolding): NonNullable<GlobalEtfHolding["exposureComponents"]>[number] {
+  return {
+    ticker: holding.sourceTicker ?? holding.ticker,
+    name: holding.name,
+    weightPercent: holding.weightPercent,
+    assetType: holding.assetType
+  };
+}
+
 export function aggregateGlobalHoldings(holdings: GlobalEtfHolding[]): GlobalEtfHolding[] {
   const byKey = new Map<string, GlobalEtfHolding>();
 
   for (const holding of holdings) {
     const current = byKey.get(holding.positionKey);
     if (!current) {
-      byKey.set(holding.positionKey, { ...holding });
+      byKey.set(holding.positionKey, {
+        ...holding,
+        exposureComponents: holding.exposureComponents ?? [exposureComponentFrom(holding)]
+      });
       continue;
     }
 
@@ -27,6 +39,7 @@ export function aggregateGlobalHoldings(holdings: GlobalEtfHolding[]): GlobalEtf
     current.sector ??= holding.sector;
     current.industry ??= holding.industry;
     current.assetType ??= holding.assetType;
+    current.exposureComponents = [...(current.exposureComponents ?? [exposureComponentFrom(current)]), exposureComponentFrom(holding)];
   }
 
   return [...byKey.values()].sort((a, b) => (b.weightPercent ?? -1) - (a.weightPercent ?? -1));
@@ -42,11 +55,13 @@ export function buildGlobalEtfSignature(snapshot: Pick<GlobalEtfSnapshot, "etfCo
     positions: snapshot.holdings.map((holding) => ({
       positionKey: holding.positionKey,
       ticker: holding.ticker,
+      sourceTicker: holding.sourceTicker,
       name: holding.name,
       weightPercent: holding.weightPercent ?? null,
       shares: holding.shares ?? null,
       marketValue: holding.marketValue ?? null,
-      notionalValue: holding.notionalValue ?? null
+      notionalValue: holding.notionalValue ?? null,
+      exposureComponents: holding.exposureComponents ?? null
     }))
   };
 
