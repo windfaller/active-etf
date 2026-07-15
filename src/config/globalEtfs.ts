@@ -32,6 +32,10 @@ export interface GlobalEtfConfig {
     | "corgi"
     | "sec13f"
     | "ark"
+    | "tuttle"
+    | "janusHenderson"
+    | "alger"
+    | "allianceBernsteinUs"
     | "jpmorganUs"
     | "capitalGroup"
     | "amplify"
@@ -244,6 +248,66 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     holdingsUrl:
       "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=339081&component=fundDownload&userType=individual",
     themes: ["ai", "semiconductor", "innovation"]
+  },
+  {
+    etfCode: "HBMX",
+    fundName: "Tuttle Capital Concentrated Memory Stack ETF",
+    issuer: "Tuttle Capital",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "tuttle",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "needs_endpoint_verification",
+    sourceUrl: "https://www.tuttlecap.com/",
+    themes: ["semiconductor", "memory", "ai"],
+    notes: "Nasdaq confirms HBMX as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+  },
+  {
+    etfCode: "JHAI",
+    fundName: "Janus Henderson Global Artificial Intelligence ETF",
+    issuer: "Janus Henderson",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "janusHenderson",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "needs_endpoint_verification",
+    sourceUrl: "https://www.janushenderson.com/",
+    themes: ["ai", "semiconductor", "innovation"],
+    notes: "Nasdaq confirms JHAI as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+  },
+  {
+    etfCode: "ALAI",
+    fundName: "Alger AI Enablers & Adopters ETF",
+    issuer: "Alger",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "alger",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "needs_endpoint_verification",
+    sourceUrl: "https://www.alger.com/",
+    themes: ["ai", "semiconductor", "innovation"],
+    notes: "Nasdaq confirms ALAI as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
+  },
+  {
+    etfCode: "FWD",
+    fundName: "AB Disruptors ETF",
+    issuer: "AllianceBernstein",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "allianceBernsteinUs",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "needs_endpoint_verification",
+    sourceUrl: "https://www.alliancebernstein.com/",
+    themes: ["ai", "innovation", "macro"],
+    notes: "Nasdaq confirms FWD as an ETF; official daily holdings endpoint still needs verification before sync is enabled."
   },
   {
     etfCode: "EUV",

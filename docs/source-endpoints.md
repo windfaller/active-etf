@@ -85,11 +85,20 @@ The overseas product line uses `src/config/globalEtfs.ts` and must not reuse Tai
   - Product page: `https://www.ishares.com/us/products/339081/ishares-a-i-innovation-and-tech-active-etf`
   - BlackRock fund download endpoint returns SpreadsheetML `.xls`, not `.xlsx`.
   - Parser sanitizes HTML fragments and bare ampersands, then reads worksheet `Holdings`.
+- User priority AI / memory ETF watchlist additions
+  - Enabled for routing and the `/api/global-etfs/enabled` universe: `HBMX`, `JHAI`, `ALAI`, `FWD`.
+  - Nasdaq quote info confirmed all four tickers are active ETF securities on 2026-07-15:
+    - `HBMX` Tuttle Capital Concentrated Memory Stack ETF
+    - `JHAI` Janus Henderson Global Artificial Intelligence ETF
+    - `ALAI` Alger AI Enablers & Adopters ETF
+    - `FWD` AB Disruptors ETF
+  - Source status remains `needs_endpoint_verification` until each issuer's official daily holdings endpoint, source date, and parser fixture are captured.
+  - The report generator now includes enabled ETFs with no usable `global_etf_snapshots` as `unavailable` status rows so direct pages and the global universe stay visible before the first successful sync.
 - `EUV` Corgi Lithography & Semiconductor Photonics ETF
   - API: `https://cmltk98h4m.execute-api.us-east-2.amazonaws.com/api/v1/holdings?account=EUV&limit=1000`
   - Provider follows `pagination.has_more`, then filters rows to the newest `holding_date` only. Historical rows must not be aggregated with the latest day.
 
-ARK, JPMorgan, Capital Group, Amplify, T. Rowe Price, Goldman Sachs, and PIMCO candidates remain `needs_endpoint_verification` until official holdings endpoint behavior, source date, and parser fixtures are captured.
+ARK, Tuttle, Janus Henderson, Alger, AllianceBernstein US, JPMorgan, Capital Group, Amplify, T. Rowe Price, Goldman Sachs, and PIMCO candidates remain `needs_endpoint_verification` until official holdings endpoint behavior, source date, and parser fixtures are captured.
 
 ## TWSE listed stock daily market data
 

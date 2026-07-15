@@ -27,6 +27,10 @@ describe("global ETF product line", () => {
       "DISK",
       "LAZR",
       "BAI",
+      "HBMX",
+      "JHAI",
+      "ALAI",
+      "FWD",
       "EUV",
       "DYNF",
       "BINC",
@@ -41,6 +45,23 @@ describe("global ETF product line", () => {
       "BDYN",
       "IALT"
     ]);
+  });
+
+  it("keeps enabled ETFs visible even before a holdings snapshot exists", async () => {
+    const report = await getGlobalEtfDailyReport();
+    const hbmx = report.sections.find((section) => section.etfCode === "HBMX");
+
+    expect(hbmx).toEqual(
+      expect.objectContaining({
+        fundName: "Tuttle Capital Concentrated Memory Stack ETF",
+        sourceStatus: "unavailable",
+        rowCount: 0,
+        topHoldings: []
+      })
+    );
+    expect(report.coveredEtfs).toContain("JHAI");
+    expect(report.coveredEtfs).toContain("ALAI");
+    expect(report.coveredEtfs).toContain("FWD");
   });
 
   it("enables every listed Tema ETF with verified holdings URLs", () => {

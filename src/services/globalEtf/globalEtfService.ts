@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Db, Filter } from "mongodb";
-import { enabledGlobalEtfs, findGlobalEtfConfig } from "../../config/globalEtfs.js";
-import type { GlobalEtfCommonHolding, GlobalEtfDailyReport, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
+import { enabledGlobalEtfs, findGlobalEtfConfig, type GlobalEtfConfig } from "../../config/globalEtfs.js";
+import type { GlobalEtfCommonHolding, GlobalEtfDailyReport, GlobalEtfReportSection, GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { fetchGlobalEtfSnapshot } from "../../providers/globalEtf/provider.js";
 import { invalidateGlobalEtfCache } from "../cache/dailyDataCache.js";
 import { createRawSnapshot } from "../source/rawSnapshotService.js";
@@ -246,7 +246,7 @@ async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promi
 }
 
 async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[], demoMode = false): Promise<GlobalEtfDailyReport> {
-  const sections = [];
+  const sections: GlobalEtfReportSection[] = [];
   const globalMovers = [];
 
   for (const snapshot of snapshots) {
@@ -274,6 +274,15 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
     sections.push(section);
     globalMovers.push(...split.weightChanges.map((change) => ({ ...change, etfCode: snapshot.etfCode })));
   }
+
+  const coveredCodes = new Set(sections.map((section) => section.etfCode));
+  for (const etf of enabledGlobalEtfs) {
+    if (coveredCodes.has(etf.etfCode)) continue;
+    sections.push(emptyGlobalEtfSection(etf));
+  }
+
+  const orderByCode = new Map(enabledGlobalEtfs.map((etf, index) => [etf.etfCode, index]));
+  sections.sort((a, b) => (orderByCode.get(a.etfCode) ?? Number.MAX_SAFE_INTEGER) - (orderByCode.get(b.etfCode) ?? Number.MAX_SAFE_INTEGER));
 
   const sortedMovers = globalMovers.sort((a, b) => Math.abs(b.deltaPp ?? 0) - Math.abs(a.deltaPp ?? 0)).slice(0, 8);
   const successCount = sections.filter((section) => section.sourceStatus === "ok").length;
@@ -307,6 +316,31 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
     },
     demoMode
   });
+}
+
+function emptyGlobalEtfSection(etf: GlobalEtfConfig): GlobalEtfReportSection {
+  return {
+    etfCode: etf.etfCode,
+    fundName: etf.fundName,
+    issuer: etf.issuer,
+    strategyType: etf.strategyType,
+    sourceAsOf: "",
+    sourceUrl: etf.holdingsUrl ?? etf.sourceUrl,
+    sourceStatus: "unavailable",
+    rowCount: 0,
+    topHoldings: [],
+    newPositions: [],
+    exitedPositions: [],
+    weightChanges: [],
+    shareChanges: [],
+    marketValueChanges: [],
+    sectorChanges: [],
+    countryChanges: [],
+    takeaway:
+      etf.sourceStatus === "verified"
+        ? "已在追蹤清單中，尚未有可顯示的持股快照；同步完成後會自動更新。"
+        : "已在追蹤清單中，等待官方持股 endpoint 驗證後啟用持股同步。"
+  };
 }
 
 export async function getGlobalEtfDailyReport(db?: Db): Promise<GlobalEtfDailyReport> {
@@ -370,6 +404,16 @@ export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
 export async function syncAllGlobalEtfHoldings(db: Db) {
   const results = [];
   for (const etf of enabledGlobalEtfs) {
+    if (etf.sourceStatus !== "verified") {
+      results.push({
+        etfCode: etf.etfCode,
+        ok: true,
+        skipped: true,
+        reason: "Official holdings endpoint is not verified yet."
+      });
+      continue;
+    }
+
     try {
       results.push({ etfCode: etf.etfCode, ok: true, result: await syncGlobalEtfHoldings(db, etf.etfCode) });
     } catch (error) {
