@@ -4,7 +4,7 @@ import { enabledGlobalEtfs } from "../../config/globalEtfs.js";
 import type { EtfDailySummary } from "../../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
-import { availableMarketDates } from "../market/marketDatesService.js";
+import { availableMarketDates, marketDateOverview } from "../market/marketDatesService.js";
 
 export const enabledTaiwanEtfCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
 export const enabledDailyGlobalEtfCodes = enabledGlobalEtfs.filter((etf) => etf.strategyType !== "13f").map((etf) => etf.etfCode);
@@ -17,8 +17,15 @@ export interface IntelligenceCoverage {
 }
 
 export async function effectiveTaiwanDates(db: Db, date: string | undefined, limit: number): Promise<string[]> {
-  const dates = await availableMarketDates(db, Math.max(limit * 2, 40));
-  const eligible = date ? dates.filter((candidate) => candidate <= date) : dates;
+  const queryLimit = Math.max(limit * 2, 40);
+  if (date) {
+    const dates = await availableMarketDates(db, queryLimit);
+    return dates.filter((candidate) => candidate <= date).slice(0, limit);
+  }
+
+  const overview = await marketDateOverview(db, queryLimit);
+  const anchorDate = overview.recommendedDate ?? overview.dates[0];
+  const eligible = anchorDate ? overview.dates.filter((candidate) => candidate <= anchorDate) : [];
   return eligible.slice(0, limit);
 }
 

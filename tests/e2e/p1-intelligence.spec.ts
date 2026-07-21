@@ -43,6 +43,23 @@ test("ETF compare enforces four selections and never offers 13F", async ({ page 
   await expect(page.getByText("已選 4 / 4 檔")).toBeVisible();
 });
 
+test("ETF compare starts with useful defaults and shows only complete option rows", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/compare/etfs");
+  await expect(page.getByText("已選 2 / 4 檔")).toBeVisible();
+  await expect(page.getByRole("button", { name: /00981A/u })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /00982A/u })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Jaccard", { exact: true })).toBeVisible();
+
+  const clipping = await page.locator(".code-options").evaluate((container) => {
+    const bottom = container.clientHeight;
+    return [...container.querySelectorAll("button")]
+      .map((button) => ({ top: (button as HTMLElement).offsetTop - (container as HTMLElement).offsetTop, bottom: (button as HTMLElement).offsetTop - (container as HTMLElement).offsetTop + (button as HTMLElement).offsetHeight }))
+      .filter((row) => row.top < bottom && row.bottom > bottom);
+  });
+  expect(clipping).toEqual([]);
+});
+
 test("selected ETF options keep WCAG AA text contrast in dark mode", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/compare/etfs?type=tw&codes=00981A,00982A");
