@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import type { GlobalReport } from "../../src/web/contracts/global.js";
 
 const impacts = [
   { stockId:"2330",stockName:"台積電",sector:"半導體",themeTags:["AI"],etfCount:8,increaseEtfCount:8,decreaseEtfCount:0,totalDiffLots:3600,totalActiveDiffLots:3250,totalDiffWeightPoint:.42,maxAbsActiveDiffLots:1500,maxAbsDiffWeightPoint:.2,impactScore:100,market:{market:"TWSE",closePrice:1200,change:10,changePercent:.84,volumeShares:20_000_000,turnover:24_000_000_000,transactionCount:10000},institutional:{foreignNetShares:-900_000,investmentTrustNetShares:-120_000,dealerNetShares:-100_000,totalNetShares:-1_120_000},primaryImpactEtf:{etfCode:"00981A",diffLots:1000,activeDiffLots:900,diffWeightPoint:.12,currentWeight:12,status:"increase"},etfs:[{etfCode:"00981A",diffLots:1000,activeDiffLots:900,diffWeightPoint:.12,currentWeight:12,status:"increase"}] },
@@ -15,7 +16,7 @@ const dashboard = {
   coverage:{date:"2026-07-21",trackedCount:10,availableCount:10,staleCount:0,etfs:[{etfCode:"00981A",name:"主動統一台股增長",issuer:"統一投信",providerId:"ezmoney",latestTradeDate:"2026-07-21",hasSelectedDate:true,status:"available",updatedAt:"2026-07-21T08:30:00Z"}]}
 };
 
-const globalReport = {
+const globalReport: GlobalReport = {
   reportDate:"2026-07-21",coveredEtfs:["DRAM","ARK13F"],successCount:2,totalCount:2,highlights:[],statusRows:[],commonHoldings:[],globalMovers:[],adContext:{tags:[]},
   sections:[
     {etfCode:"DRAM",fundName:"Roundhill Memory ETF",issuer:"Roundhill Investments",strategyType:"index",sourceAsOf:"2026-07-20",sourceUrl:"https://example.com/dram",sourceStatus:"verified",rowCount:1,topHoldings:[{ticker:"MU",name:"Micron Technology",weightPercent:18.4,assetType:"Equity",exposureComponents:[{ticker:"MU",name:"Micron",weightPercent:17,assetType:"Equity"},{ticker:"MU SWAP",name:"Micron swap",weightPercent:1.4,assetType:"Swap"}]}],newPositions:[],exitedPositions:[],weightChanges:[{etfCode:"DRAM",ticker:"MU",name:"Micron Technology",currentWeightPercent:18.4,prevWeightPercent:17.2,deltaPp:1.2,status:"increase"}],takeaway:"Memory exposure"},
@@ -23,7 +24,7 @@ const globalReport = {
   ]
 };
 
-async function mockApis(page: Page, globalReportFixture = globalReport) {
+async function mockApis(page: Page, globalReportFixture: GlobalReport = globalReport) {
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
