@@ -5,7 +5,7 @@ import CoverageStatus from "../components/CoverageStatus.vue";
 import DataFreshnessBadge from "../components/DataFreshnessBadge.vue";
 import MobileDataCard from "../components/MobileDataCard.vue";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
-import { buildDailyBrief } from "../domain/dailyBrief";
+import { buildDailyBrief, hasDirectionConsensus } from "../domain/dailyBrief";
 import { directionLabel, formatLots, formatSignedPp } from "../utils/format";
 
 const props = defineProps<{
@@ -19,6 +19,7 @@ const emit = defineEmits<{ navigate: [path: string]; stock: [stockId: string] }>
 
 const brief = computed(() => buildDailyBrief(props.impacts, props.sectors, props.coverage));
 const freshnessTone = computed(() => brief.value.confidence.level === "high" ? "fresh" : brief.value.confidence.level === "medium" ? "delayed" : "unknown");
+const sampleOnly = computed(() => brief.value.confidence.level === "low");
 
 function institutionLabel(row: StockImpact): string {
   const shares = row.institutional?.totalNetShares;
@@ -46,7 +47,7 @@ function institutionLabel(row: StockImpact): string {
 
     <section class="brief-section">
       <div class="brief-heading">
-        <div><span class="section-kicker">DAILY BRIEF</span><h2>今日最重要的三件事</h2></div>
+        <div><span class="section-kicker">DAILY BRIEF</span><h2>{{ sampleOnly ? "目前資料涵蓋不足" : "今日最重要的三件事" }}</h2><span v-if="sampleOnly" class="sample-scope">已更新樣本中</span></div>
         <p>中性研究摘要，不構成買賣建議。</p>
       </div>
       <div v-if="brief.insights.length" class="insight-grid">
@@ -61,15 +62,15 @@ function institutionLabel(row: StockImpact): string {
 
     <section class="brief-section consensus-section">
       <div class="brief-heading">
-        <div><span class="section-kicker">CROSS-ETF CONSENSUS</span><h2>今日共同加碼／共同減碼</h2></div>
-        <p>至少兩檔 ETF 同向調整才列入。</p>
+        <div><span class="section-kicker">CROSS-ETF ACTIONS</span><h2>{{ sampleOnly ? "已更新樣本中的共同加碼／共同減碼" : "今日共同加碼／共同減碼" }}</h2><span v-if="sampleOnly" class="sample-scope">已更新樣本中</span></div>
+        <p>至少兩檔同向才列入；占比達 60% 且多於反向才標示為共識。</p>
       </div>
       <div class="consensus-columns">
         <section class="consensus-panel increase">
           <h3><TrendingUp :size="18" /> 共同加碼 <small>{{ brief.additions.length }} 檔</small></h3>
           <button v-for="row in brief.additions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
             <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼</small></span>
+            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
             <span><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small>{{ institutionLabel(row) }}</small></span>
             <ArrowRight :size="16" />
           </button>
@@ -79,7 +80,7 @@ function institutionLabel(row: StockImpact): string {
           <h3><TrendingDown :size="18" /> 共同減碼 <small>{{ brief.reductions.length }} 檔</small></h3>
           <button v-for="row in brief.reductions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
             <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼</small></span>
+            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
             <span><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small>{{ institutionLabel(row) }}</small></span>
             <ArrowRight :size="16" />
           </button>
@@ -90,7 +91,7 @@ function institutionLabel(row: StockImpact): string {
 
     <section class="brief-section">
       <div class="brief-heading">
-        <div><span class="section-kicker">SECTOR DIRECTION</span><h2>產業方向</h2></div>
+        <div><span class="section-kicker">SECTOR DIRECTION</span><h2>{{ sampleOnly ? "已更新樣本中的產業方向" : "產業方向" }}</h2><span v-if="sampleOnly" class="sample-scope">已更新樣本中</span></div>
         <p>只保留當日變動最明顯的產業。</p>
       </div>
       <div class="sector-direction-grid">
@@ -128,6 +129,7 @@ function institutionLabel(row: StockImpact): string {
 .brief-heading h2 { margin:5px 0 0; color:#1e2c38; font-size:24px; }
 .brief-heading > p { max-width:380px; margin:0; color:#687580; line-height:1.6; text-align:right; }
 .section-kicker { color:#54708a; }
+.sample-scope { display:inline-flex; align-items:center; min-height:28px; margin-top:8px; padding:3px 9px; border:1px solid #e4c575; border-radius:999px; background:#fff9e8; color:#725412; font-size:12px; font-weight:800; }
 .insight-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .brief-insight { position:relative; min-height:190px; padding:22px; overflow:hidden; border:1px solid #e0e7ea; border-radius:12px; background:#f8fafb; }
 .brief-insight::after { content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:#7d8993; }.brief-insight.increase::after{background:#cf493e}.brief-insight.decrease::after{background:#07847d}.brief-insight.divergence::after{background:#9a6700}

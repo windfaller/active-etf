@@ -43,6 +43,8 @@ export interface GlobalReportSection {
   issuer: string;
   strategyType?: string;
   sourceAsOf: string;
+  filedAt?: string;
+  capturedAt?: string;
   sourceUrl: string;
   sourceStatus: string;
   rowCount: number;

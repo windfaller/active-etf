@@ -34,13 +34,17 @@ const knownInstitutionCodes = new Set(enabledGlobalEtfs.filter((etf) => etf.stra
 
 const route = ref<AppRoute>({ view: "daily", path: "/" });
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
-const selectedDate = ref("");
-const availableDates = ref<string[]>([]);
-const dashboard = ref<DashboardResponse>({
+const marketDate = ref("");
+const marketAvailableDates = ref<string[]>([]);
+const selectedEtfDate = ref("");
+const selectedEtfAvailableDates = ref<string[]>([]);
+const emptyDashboard = (): DashboardResponse => ({
   holdings: [], summary: null, changes: emptyChanges, summaries: [],
   stockImpact: { impacts: [], sectorSummary: { sectors: [] } },
   coverage: { date: null, trackedCount: 0, availableCount: 0, staleCount: 0, etfs: [] }
 });
+const marketDashboard = ref<DashboardResponse>(emptyDashboard());
+const selectedEtfDashboard = ref<DashboardResponse>(emptyDashboard());
 const isTaiwanLoading = ref(false);
 const taiwanError = ref("");
 const focusStockId = ref("");
@@ -58,10 +62,13 @@ const telegramInfo = ref<TelegramInfo | null>(null);
 const isMobileSearchOpen = ref(false);
 const { isDarkMode, toggleColorMode } = useColorMode();
 
-const selectedEtfCoverage = computed(() => dashboard.value.coverage.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null);
+const dashboard = computed(() => route.value.view === "taiwanEtf" ? selectedEtfDashboard.value : marketDashboard.value);
+const selectedEtfCoverage = computed(() => selectedEtfDashboard.value.coverage.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null);
 const globalEtfOptions = computed(() => globalOptions.value.filter((option) => option.strategyType !== "13f"));
 const institutionOptions = computed(() => globalOptions.value.filter((option) => option.strategyType === "13f"));
 const isTaiwanArea = computed(() => ["daily", "market", "taiwanEtf"].includes(route.value.view));
+const isTaiwanMarketArea = computed(() => route.value.view === "daily" || route.value.view === "market");
+const isTaiwanEtfArea = computed(() => route.value.view === "taiwanEtf");
 const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view));
 const telegramUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const parentNavigation = computed<{ path: string; label: string } | null>(() => {
@@ -147,19 +154,19 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return await response.json() as T;
 }
 
-let dateAbort: AbortController | null = null;
+let marketDateAbort: AbortController | null = null;
+let selectedEtfDateAbort: AbortController | null = null;
 let dashboardAbort: AbortController | null = null;
 let dashboardRequestId = 0;
 
-async function loadAvailableDates(code = selectedEtfCode.value): Promise<boolean> {
-  dateAbort?.abort();
-  dateAbort = new AbortController();
+async function loadMarketAvailableDates(): Promise<boolean> {
+  marketDateAbort?.abort();
+  marketDateAbort = new AbortController();
   try {
-    const result = await getJson<{ dates: string[] }>(`/api/etf/${code}/dates?limit=180`, dateAbort.signal);
-    if (code !== selectedEtfCode.value) return false;
-    availableDates.value = result.dates;
-    if (!selectedDate.value || !result.dates.includes(selectedDate.value)) selectedDate.value = result.dates[0] ?? "";
-    return Boolean(selectedDate.value);
+    const result = await getJson<{ dates: string[] }>("/api/market/dates?limit=180", marketDateAbort.signal);
+    marketAvailableDates.value = result.dates;
+    if (!marketDate.value || !result.dates.includes(marketDate.value)) marketDate.value = result.dates[0] ?? "";
+    return Boolean(marketDate.value);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return false;
     taiwanError.value = error instanceof Error ? error.message : "日期資料讀取失敗。";
@@ -167,26 +174,55 @@ async function loadAvailableDates(code = selectedEtfCode.value): Promise<boolean
   }
 }
 
-async function loadDashboard(forceDates = false): Promise<void> {
-  const code = selectedEtfCode.value;
-  if (forceDates || !availableDates.value.length || !selectedDate.value) {
-    const ready = await loadAvailableDates(code);
-    if (!ready || code !== selectedEtfCode.value) return;
+async function loadSelectedEtfAvailableDates(code = selectedEtfCode.value): Promise<boolean> {
+  selectedEtfDateAbort?.abort();
+  selectedEtfDateAbort = new AbortController();
+  try {
+    const result = await getJson<{ dates: string[] }>(`/api/etf/${code}/dates?limit=180`, selectedEtfDateAbort.signal);
+    if (code !== selectedEtfCode.value) return false;
+    selectedEtfAvailableDates.value = result.dates;
+    if (!selectedEtfDate.value || !result.dates.includes(selectedEtfDate.value)) selectedEtfDate.value = result.dates[0] ?? "";
+    return Boolean(selectedEtfDate.value);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return false;
+    taiwanError.value = error instanceof Error ? error.message : "單檔 ETF 日期資料讀取失敗。";
+    return false;
   }
+}
+
+async function fetchDashboard(code: string, date: string, target: "market" | "etf"): Promise<void> {
   const requestId = ++dashboardRequestId;
-  const date = selectedDate.value;
   dashboardAbort?.abort();
   dashboardAbort = new AbortController();
   isTaiwanLoading.value = true;
   taiwanError.value = "";
   try {
     const result = await getJson<DashboardResponse>(`/api/dashboard?etfCode=${encodeURIComponent(code)}&date=${encodeURIComponent(date)}`, dashboardAbort.signal);
-    if (requestId === dashboardRequestId && code === selectedEtfCode.value && date === selectedDate.value) dashboard.value = result;
+    if (requestId !== dashboardRequestId) return;
+    if (target === "market" && date === marketDate.value && isTaiwanMarketArea.value) marketDashboard.value = result;
+    if (target === "etf" && code === selectedEtfCode.value && date === selectedEtfDate.value && isTaiwanEtfArea.value) selectedEtfDashboard.value = result;
   } catch (error) {
     if (!(error instanceof DOMException && error.name === "AbortError")) taiwanError.value = error instanceof Error ? error.message : "台灣 ETF 資料讀取失敗。";
   } finally {
     if (requestId === dashboardRequestId) isTaiwanLoading.value = false;
   }
+}
+
+async function loadMarketDashboard(forceDates = false): Promise<void> {
+  if (forceDates || !marketAvailableDates.value.length || !marketDate.value) {
+    const ready = await loadMarketAvailableDates();
+    if (!ready || !isTaiwanMarketArea.value) return;
+  }
+  await fetchDashboard(selectedEtfCode.value, marketDate.value, "market");
+}
+
+async function loadSelectedEtfDashboard(forceDates = false): Promise<void> {
+  const code = selectedEtfCode.value;
+  if (forceDates || !selectedEtfAvailableDates.value.length || !selectedEtfDate.value) {
+    const ready = await loadSelectedEtfAvailableDates(code);
+    if (!ready || code !== selectedEtfCode.value) return;
+  }
+  await fetchDashboard(code, selectedEtfDate.value, "etf");
 }
 
 let globalAbort: AbortController | null = null;
@@ -232,7 +268,8 @@ async function loadTelegramInfo(): Promise<void> {
 }
 
 async function loadForCurrentRoute(): Promise<void> {
-  if (isTaiwanArea.value) await loadDashboard();
+  if (isTaiwanMarketArea.value) await loadMarketDashboard();
+  else if (isTaiwanEtfArea.value) await loadSelectedEtfDashboard();
   else if (isGlobalArea.value) await loadGlobalReport();
 }
 
@@ -255,8 +292,8 @@ async function navigate(path: string, replace = false): Promise<void> {
 
 async function selectTaiwanEtf(code: string): Promise<void> {
   selectedEtfCode.value = code;
-  availableDates.value = [];
-  selectedDate.value = "";
+  selectedEtfAvailableDates.value = [];
+  selectedEtfDate.value = "";
   await navigate(`/etf/${code}`);
 }
 
@@ -272,7 +309,8 @@ async function showMarketStock(stockId: string): Promise<void> {
 
 async function refreshCurrent(): Promise<void> {
   if (isGlobalArea.value) await loadGlobalReport(true);
-  else if (isTaiwanArea.value) await loadDashboard();
+  else if (isTaiwanMarketArea.value) await loadMarketDashboard(true);
+  else if (isTaiwanEtfArea.value) await loadSelectedEtfDashboard(true);
 }
 
 function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute(); }
@@ -288,7 +326,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("popstate", onPopState);
-  dateAbort?.abort(); dashboardAbort?.abort(); globalAbort?.abort();
+  marketDateAbort?.abort(); selectedEtfDateAbort?.abort(); dashboardAbort?.abort(); globalAbort?.abort();
 });
 </script>
 
@@ -307,7 +345,8 @@ onBeforeUnmount(() => {
       </nav>
       <div class="top-actions">
         <a class="telegram-link" :href="telegramUrl" target="_blank" rel="noreferrer" :aria-disabled="telegramInfo && !telegramInfo.configured">Telegram</a>
-        <label v-if="isTaiwanArea" class="date-control"><Calendar :size="15" /><select v-model="selectedDate" aria-label="台灣 ETF 資料日期" @change="loadDashboard()"><option v-if="!availableDates.length" value="">載入中</option><option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option></select></label>
+        <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
+        <label v-else-if="isTaiwanEtfArea" class="date-control"><Calendar :size="15" /><select v-model="selectedEtfDate" aria-label="單檔 ETF 資料日期" @change="loadSelectedEtfDashboard()"><option v-if="!selectedEtfAvailableDates.length" value="">載入中</option><option v-for="date in selectedEtfAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
         <label v-else-if="isGlobalArea" class="date-control"><Calendar :size="15" /><select v-model="selectedGlobalDate" aria-label="海外資料日期" @change="loadGlobalReport(true)"><option v-if="!globalAvailableDates.length" value="">載入中</option><option v-for="date in globalAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
         <button class="theme-button" type="button" :aria-label="isDarkMode ? '切換至淺色模式' : '切換至深色模式'" :title="isDarkMode ? '切換至淺色模式' : '切換至深色模式'" @click="toggleColorMode"><Sun v-if="isDarkMode" :size="17" /><Moon v-else :size="17" /></button>
         <button class="refresh-button" type="button" :disabled="isTaiwanLoading || isGlobalLoading" aria-label="重新整理資料" @click="refreshCurrent"><RefreshCw :size="17" :class="{ spinning: isTaiwanLoading || isGlobalLoading }" /></button>
@@ -320,9 +359,9 @@ onBeforeUnmount(() => {
 
     <p v-if="taiwanError && isTaiwanArea" class="app-alert">{{ taiwanError }}</p>
 
-    <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="selectedDate" :is-loading="isTaiwanLoading" @navigate="navigate" @stock="showMarketStock" />
-    <TaiwanMarketView v-else-if="route.view === 'market'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="selectedDate" :loading="isTaiwanLoading" :focus-stock-id="focusStockId" @etf="selectTaiwanEtf" @stock="showMarketStock" />
-    <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" />
+    <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" @navigate="navigate" @stock="showMarketStock" />
+    <TaiwanMarketView v-else-if="route.view === 'market'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :loading="isTaiwanLoading" :focus-stock-id="focusStockId" @etf="selectTaiwanEtf" @stock="showMarketStock" />
+    <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedEtfDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" />
     <GlobalMarketView v-else-if="route.view === 'globalMarket'" :report="globalReport" :loading="isGlobalLoading" :error="globalError" :selected-date="selectedGlobalDate" @etf="selectGlobalEtf" @institutions="navigate('/institutions')" />
     <GlobalEtfView v-else-if="route.view === 'globalEtf'" :report="globalReport" :options="globalEtfOptions" :selected-code="selectedGlobalCode" :loading="isGlobalLoading" :error="globalError" @select="selectGlobalEtf" />
     <InstitutionView v-else-if="route.view === 'institutions' || route.view === 'institution'" :report="globalReport" :options="institutionOptions" :selected-code="route.view === 'institution' ? selectedInstitutionCode : undefined" :loading="isGlobalLoading" :error="globalError" @select="selectInstitution" />

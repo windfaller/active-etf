@@ -219,6 +219,62 @@ function normalizeGlobalSourceDate(value?: string): string | undefined {
   return ISO_SOURCE_DATE_PATTERN.test(value) ? value : undefined;
 }
 
+export function sec13fMetadataFromSubmissions(
+  rawBody: string,
+  filedAtHint?: string
+): { sourceAsOf: string; filedAt: string } | null {
+  try {
+    const recent = (JSON.parse(rawBody) as {
+      filings?: { recent?: { form?: string[]; filingDate?: string[]; reportDate?: string[] } };
+    }).filings?.recent;
+    const forms = recent?.form ?? [];
+    const indexes = forms
+      .map((form, index) => ({ form, index }))
+      .filter(({ form }) => form === "13F-HR" || form === "13F-HR/A")
+      .map(({ index }) => index);
+    const index = indexes.find((candidate) => recent?.filingDate?.[candidate] === filedAtHint) ?? indexes[0] ?? -1;
+    const sourceAsOf = index >= 0 ? recent?.reportDate?.[index] : undefined;
+    const filedAt = index >= 0 ? recent?.filingDate?.[index] : undefined;
+    return sourceAsOf && filedAt ? { sourceAsOf, filedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+function capturedAtFromSnapshot(snapshot: GlobalEtfSnapshot): string | undefined {
+  if (snapshot.capturedAt) return snapshot.capturedAt;
+  const fetchedAt = snapshot.fetchedAt instanceof Date ? snapshot.fetchedAt : new Date(snapshot.fetchedAt);
+  return Number.isNaN(fetchedAt.getTime()) ? undefined : fetchedAt.toISOString();
+}
+
+async function recoverSec13fMetadata(db: Db, snapshots: GlobalEtfSnapshot[]): Promise<GlobalEtfSnapshot[]> {
+  const rawSnapshotIds = snapshots
+    .filter((snapshot) => snapshot.strategyType === "13f" && !snapshot.filedAt && snapshot.rawSnapshotId)
+    .map((snapshot) => snapshot.rawSnapshotId as string);
+  const rawRows = rawSnapshotIds.length
+    ? await db
+        .collection<{ snapshotId: string; rawBody?: string }>("global_etf_raw_snapshots")
+        .find({ snapshotId: { $in: rawSnapshotIds } }, { projection: { _id: 0, snapshotId: 1, rawBody: 1 } })
+        .toArray()
+    : [];
+  const rawById = new Map(rawRows.map((row) => [row.snapshotId, row.rawBody]));
+
+  return snapshots.map((snapshot) => {
+    const capturedAt = capturedAtFromSnapshot(snapshot);
+    if (snapshot.strategyType !== "13f" || snapshot.filedAt || !snapshot.rawSnapshotId) {
+      return capturedAt && !snapshot.capturedAt ? { ...snapshot, capturedAt } : snapshot;
+    }
+    const rawBody = rawById.get(snapshot.rawSnapshotId);
+    const recovered = rawBody ? sec13fMetadataFromSubmissions(rawBody, snapshot.sourceAsOf) : null;
+    return {
+      ...snapshot,
+      sourceAsOf: recovered?.sourceAsOf ?? snapshot.sourceAsOf,
+      filedAt: recovered?.filedAt,
+      capturedAt
+    };
+  });
+}
+
 async function latestSnapshotsFromDb(db: Db, sourceDate?: string): Promise<GlobalEtfSnapshot[]> {
   const normalizedSourceDate = normalizeGlobalSourceDate(sourceDate);
   const usableSnapshotsFilter: Filter<GlobalEtfSnapshot> = {
@@ -230,13 +286,25 @@ async function latestSnapshotsFromDb(db: Db, sourceDate?: string): Promise<Globa
     .collection<GlobalEtfSnapshot>("global_etf_snapshots")
     .aggregate<GlobalEtfSnapshot>([
       { $match: usableSnapshotsFilter },
-      { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
+      {
+        $set: {
+          selectionDate: {
+            $cond: [
+              { $eq: ["$strategyType", "13f"] },
+              { $ifNull: ["$filedAt", "$sourceAsOf"] },
+              "$sourceAsOf"
+            ]
+          }
+        }
+      },
+      { $sort: { selectionDate: -1, fetchedAt: -1 } },
       { $group: { _id: "$etfCode", doc: { $first: "$$ROOT" } } },
-      { $replaceRoot: { newRoot: "$doc" } }
+      { $replaceRoot: { newRoot: "$doc" } },
+      { $unset: "selectionDate" }
     ])
     .toArray();
 
-  return rows;
+  return recoverSec13fMetadata(db, rows);
 }
 
 export async function availableGlobalEtfSourceDates(db: Db, limit = 180): Promise<string[]> {
@@ -267,12 +335,14 @@ async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promi
     $or: usableSnapshotClauses()
   };
 
-  return db
+  const previous = await db
     .collection<GlobalEtfSnapshot>("global_etf_snapshots")
     .find(filter)
     .sort({ sourceAsOf: -1, fetchedAt: -1 })
     .limit(1)
     .next();
+  if (!previous) return null;
+  return (await recoverSec13fMetadata(db, [previous]))[0] ?? null;
 }
 
 async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[], demoMode = false, selectedDate?: string): Promise<GlobalEtfDailyReport> {
@@ -289,6 +359,8 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
       issuer: snapshot.issuer,
       strategyType: snapshot.strategyType,
       sourceAsOf: snapshot.sourceAsOf,
+      filedAt: snapshot.filedAt,
+      capturedAt: capturedAtFromSnapshot(snapshot),
       sourceUrl: snapshot.sourceUrl,
       sourceStatus: snapshot.sourceStatus,
       rowCount: snapshot.rowCount,
@@ -405,7 +477,7 @@ export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
   const current = await db
     .collection<GlobalEtfSnapshot>("global_etf_snapshots")
     .find({ etfCode: snapshot.etfCode })
-    .sort({ sourceAsOf: -1, fetchedAt: -1 })
+    .sort(snapshot.strategyType === "13f" ? { fetchedAt: -1 } : { sourceAsOf: -1, fetchedAt: -1 })
     .limit(1)
     .next();
 

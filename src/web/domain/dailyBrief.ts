@@ -24,6 +24,13 @@ export interface DailyBriefResult {
   latestUpdatedAt: string | null;
 }
 
+export interface DirectionAgreement {
+  sameDirectionCount: number;
+  oppositeDirectionCount: number;
+  ratio: number;
+  isConsensus: boolean;
+}
+
 export function coverageConfidence(coverage: EtfCoverageResponse | null, sampleCount: number): ConfidenceResult {
   if (!coverage || coverage.trackedCount === 0 || sampleCount < 3) {
     return { level: "low", label: "低", explanation: "跨 ETF 結論樣本不足，或尚無完整涵蓋資料。" };
@@ -38,17 +45,35 @@ export function coverageConfidence(coverage: EtfCoverageResponse | null, sampleC
   return { level: "low", label: "低", explanation: "大量 ETF 尚未更新，或跨 ETF 結論樣本不足。" };
 }
 
-function consensusRows(rows: StockImpact[], direction: "increase" | "decrease"): StockImpact[] {
+export function directionAgreement(row: StockImpact, direction: "increase" | "decrease"): DirectionAgreement {
+  const sameDirectionCount = direction === "increase" ? row.increaseEtfCount : row.decreaseEtfCount;
+  const oppositeDirectionCount = direction === "increase" ? row.decreaseEtfCount : row.increaseEtfCount;
+  const ratio = row.etfCount > 0 ? sameDirectionCount / row.etfCount : 0;
+  return {
+    sameDirectionCount,
+    oppositeDirectionCount,
+    ratio,
+    isConsensus: sameDirectionCount >= 2 && sameDirectionCount > oppositeDirectionCount && row.etfCount > 0 && ratio >= 0.6
+  };
+}
+
+export function hasDirectionConsensus(row: StockImpact, direction: "increase" | "decrease"): boolean {
+  return directionAgreement(row, direction).isConsensus;
+}
+
+function commonDirectionRows(rows: StockImpact[], direction: "increase" | "decrease"): StockImpact[] {
   return [...rows]
-    .filter((row) =>
-      direction === "increase"
-        ? row.totalActiveDiffLots > 0 && row.increaseEtfCount >= 2
-        : row.totalActiveDiffLots < 0 && row.decreaseEtfCount >= 2
-    )
+    .filter((row) => {
+      const agreement = directionAgreement(row, direction);
+      const activeDirectionMatches = direction === "increase" ? row.totalActiveDiffLots > 0 : row.totalActiveDiffLots < 0;
+      return activeDirectionMatches && agreement.sameDirectionCount >= 2;
+    })
     .sort((a, b) => {
-      const aCount = direction === "increase" ? a.increaseEtfCount : a.decreaseEtfCount;
-      const bCount = direction === "increase" ? b.increaseEtfCount : b.decreaseEtfCount;
-      return bCount - aCount || Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots);
+      const aAgreement = directionAgreement(a, direction);
+      const bAgreement = directionAgreement(b, direction);
+      return bAgreement.ratio - aAgreement.ratio
+        || bAgreement.sameDirectionCount - aAgreement.sameDirectionCount
+        || Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots);
     })
     .slice(0, 8);
 }
@@ -59,8 +84,8 @@ export function buildDailyBrief(
   coverage: EtfCoverageResponse | null
 ): DailyBriefResult {
   const confidence = coverageConfidence(coverage, impacts.length);
-  const additions = consensusRows(impacts, "increase");
-  const reductions = consensusRows(impacts, "decrease");
+  const additions = commonDirectionRows(impacts, "increase");
+  const reductions = commonDirectionRows(impacts, "decrease");
   const sectors = [...sectorRows]
     .filter((row) => row.sector && row.sector !== "其他")
     .sort((a, b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots))
@@ -71,14 +96,19 @@ export function buildDailyBrief(
     .sort()
     .at(-1) ?? null;
 
-  if (confidence.level === "low" && impacts.length < 3) {
+  if (confidence.level === "low") {
     return {
       confidence,
       additions,
       reductions,
       sectors,
       latestUpdatedAt,
-      insights: [{ id: "insufficient", title: "今日資料不足", description: confidence.explanation, tone: "neutral" }]
+      insights: [{
+        id: "insufficient",
+        title: "目前資料涵蓋不足",
+        description: "目前僅反映已更新 ETF，尚不能視為完整市場方向；以下內容均為已更新樣本中的觀察。",
+        tone: "neutral"
+      }]
     };
   }
 
@@ -98,10 +128,13 @@ export function buildDailyBrief(
   if (leadConsensus) {
     const increasing = leadConsensus.totalActiveDiffLots > 0;
     const count = increasing ? leadConsensus.increaseEtfCount : leadConsensus.decreaseEtfCount;
+    const isConsensus = hasDirectionConsensus(leadConsensus, increasing ? "increase" : "decrease");
     insights.push({
-      id: "consensus",
-      title: `${leadConsensus.stockId} ${leadConsensus.stockName}出現跨 ETF 共識`,
-      description: `${count} 檔 ETF 同向${increasing ? "加碼" : "減碼"}，主動淨變動 ${Math.abs(Math.round(leadConsensus.totalActiveDiffLots)).toLocaleString("zh-TW")} 張；此為公開資料研究摘要，非買賣建議。`,
+      id: isConsensus ? "consensus" : "common-action",
+      title: isConsensus
+        ? `${leadConsensus.stockId} ${leadConsensus.stockName}出現跨 ETF 共識`
+        : `${leadConsensus.stockId} ${leadConsensus.stockName}出現多檔 ETF 共同${increasing ? "加碼" : "減碼"}`,
+      description: `${count} 檔 ETF 同向${increasing ? "加碼" : "減碼"}，主動淨變動 ${Math.abs(Math.round(leadConsensus.totalActiveDiffLots)).toLocaleString("zh-TW")} 張；${isConsensus ? "同向占比與多數門檻皆已達標" : "尚未達到跨 ETF 共識門檻"}。`,
       tone: increasing ? "increase" : "decrease"
     });
   }
@@ -120,8 +153,15 @@ export function buildDailyBrief(
     });
   }
 
-  if (confidence.level !== "high" && insights.length < 3) {
-    insights.push({ id: "coverage", title: `訊號可信度：${confidence.label}`, description: confidence.explanation, tone: "neutral" });
+  if (confidence.level === "medium") {
+    if (insights.length < 3) {
+      insights.push({ id: "coverage", title: `訊號可信度：${confidence.label}`, description: confidence.explanation, tone: "neutral" });
+    }
+    for (const insight of insights) {
+      if (!insight.description.includes(confidence.explanation)) {
+        insight.description = `涵蓋限制：${confidence.explanation} ${insight.description}`;
+      }
+    }
   }
 
   return { confidence, insights: insights.slice(0, 3), additions, reductions, sectors, latestUpdatedAt };

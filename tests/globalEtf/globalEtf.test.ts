@@ -14,7 +14,7 @@ import {
 } from "../../src/providers/globalEtf/parser.js";
 import { buildGlobalSnapshot } from "../../src/providers/globalEtf/normalizer.js";
 import { calculateGlobalEtfChanges } from "../../src/services/globalEtf/changeCalculator.js";
-import { demoGlobalEtfSnapshots, getGlobalEtfDailyReport } from "../../src/services/globalEtf/globalEtfService.js";
+import { demoGlobalEtfSnapshots, getGlobalEtfDailyReport, sec13fMetadataFromSubmissions } from "../../src/services/globalEtf/globalEtfService.js";
 
 describe("global ETF product line", () => {
   it("keeps global ETF codes out of the Taiwan active ETF universe", () => {
@@ -341,6 +341,32 @@ describe("global ETF product line", () => {
         weightPercent: 0
       })
     );
+  });
+
+  it("keeps the 13F period of report separate from filing and capture dates", () => {
+    const metadata = sec13fMetadataFromSubmissions(JSON.stringify({
+      filings: {
+        recent: {
+          form: ["13F-HR"],
+          filingDate: ["2026-05-12"],
+          reportDate: ["2026-03-31"]
+        }
+      }
+    }), "2026-05-12");
+    expect(metadata).toEqual({ sourceAsOf: "2026-03-31", filedAt: "2026-05-12" });
+
+    const etf = enabledGlobalEtfs.find((item) => item.etfCode === "ARK13F");
+    const snapshot = buildGlobalSnapshot(etf!, {
+      sourceAsOf: metadata!.sourceAsOf,
+      filedAt: metadata!.filedAt,
+      capturedAt: "2026-05-13T01:02:03.000Z",
+      sourceUrl: etf!.sourceUrl,
+      rawRowCount: 0,
+      holdings: []
+    });
+    expect(snapshot.sourceAsOf).toBe("2026-03-31");
+    expect(snapshot.filedAt).toBe("2026-05-12");
+    expect(snapshot.capturedAt).toBe("2026-05-13T01:02:03.000Z");
   });
 
   it("filters EUV API rows to the newest holding_date before normalizing", () => {

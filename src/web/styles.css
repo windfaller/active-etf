@@ -208,8 +208,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 [data-theme="dark"] .p0-footer a,
 [data-theme="dark"] .context-back-nav button,
 [data-theme="dark"] .telegram-link { color: #8eb9df !important; }
+[data-theme="dark"] :is(
+  .coverage-status span,
+  .coverage-status small,
+  .section-kicker,
+  .consensus-panel h3 small,
+  .list-empty,
+  .advanced-entry small,
+  .mobile-primary-nav button
+) { color: #b7c4cd !important; }
+[data-theme="dark"] .coverage-status strong { color: var(--theme-text-strong) !important; }
 
 @media (max-width: 760px) {
+  button,
+  select,
+  summary,
+  [role="button"] { min-height: 44px; }
+  :is(.chip, .chips button, .inline-link) {
+    min-width: 44px;
+    min-height: 44px !important;
+    padding: 8px 11px !important;
+    white-space: normal;
+  }
+  :is(.mobile-card-detail, .mobile-data-card dd, .mobile-data-card p) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .static-seo-shell { width: calc(100% - 20px); margin: 10px auto; padding: 22px 16px; }
   .static-seo-shell ul { grid-template-columns: 1fr; }
 }

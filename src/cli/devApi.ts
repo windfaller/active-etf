@@ -22,6 +22,7 @@ import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
+import { availableMarketDates, safeMarketDateLimit } from "../services/market/marketDatesService.js";
 import { getGlobalEtfDailyReport, syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
@@ -147,6 +148,20 @@ const server = createServer(async (req, res) => {
         return stockImpactsForDate(db, date, changes);
       });
 
+      sendJson(res, 200, body);
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "market" && parts[2] === "dates") {
+      const parsedLimit = Number(requestUrl.searchParams.get("limit") ?? 180);
+      if (Number.isNaN(parsedLimit)) {
+        sendJson(res, 400, { error: "numeric limit is required" });
+        return;
+      }
+      const limit = safeMarketDateLimit(parsedLimit);
+      const body = await getOrSetDailyCache(["market", "dates", limit], async () => ({
+        dates: await availableMarketDates(await getDevDb(), limit)
+      }));
       sendJson(res, 200, body);
       return;
     }
