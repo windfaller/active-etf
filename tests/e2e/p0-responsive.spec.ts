@@ -26,6 +26,8 @@ const globalReport: GlobalReport = {
 
 async function mockApis(page: Page, globalReportFixture: GlobalReport = globalReport) {
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
+  await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
+  await page.route("https://www.forvix.app/**", (route) => route.fulfill({ contentType:"text/html", body:"<!doctype html><title>FORVIX embed fixture</title>" }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
     const headers = { "access-control-allow-origin": "*" };
@@ -61,6 +63,28 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     return route.fulfill({ headers, status:404, json:{} });
   });
 }
+
+test("Forvix market embed stays at content end on every requested product route", async ({ page }) => {
+  await mockApis(page);
+  const paths = [
+    "/",
+    "/market",
+    "/etf/00981A",
+    "/global-etfs",
+    "/global-etfs/DRAM",
+    "/institutions",
+    "/institutions/ARK13F"
+  ];
+
+  for (const path of paths) {
+    await page.goto(path);
+    const embed = page.locator("#forvix-market-watch-embed");
+    await expect(embed).toHaveCount(1);
+    await expect(embed).toHaveAttribute("data-forvix-placement", "content-end");
+    await expect(embed.locator("iframe")).toHaveAttribute("src", /https:\/\/www\.forvix\.app\/market-watch\/embed\/106981\?lang=zh-TW&targetOrigin=/u);
+    expect(await embed.evaluate((node) => node.nextElementSibling?.classList.contains("p0-footer"))).toBe(true);
+  }
+});
 
 const viewports = [
   { width:375,height:812 }, { width:390,height:844 }, { width:768,height:1024 }, { width:1440,height:900 }

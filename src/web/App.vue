@@ -17,6 +17,7 @@ import InstitutionView from "./views/InstitutionView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
 import TaiwanEtfView from "./views/TaiwanEtfView.vue";
 import TaiwanMarketView from "./views/TaiwanMarketView.vue";
+import ForvixMarketEmbed from "./components/ForvixMarketEmbed.vue";
 
 interface TelegramInfo { configured: boolean; username: string | null; subscribeUrl: string | null }
 interface MarketDateCoverage { date: string; availableCount: number; trackedCount: number; coverageRate: number }
@@ -425,6 +426,7 @@ onBeforeUnmount(() => {
     <NotFoundView v-else :path="route.path" @navigate="navigate" />
 
     <AdSlot v-if="route.view !== 'daily' && route.view !== 'notFound'" slot="article-inline" mode="compact" compact :page="route.path" :etf-code="route.etfCode ?? route.globalCode" :tags="globalReport?.adContext.tags ?? ['active-etf','institutional-flow']" />
+    <ForvixMarketEmbed v-if="route.view !== 'notFound'" />
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>
