@@ -6,10 +6,11 @@ import "./styles.css";
 
 initializeColorMode();
 
-void reloadWhenAppVersionChanges()
-  .then((isReloading) => {
-    if (!isReloading) createApp(App).mount("#app");
-  })
-  .catch(() => {
-    createApp(App).mount("#app");
-  });
+createApp(App).mount("#app");
+
+const idleWindow = window as Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+};
+const checkVersion = () => void reloadWhenAppVersionChanges();
+if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(checkVersion, { timeout: 2500 });
+else window.setTimeout(checkVersion, 800);

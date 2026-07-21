@@ -49,10 +49,10 @@ export interface GlobalReportSection {
   sourceStatus: string;
   rowCount: number;
   topHoldings: GlobalHolding[];
-  newPositions: GlobalChange[];
-  exitedPositions: GlobalChange[];
+  newPositions?: GlobalChange[];
+  exitedPositions?: GlobalChange[];
   weightChanges: GlobalChange[];
-  takeaway: string;
+  takeaway?: string;
 }
 
 export interface GlobalEtfOption {
@@ -74,8 +74,8 @@ export interface GlobalReport {
   totalCount: number;
   highlights: string[];
   statusRows: Array<{ etfCode: string; sourceAsOf: string; rowCount: number; sourceStatus: string }>;
-  commonHoldings: GlobalCommonHolding[];
-  globalMovers: GlobalChange[];
+  commonHoldings?: GlobalCommonHolding[];
+  globalMovers?: GlobalChange[];
   sections: GlobalReportSection[];
   adContext: { tags: string[] };
   demoMode?: boolean;

@@ -17,8 +17,15 @@ vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
 vi.mock("../../src/services/cache/dailyDataCache.js", () => ({
   getOrSetDailyCache: vi.fn(async (_key: unknown, loader: () => Promise<unknown>) => loader())
 }));
+vi.mock("../../src/services/market/marketDashboardService.js", () => ({
+  marketDashboardForDate: vi.fn(async (_db: unknown, date: string) => ({
+    date,
+    stockImpact: { impacts: [], sectorSummary: { sectors: [] } },
+    coverage: { date, trackedCount: 28, availableCount: 22, staleCount: 6, etfs: [] }
+  }))
+}));
 
-import { getMarketDates } from "../../src/api/getMarketDates.js";
+import { getMarketBootstrap, getMarketDates } from "../../src/api/getMarketDates.js";
 
 function request(query: string): HttpRequest {
   return { query: new URLSearchParams(query) } as unknown as HttpRequest;
@@ -44,5 +51,27 @@ describe("GET /api/market/dates", () => {
     const response = await getMarketDates(request("limit=abc"), {} as InvocationContext);
     expect(response.status).toBe(400);
     expect(response.jsonBody).toEqual({ error: "numeric limit is required" });
+  });
+
+  it("returns the recommended date and thin market dashboard in one bootstrap response", async () => {
+    const response = await getMarketBootstrap(request("limit=2"), {} as InvocationContext);
+    expect(response.status).toBe(200);
+    expect(response.jsonBody).toMatchObject({
+      selectedDate: "2026-07-20",
+      dates: ["2026-07-21", "2026-07-20"],
+      dashboard: {
+        date: "2026-07-20",
+        stockImpact: { impacts: [] },
+        coverage: { availableCount: 22 }
+      }
+    });
+  });
+
+  it("preserves an explicitly selected available date while refreshing bootstrap data", async () => {
+    const response = await getMarketBootstrap(request("limit=2&date=2026-07-21"), {} as InvocationContext);
+    expect(response.jsonBody).toMatchObject({
+      selectedDate: "2026-07-21",
+      dashboard: { date: "2026-07-21" }
+    });
   });
 });

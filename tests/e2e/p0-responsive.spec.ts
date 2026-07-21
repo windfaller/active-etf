@@ -11,8 +11,8 @@ const dashboard = {
   holdings:[{stockId:"2330",stockName:"台積電",shares:1_000_000,lots:1000,weight:12.3,marketValue:1_200_000_000}],
   summary:{tradeDate:"2026-07-21",nav:20.1,marketPrice:20.2,premiumDiscount:.5,totalUnits:1_000_000,fundSize:2_000_000_000,netCreationUnits:10_000,cashRatio:3,stockRatio:97},
   summaries:[{tradeDate:"2026-07-21",nav:20.1,marketPrice:20.2,premiumDiscount:.5,totalUnits:1_000_000,fundSize:2_000_000_000,netCreationUnits:10_000,cashRatio:3,stockRatio:97}],
-  changes:{topIncreases:[],topDecreases:[],topActiveIncreases:[],topActiveDecreases:[],newHoldings:[],exitedHoldings:[],tagMovements:[]},
-  stockImpact:{impacts,sectorSummary:{sectors:[{sector:"半導體",stockCount:2,etfCount:8,totalActiveDiffLots:3800,totalInstitutionalNetLots:-920,totalTurnover:24_000_000_000,topStocks:[]},{sector:"電子零組件",stockCount:1,etfCount:5,totalActiveDiffLots:-1300,totalInstitutionalNetLots:400,totalTurnover:0,topStocks:[]}]}},
+  changes:{topIncreases:[{stockId:"2330",stockName:"台積電",prevShares:900_000,currentShares:1_000_000,diffShares:100_000,diffLots:100,diffPct:11.1,prevWeight:11.8,currentWeight:12.3,diffWeightPoint:.5,expectedSharesByScale:920_000,activeDiffShares:80_000,activeDiffLots:80,activeDiffPct:8.7,activeSignalScore:1,status:"increase"}],topDecreases:[],topActiveIncreases:[],topActiveDecreases:[],newHoldings:[],exitedHoldings:[],tagMovements:[]},
+  stockImpact:{impacts,sectorSummary:{sectors:[{sector:"半導體",stockCount:2,etfCount:8,totalActiveDiffLots:3800,totalInstitutionalNetLots:-920,totalTurnover:24_000_000_000,topStocks:[{stockId:"2330",stockName:"台積電",impactScore:100,totalActiveDiffLots:3250},{stockId:"2454",stockName:"聯發科",impactScore:50,totalActiveDiffLots:550}]},{sector:"電子零組件",stockCount:1,etfCount:5,totalActiveDiffLots:-1300,totalInstitutionalNetLots:400,totalTurnover:0,topStocks:[{stockId:"2317",stockName:"鴻海",impactScore:80,totalActiveDiffLots:-1300}]}]}},
   coverage:{date:"2026-07-21",trackedCount:10,availableCount:10,staleCount:0,etfs:[{etfCode:"00981A",name:"主動統一台股增長",issuer:"統一投信",providerId:"ezmoney",latestTradeDate:"2026-07-21",hasSelectedDate:true,status:"available",updatedAt:"2026-07-21T08:30:00Z"}]}
 };
 
@@ -32,6 +32,16 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
     if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReportFixture });
+    if (url.includes("/market/bootstrap")) return route.fulfill({ headers, json:{
+      dates:["2026-07-21","2026-07-20"],
+      recommendedDate:"2026-07-20",
+      selectedDate:"2026-07-20",
+      coverage:[
+        {date:"2026-07-21",availableCount:4,trackedCount:10,coverageRate:.4},
+        {date:"2026-07-20",availableCount:10,trackedCount:10,coverageRate:1}
+      ],
+      dashboard:{date:"2026-07-20",stockImpact:dashboard.stockImpact,coverage:{...dashboard.coverage,date:"2026-07-20"}}
+    } });
     if (url.includes("/market/dates")) return route.fulfill({ headers, json:{
       dates:["2026-07-21","2026-07-20"],
       recommendedDate:"2026-07-20",
@@ -44,6 +54,7 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     if (url.includes("/dashboard")) {
       const selected = new URL(url).searchParams.get("date") ?? "2026-07-21";
       const latestPartial = selected === "2026-07-21";
+      if (url.includes("/market/dashboard")) return route.fulfill({ headers, json:{date:selected,stockImpact:dashboard.stockImpact,coverage:{...dashboard.coverage,date:selected,availableCount:latestPartial ? 4 : 10,staleCount:latestPartial ? 6 : 0}} });
       return route.fulfill({ headers, json:{...dashboard,summary:{...dashboard.summary,tradeDate:selected},coverage:{...dashboard.coverage,date:selected,availableCount:latestPartial ? 4 : 10,staleCount:latestPartial ? 6 : 0}} });
     }
     if (url.includes("/telegram/info")) return route.fulfill({ headers, json:{configured:false,username:null,subscribeUrl:null} });
@@ -61,6 +72,8 @@ for (const viewport of viewports) {
     await mockApis(page);
     await page.goto("/market");
     await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
+    const sectorGrid = page.getByLabel("重點產業方向");
+    await expect(sectorGrid.getByRole("button", { name: /2330.*台積電.*\+3,250/u })).toBeVisible();
     await expect(page.getByText("正負值同時使用文字與符號呈現，不只依賴顏色。")).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (viewport.width <= 760) {
@@ -72,6 +85,8 @@ for (const viewport of viewports) {
       await expect(card.getByText("產業／主題")).toBeVisible();
       await expect(card.getByText("成交金額")).toBeVisible();
       await expect(card.getByRole("button", { name: /00981A/u })).toBeVisible();
+      await sectorGrid.getByRole("button", { name: /2330.*台積電.*\+3,250/u }).click();
+      await expect(page.locator("article.market-impact-card.is-focused")).toContainText("2330 台積電");
       const toneStyles = await page.locator("article.market-impact-card").evaluateAll((cards) => cards.slice(0, 2).map((toneCard) => ({
         background: getComputedStyle(toneCard).backgroundColor,
         accent: getComputedStyle(toneCard.querySelector(".impact-summary-primary b") as Element).color,
@@ -134,7 +149,7 @@ test("homepage does not request the full global report and browser history follo
   await expect(page.getByRole("heading", { name: "主動 ETF 機構調倉情報" })).toBeVisible();
   await page.waitForTimeout(500);
   expect(globalReportRequests).toHaveLength(0);
-  expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/market/dates", "/api/dashboard"]);
+  expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/market/bootstrap"]);
   await page.getByRole("button", { name: "海外 ETF", exact: true }).click();
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();
@@ -144,6 +159,17 @@ test("homepage does not request the full global report and browser history follo
   await page.goForward();
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();
+});
+
+test("single ETF change cards show current weight without a details toggle", async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await mockApis(page);
+  await page.goto("/etf/00981A/changes");
+  const changesPanel = page.locator("#changes-panel");
+  await expect(changesPanel.getByText("2330 台積電")).toBeVisible();
+  await expect(changesPanel.getByText(/權重變化 \+0\.50 pp｜目前 12\.30%/u)).toBeVisible();
+  await expect(changesPanel.locator("details.mobile-data-card")).toHaveCount(0);
+  await expect(changesPanel.getByText("詳情", { exact:true })).toHaveCount(0);
 });
 
 test("market and single-ETF dates stay independent across navigation and history", async ({ page }) => {

@@ -5,6 +5,7 @@ import { getDb } from "../db/mongo.js";
 import type { GlobalEtfDailyReport } from "../models/GlobalEtf.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { availableGlobalEtfSourceDates, getGlobalEtfDailyReport } from "../services/globalEtf/globalEtfService.js";
+import { projectGlobalEtfWebReport } from "../services/globalEtf/webReportProjection.js";
 import { badRequest, jsonResponse } from "./response.js";
 
 function sanitizeGlobalSourceDate(value: string | null): string | undefined {
@@ -48,6 +49,14 @@ async function getCachedGlobalEtfDailyReport(sourceDate?: string): Promise<Globa
   return getOrSetDailyCache(["global-etfs", "daily-report", sourceDate ?? "latest", version], () => getGlobalEtfDailyReport(db, sourceDate));
 }
 
+async function getCachedGlobalEtfWebReport(sourceDate?: string) {
+  const db = await getDb();
+  const version = await globalEtfSnapshotVersion(db);
+  return getOrSetDailyCache(["global-etfs", "web-report", sourceDate ?? "latest", version], async () =>
+    projectGlobalEtfWebReport(await getGlobalEtfDailyReport(db, sourceDate))
+  );
+}
+
 export async function getEnabledGlobalEtfs(_request: HttpRequest, _context: InvocationContext) {
   return jsonResponse({
     productGroup: "global_etf",
@@ -63,7 +72,9 @@ export async function getGlobalEtfDates(request: HttpRequest, _context: Invocati
 }
 
 export async function getGlobalEtfDailyReportApi(request: HttpRequest, _context: InvocationContext) {
-  return jsonResponse(await getCachedGlobalEtfDailyReport(sanitizeGlobalSourceDate(request.query.get("date"))));
+  const sourceDate = sanitizeGlobalSourceDate(request.query.get("date"));
+  if (request.query.get("format") === "web") return jsonResponse(await getCachedGlobalEtfWebReport(sourceDate));
+  return jsonResponse(await getCachedGlobalEtfDailyReport(sourceDate));
 }
 
 export async function getGlobalEtfHoldings(request: HttpRequest, _context: InvocationContext) {

@@ -21,6 +21,15 @@ import TaiwanMarketView from "./views/TaiwanMarketView.vue";
 interface TelegramInfo { configured: boolean; username: string | null; subscribeUrl: string | null }
 interface MarketDateCoverage { date: string; availableCount: number; trackedCount: number; coverageRate: number }
 interface MarketDatesResponse { dates: string[]; recommendedDate?: string | null; coverage?: MarketDateCoverage[] }
+interface MarketDashboardResponse {
+  date: string;
+  stockImpact: DashboardResponse["stockImpact"];
+  coverage: DashboardResponse["coverage"];
+}
+interface MarketBootstrapResponse extends MarketDatesResponse {
+  selectedDate: string | null;
+  dashboard: MarketDashboardResponse | null;
+}
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled).map((etf) => ({
@@ -163,27 +172,43 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return await response.json() as T;
 }
 
-let marketDateAbort: AbortController | null = null;
 let selectedEtfDateAbort: AbortController | null = null;
 let dashboardAbort: AbortController | null = null;
 let dashboardRequestId = 0;
 
-async function loadMarketAvailableDates(): Promise<boolean> {
-  marketDateAbort?.abort();
-  marketDateAbort = new AbortController();
+function applyMarketDashboard(result: MarketDashboardResponse): void {
+  marketDashboard.value = {
+    ...emptyDashboard(),
+    stockImpact: result.stockImpact,
+    coverage: result.coverage
+  };
+}
+
+async function loadMarketBootstrap(): Promise<boolean> {
+  const requestId = ++dashboardRequestId;
+  dashboardAbort?.abort();
+  dashboardAbort = new AbortController();
+  isTaiwanLoading.value = true;
+  taiwanError.value = "";
   try {
-    const result = await getJson<MarketDatesResponse>("/api/market/dates?limit=180", marketDateAbort.signal);
+    const bootstrapParams = new URLSearchParams({ limit: "180" });
+    if (marketDate.value) bootstrapParams.set("date", marketDate.value);
+    const result = await getJson<MarketBootstrapResponse>(`/api/market/bootstrap?${bootstrapParams.toString()}`, dashboardAbort.signal);
+    if (requestId !== dashboardRequestId || !isTaiwanMarketArea.value) return false;
     marketAvailableDates.value = result.dates;
     marketDateCoverage.value = result.coverage ?? [];
-    const recommendedDate = result.recommendedDate && result.dates.includes(result.recommendedDate)
-      ? result.recommendedDate
+    const recommendedDate = result.selectedDate && result.dates.includes(result.selectedDate)
+      ? result.selectedDate
       : result.dates[0] ?? "";
     if (!marketDate.value || !result.dates.includes(marketDate.value)) marketDate.value = recommendedDate;
-    return Boolean(marketDate.value);
+    if (result.dashboard && result.dashboard.date === marketDate.value) applyMarketDashboard(result.dashboard);
+    return Boolean(marketDate.value && result.dashboard);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return false;
-    taiwanError.value = error instanceof Error ? error.message : "日期資料讀取失敗。";
+    taiwanError.value = error instanceof Error ? error.message : "台灣市場資料讀取失敗。";
     return false;
+  } finally {
+    if (requestId === dashboardRequestId) isTaiwanLoading.value = false;
   }
 }
 
@@ -221,10 +246,12 @@ async function fetchDashboard(code: string, date: string, target: "market" | "et
   isTaiwanLoading.value = true;
   taiwanError.value = "";
   try {
-    const result = await getJson<DashboardResponse>(`/api/dashboard?etfCode=${encodeURIComponent(code)}&date=${encodeURIComponent(date)}`, dashboardAbort.signal);
+    const result = target === "market"
+      ? await getJson<MarketDashboardResponse>(`/api/market/dashboard?date=${encodeURIComponent(date)}`, dashboardAbort.signal)
+      : await getJson<DashboardResponse>(`/api/dashboard?etfCode=${encodeURIComponent(code)}&date=${encodeURIComponent(date)}`, dashboardAbort.signal);
     if (requestId !== dashboardRequestId) return;
-    if (target === "market" && date === marketDate.value && isTaiwanMarketArea.value) marketDashboard.value = result;
-    if (target === "etf" && code === selectedEtfCode.value && date === selectedEtfDate.value && isTaiwanEtfArea.value) selectedEtfDashboard.value = result;
+    if (target === "market" && date === marketDate.value && isTaiwanMarketArea.value) applyMarketDashboard(result as MarketDashboardResponse);
+    if (target === "etf" && code === selectedEtfCode.value && date === selectedEtfDate.value && isTaiwanEtfArea.value) selectedEtfDashboard.value = result as DashboardResponse;
   } catch (error) {
     if (!(error instanceof DOMException && error.name === "AbortError")) taiwanError.value = error instanceof Error ? error.message : "台灣 ETF 資料讀取失敗。";
   } finally {
@@ -234,8 +261,8 @@ async function fetchDashboard(code: string, date: string, target: "market" | "et
 
 async function loadMarketDashboard(forceDates = false): Promise<void> {
   if (forceDates || !marketAvailableDates.value.length || !marketDate.value) {
-    const ready = await loadMarketAvailableDates();
-    if (!ready || !isTaiwanMarketArea.value) return;
+    await loadMarketBootstrap();
+    return;
   }
   await fetchDashboard(selectedEtfCode.value, marketDate.value, "market");
 }
@@ -273,8 +300,9 @@ async function loadGlobalReport(force = false): Promise<void> {
         globalAvailableDates.value = datesResult.value.dates;
         if (!selectedGlobalDate.value || !datesResult.value.dates.includes(selectedGlobalDate.value)) selectedGlobalDate.value = datesResult.value.dates[0] ?? "";
       }
-      const suffix = selectedGlobalDate.value ? `?date=${encodeURIComponent(selectedGlobalDate.value)}` : "";
-      const report = await getJson<GlobalReport>(`/api/global-etfs/daily-report${suffix}`, signal);
+      const reportParams = new URLSearchParams({ format: "web" });
+      if (selectedGlobalDate.value) reportParams.set("date", selectedGlobalDate.value);
+      const report = await getJson<GlobalReport>(`/api/global-etfs/daily-report?${reportParams.toString()}`, signal);
       if (requestId === globalRequestId) globalReport.value = report;
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) globalError.value = error instanceof Error ? error.message : "海外 ETF 資料讀取失敗。";
@@ -350,7 +378,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("popstate", onPopState);
-  marketDateAbort?.abort(); selectedEtfDateAbort?.abort(); dashboardAbort?.abort(); globalAbort?.abort();
+  selectedEtfDateAbort?.abort(); dashboardAbort?.abort(); globalAbort?.abort();
 });
 </script>
 

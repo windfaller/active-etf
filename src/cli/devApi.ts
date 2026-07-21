@@ -22,8 +22,10 @@ import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
+import { marketDashboardForDate } from "../services/market/marketDashboardService.js";
 import { marketDateOverview, safeMarketDateLimit } from "../services/market/marketDatesService.js";
 import { getGlobalEtfDailyReport, syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
+import { projectGlobalEtfWebReport } from "../services/globalEtf/webReportProjection.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
 
@@ -109,11 +111,11 @@ function getDevDb(): Promise<Db> {
   return dbPromise;
 }
 
-async function getDevGlobalEtfReport() {
+async function getDevGlobalEtfReport(sourceDate?: string) {
   try {
-    return await getGlobalEtfDailyReport(await getDevDb());
+    return await getGlobalEtfDailyReport(await getDevDb(), sourceDate);
   } catch {
-    return getGlobalEtfDailyReport();
+    return getGlobalEtfDailyReport(undefined, sourceDate);
   }
 }
 
@@ -163,6 +165,39 @@ const server = createServer(async (req, res) => {
         marketDateOverview(await getDevDb(), limit)
       );
       sendJson(res, 200, body);
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "market" && parts[2] === "dashboard") {
+      const date = assertTradeDate(required(requestUrl.searchParams.get("date"), "date"));
+      const body = await getOrSetDailyCache(["market", "dashboard", "v1", date], async () =>
+        marketDashboardForDate(await getDevDb(), date)
+      );
+      sendJson(res, 200, body);
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "market" && parts[2] === "bootstrap") {
+      const parsedLimit = Number(requestUrl.searchParams.get("limit") ?? 180);
+      if (Number.isNaN(parsedLimit)) {
+        sendJson(res, 400, { error: "numeric limit is required" });
+        return;
+      }
+      const limit = safeMarketDateLimit(parsedLimit);
+      const overview = await getOrSetDailyCache(["market", "dates", "v3", limit], async () =>
+        marketDateOverview(await getDevDb(), limit)
+      );
+      const requestedDateParam = requestUrl.searchParams.get("date");
+      const requestedDate = requestedDateParam ? assertTradeDate(requestedDateParam) : null;
+      const selectedDate = requestedDate && overview.dates.includes(requestedDate)
+        ? requestedDate
+        : overview.recommendedDate ?? overview.dates[0] ?? null;
+      const dashboard = selectedDate
+        ? await getOrSetDailyCache(["market", "dashboard", "v1", selectedDate], async () =>
+            marketDashboardForDate(await getDevDb(), selectedDate)
+          )
+        : null;
+      sendJson(res, 200, { ...overview, selectedDate, dashboard });
       return;
     }
 
@@ -344,7 +379,9 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && parts[1] === "global-etfs" && parts[2] === "daily-report") {
-      sendJson(res, 200, await getDevGlobalEtfReport());
+      const sourceDate = requestUrl.searchParams.get("date") ?? undefined;
+      const report = await getDevGlobalEtfReport(sourceDate);
+      sendJson(res, 200, requestUrl.searchParams.get("format") === "web" ? projectGlobalEtfWebReport(report) : report);
       return;
     }
 
