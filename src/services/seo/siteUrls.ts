@@ -1,5 +1,4 @@
-export const defaultSiteBaseUrl = "https://active-etf.chicoo.co";
-export const inthewinsSiteBaseUrl = "https://active-etf.inthewins.com";
+export const defaultSiteBaseUrl = "https://active-etf.inthewins.com";
 
 const defaultAllowedHosts = [
   "active-etf.chicoo.co",
@@ -11,9 +10,9 @@ const defaultAllowedHosts = [
 ];
 
 const canonicalHostByHost = new Map([
-  ["active-etf.chicoo.co", "active-etf.chicoo.co"],
-  ["chicoo.co", "active-etf.chicoo.co"],
-  ["www.chicoo.co", "active-etf.chicoo.co"],
+  ["active-etf.chicoo.co", "active-etf.inthewins.com"],
+  ["chicoo.co", "active-etf.inthewins.com"],
+  ["www.chicoo.co", "active-etf.inthewins.com"],
   ["active-etf.inthewins.com", "active-etf.inthewins.com"],
   ["inthewins.com", "active-etf.inthewins.com"],
   ["www.inthewins.com", "active-etf.inthewins.com"]
@@ -29,6 +28,13 @@ function parseHostList(value?: string): string[] {
 
 function allowedHostsFromEnv(value?: string): string[] {
   return [...new Set([...defaultAllowedHosts, ...parseHostList(value)])];
+}
+
+function normalizeBaseUrl(value: string): string {
+  const normalized = value.replace(/\/+$/u, "");
+  const hostname = normalizedHostname(normalized);
+  if (hostname && canonicalHostByHost.has(hostname)) return defaultSiteBaseUrl;
+  return normalized;
 }
 
 export function normalizedHostname(hostHeader?: string | null): string | null {
@@ -49,7 +55,7 @@ export function siteBaseUrlFromHost(
     fallbackBaseUrl?: string;
   } = {}
 ): string {
-  const fallbackBaseUrl = (options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl).replace(/\/+$/u, "");
+  const fallbackBaseUrl = normalizeBaseUrl(options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl);
   const allowedHosts = options.allowedHosts ?? allowedHostsFromEnv(process.env.PUBLIC_SITE_HOSTS);
   const hostname = normalizedHostname(hostHeader);
 
@@ -64,7 +70,7 @@ export function siteBaseUrlFromHostCandidates(
     fallbackBaseUrl?: string;
   } = {}
 ): string {
-  const fallbackBaseUrl = (options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl).replace(/\/+$/u, "");
+  const fallbackBaseUrl = normalizeBaseUrl(options.fallbackBaseUrl ?? process.env.PUBLIC_BASE_URL ?? defaultSiteBaseUrl);
   const allowedHosts = options.allowedHosts ?? allowedHostsFromEnv(process.env.PUBLIC_SITE_HOSTS);
 
   for (const hostHeader of hostHeaders) {

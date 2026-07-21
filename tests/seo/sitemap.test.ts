@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HttpRequest } from "@azure/functions";
-import { getInthewinsSitemapXml, getRobotsTxt, getSitemapXml } from "../../src/api/getSeoFiles.js";
+import { getRobotsTxt, getSitemapXml } from "../../src/api/getSeoFiles.js";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
 import { siteBaseUrlFromHost, siteBaseUrlFromHostCandidates } from "../../src/services/seo/siteUrls.js";
@@ -10,66 +10,49 @@ describe("SEO sitemap files", () => {
   const emptyRequest = {} as HttpRequest;
   const emptyContext = {} as never;
 
-  it("keeps the default sitemap fixed to the chicoo host", async () => {
+  it("publishes one canonical inthewins sitemap", async () => {
     const response = await getSitemapXml(emptyRequest, emptyContext);
-    expect(response.body).toContain("<loc>https://active-etf.chicoo.co/</loc>");
-    expect(response.body).not.toContain("active-etf.inthewins.com");
-  });
-
-  it("builds an independent inthewins sitemap", async () => {
-    const response = await getInthewinsSitemapXml(emptyRequest, emptyContext);
     expect(response.body).toContain("<loc>https://active-etf.inthewins.com/</loc>");
     expect(response.body).toContain("<loc>https://active-etf.inthewins.com/etf/00981A</loc>");
     expect(response.body).not.toContain("active-etf.chicoo.co");
   });
 
-  it("keeps robots.txt on the default sitemap", async () => {
+  it("keeps robots.txt on the canonical sitemap", async () => {
     const response = await getRobotsTxt(emptyRequest, emptyContext);
-    expect(response.body).toContain("Sitemap: https://active-etf.chicoo.co/sitemap.xml");
+    expect(response.body).toContain("Sitemap: https://active-etf.inthewins.com/sitemap.xml");
   });
 
-  it("builds sitemap URLs from the request host", () => {
-    const xml = buildSitemapXml(siteBaseUrlFromHost("active-etf.inthewins.com"));
-
-    expect(xml).toContain("<loc>https://active-etf.inthewins.com/</loc>");
-    expect(xml).toContain("<loc>https://active-etf.inthewins.com/etf/00981A</loc>");
-    expect(xml).not.toContain("active-etf.chicoo.co");
-  });
-
-  it("normalizes apex and www hosts to active-etf subdomain sitemap URLs", () => {
+  it("normalizes legacy and apex hosts to the production subdomain", () => {
     expect(siteBaseUrlFromHost("inthewins.com")).toBe("https://active-etf.inthewins.com");
     expect(siteBaseUrlFromHost("www.inthewins.com")).toBe("https://active-etf.inthewins.com");
-    expect(siteBaseUrlFromHost("chicoo.co")).toBe("https://active-etf.chicoo.co");
-    expect(siteBaseUrlFromHost("www.chicoo.co")).toBe("https://active-etf.chicoo.co");
+    expect(siteBaseUrlFromHost("chicoo.co")).toBe("https://active-etf.inthewins.com");
+    expect(siteBaseUrlFromHost("active-etf.chicoo.co")).toBe("https://active-etf.inthewins.com");
   });
 
-  it("keeps built-in sitemap hosts available when PUBLIC_SITE_HOSTS is set", () => {
-    const originalValue = process.env.PUBLIC_SITE_HOSTS;
-    process.env.PUBLIC_SITE_HOSTS = "active-etf.chicoo.co";
-    try {
-      expect(siteBaseUrlFromHost("active-etf.inthewins.com")).toBe("https://active-etf.inthewins.com");
-    } finally {
-      if (originalValue === undefined) delete process.env.PUBLIC_SITE_HOSTS;
-      else process.env.PUBLIC_SITE_HOSTS = originalValue;
-    }
+  it("normalizes an explicitly stale PUBLIC_BASE_URL", () => {
+    const original = process.env.PUBLIC_BASE_URL;
+    process.env.PUBLIC_BASE_URL = "https://active-etf.chicoo.co";
+    try { expect(siteBaseUrlFromHost("attacker.example")).toBe("https://active-etf.inthewins.com"); }
+    finally { if (original === undefined) delete process.env.PUBLIC_BASE_URL; else process.env.PUBLIC_BASE_URL = original; }
   });
 
-  it("uses the first allowed request host candidate before forwarded fallback hosts", () => {
-    expect(siteBaseUrlFromHostCandidates(["https://active-etf.inthewins.com/api/sitemap.xml", "active-etf.chicoo.co"])).toBe(
+  it("uses the first allowed host candidate while preserving canonical origin", () => {
+    expect(siteBaseUrlFromHostCandidates(["https://active-etf.chicoo.co/api/sitemap.xml", "active-etf.inthewins.com"])).toBe(
       "https://active-etf.inthewins.com"
     );
   });
 
-  it("falls back to the canonical production host for untrusted hosts", () => {
-    expect(siteBaseUrlFromHost("attacker.example")).toBe("https://active-etf.chicoo.co");
+  it("keeps sitemap coverage in sync and separates ETF from 13F routes", () => {
+    const taiwanCount = configuredEtfs.filter((etf) => etf.enabled).length;
+    const globalCount = enabledGlobalEtfs.filter((etf) => etf.strategyType !== "13f").length;
+    const institutionCount = enabledGlobalEtfs.filter((etf) => etf.strategyType === "13f").length;
+    expect(sitemapEntries()).toHaveLength(6 + taiwanCount * 3 + globalCount + institutionCount);
+    expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/institutions/ARK13F" }));
+    expect(sitemapEntries()).not.toContainEqual(expect.objectContaining({ path: "/global-etfs/ARK13F" }));
   });
 
-  it("keeps sitemap coverage in sync with enabled ETF configs", () => {
-    const expectedCount = 3 + configuredEtfs.filter((etf) => etf.enabled).length * 3 + 1 + enabledGlobalEtfs.length;
-    expect(sitemapEntries()).toHaveLength(expectedCount);
-  });
-
-  it("builds a host-aware robots.txt sitemap pointer", () => {
+  it("builds robots and sitemap with the canonical origin", () => {
+    expect(buildSitemapXml("https://active-etf.inthewins.com")).not.toContain("chicoo.co");
     expect(buildRobotsTxt("https://active-etf.inthewins.com")).toContain("Sitemap: https://active-etf.inthewins.com/sitemap.xml");
   });
 });

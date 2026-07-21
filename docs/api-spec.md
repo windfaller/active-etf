@@ -150,7 +150,7 @@ Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), 
 
 `POST /api/jobs/telegram/set-webhook`
 
-Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.chicoo.co/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
+Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.inthewins.com/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
 
 ## Admin Telegram Daily Digest
 

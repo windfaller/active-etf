@@ -7,7 +7,7 @@ interface SitemapEntry {
   priority: string;
 }
 
-const lastmod = "2026-07-04";
+const lastmod = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
 
 function escapeXml(value: string): string {
   return value
@@ -22,7 +22,8 @@ export function sitemapEntries(): SitemapEntry[] {
   const entries: SitemapEntry[] = [
     { path: "/", changefreq: "daily", priority: "1.0" },
     { path: "/market", changefreq: "daily", priority: "0.9" },
-    { path: "/active-etfs/", changefreq: "weekly", priority: "0.8" }
+    { path: "/active-etfs/", changefreq: "weekly", priority: "0.8" },
+    { path: "/data-usage/", changefreq: "weekly", priority: "0.5" }
   ];
 
   configuredEtfs
@@ -36,9 +37,14 @@ export function sitemapEntries(): SitemapEntry[] {
     });
 
   entries.push({ path: "/global-etfs", changefreq: "daily", priority: "0.8" });
-  enabledGlobalEtfs.forEach((etf) => {
-    entries.push({ path: `/global-etfs/${etf.etfCode}`, changefreq: "daily", priority: "0.7" });
-  });
+  enabledGlobalEtfs
+    .filter((etf) => etf.strategyType !== "13f")
+    .forEach((etf) => entries.push({ path: `/global-etfs/${etf.etfCode}`, changefreq: "daily", priority: "0.7" }));
+
+  entries.push({ path: "/institutions", changefreq: "weekly", priority: "0.7" });
+  enabledGlobalEtfs
+    .filter((etf) => etf.strategyType === "13f")
+    .forEach((etf) => entries.push({ path: `/institutions/${etf.etfCode}`, changefreq: "weekly", priority: "0.6" }));
 
   return entries;
 }

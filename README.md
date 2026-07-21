@@ -89,7 +89,7 @@ TELEGRAM_ALLOWED_USER_IDS=
 TELEGRAM_ALLOWED_CHAT_IDS=
 TELEGRAM_ETF_ONBOARDING_CHAT_IDS=
 TELEGRAM_CHAT_ID=
-PUBLIC_BASE_URL=https://active-etf.chicoo.co
+PUBLIC_BASE_URL=https://active-etf.inthewins.com
 ADMIN_JOB_TOKEN=
 ENABLE_TIMER_TRIGGERS=false
 ENABLE_ADS=false
@@ -107,7 +107,7 @@ ENABLE_BACKUP_SOURCES=true
 
 Azure Functions 本機也可用 `local.settings.json` 管理相同設定。Redis 是每日 API response cache；若未設定 Redis，API 會自動回到直接查 MongoDB。
 
-Telegram 多用戶通知使用 webhook。`PUBLIC_BASE_URL` 預設為 `https://active-etf.chicoo.co`，`TELEGRAM_WEBHOOK_SECRET` 會用來驗證 Telegram header。前端的 Telegram 訂閱按鈕會呼叫 `/api/telegram/info` 取得 bot link；可設定 `TELEGRAM_BOT_USERNAME`，若未設定則 server 會用 `TELEGRAM_BOT_TOKEN` 呼叫 Telegram `getMe` 取得 username。若 `TELEGRAM_ALLOWED_USER_IDS` 與 `TELEGRAM_ALLOWED_CHAT_IDS` 都留空，任何對 bot 發送 `/start` 的用戶或群組都能訂閱；若有填 allowlist，只有清單內的 user id 或 chat id 會收到通知。`TELEGRAM_ETF_ONBOARDING_CHAT_IDS` 是新主動式 ETF 偵測後的管理通知對象，會收到可直接貼給 Codex 的 `taiwan-active-etf-onboarding` prompt；這類通知不會廣播給一般訂閱者。`TELEGRAM_CHAT_ID` 僅作為尚未有訂閱者時的舊版 fallback。
+Telegram 多用戶通知使用 webhook。`PUBLIC_BASE_URL` 預設為 `https://active-etf.inthewins.com`，`TELEGRAM_WEBHOOK_SECRET` 會用來驗證 Telegram header。前端的 Telegram 訂閱按鈕會呼叫 `/api/telegram/info` 取得 bot link；可設定 `TELEGRAM_BOT_USERNAME`，若未設定則 server 會用 `TELEGRAM_BOT_TOKEN` 呼叫 Telegram `getMe` 取得 username。若 `TELEGRAM_ALLOWED_USER_IDS` 與 `TELEGRAM_ALLOWED_CHAT_IDS` 都留空，任何對 bot 發送 `/start` 的用戶或群組都能訂閱；若有填 allowlist，只有清單內的 user id 或 chat id 會收到通知。`TELEGRAM_ETF_ONBOARDING_CHAT_IDS` 是新主動式 ETF 偵測後的管理通知對象，會收到可直接貼給 Codex 的 `taiwan-active-etf-onboarding` prompt；這類通知不會廣播給一般訂閱者。`TELEGRAM_CHAT_ID` 僅作為尚未有訂閱者時的舊版 fallback。
 
 ## 本機執行
 
@@ -175,7 +175,7 @@ POST /api/jobs/sector-profiles/refresh
 POST /api/jobs/telegram/set-webhook
 ```
 
-同樣必須帶 `x-admin-token`。成功後 Telegram 會把 `/start`、`/subscribe`、`/unsubscribe`、`/toggle`、`/discover_on`、`/discover_off`、`/digest_on`、`/digest_off`、`/status`、`/latest` 等訊息送到 `https://active-etf.chicoo.co/api/telegram/webhook`。用戶基本資料與通知狀態會存入 `telegram_subscribers`。`/latest` 會回覆最新跨 ETF 個股影響排行，`/latest 00981A` 會回覆單檔 ETF 最新操作日報。
+同樣必須帶 `x-admin-token`。成功後 Telegram 會把 `/start`、`/subscribe`、`/unsubscribe`、`/toggle`、`/discover_on`、`/discover_off`、`/digest_on`、`/digest_off`、`/status`、`/latest` 等訊息送到 `https://active-etf.inthewins.com/api/telegram/webhook`。用戶基本資料與通知狀態會存入 `telegram_subscribers`。`/latest` 會回覆最新跨 ETF 個股影響排行，`/latest 00981A` 會回覆單檔 ETF 最新操作日報。
 
 ## 部署獨立 Azure Functions App
 
@@ -294,15 +294,28 @@ http://127.0.0.1:5173/
 前端支援可分享與可索引的 SPA RESTful routes：
 
 ```txt
+/
 /market
 /etf/{etfCode}
 /etf/{etfCode}/changes
 /etf/{etfCode}/premium-history
 /global-etfs
 /global-etfs/{etfCode}
+/institutions
+/institutions/{portfolioCode}
+/active-etfs/
+/data-usage/
 ```
 
-Azure Static Web Apps 會透過 `public/staticwebapp.config.json` 將這些路徑 fallback 到 `index.html`，再由 Vue 依路徑切到台灣市場總覽、台灣單檔 ETF、持股變化、折溢價歷史、海外市場總覽或海外單檔 ETF。`/sitemap.xml` 與 `/robots.txt` 會 rewrite 到 API，預設固定輸出 `https://active-etf.chicoo.co`；`/sitemap-inthewins.xml` 則固定輸出 `https://active-etf.inthewins.com`，供 inthewins Search Console 使用。新增 enabled ETF 或 enabled global ETF 時會自動跟著 `src/config/etfs.ts` 與 `src/config/globalEtfs.ts` 更新。
+Vite build 會依 `src/config/etfs.ts` 與 `src/config/globalEtfs.ts` 產生每個已知路由的獨立靜態 HTML，原始 HTML 已包含專屬 title、description、canonical、H1、Breadcrumb JSON-LD 與可讀說明；每日資料仍由 Vue/API 載入，不需每日 rebuild。`/sitemap.xml` 與 `/robots.txt` 固定使用 `https://active-etf.inthewins.com`。未知 ETF 代碼不在 SPA fallback 範圍，不會自動切到預設 ETF。
+
+舊網域的跨網域 301 需在可依 hostname 判斷的 Azure Front Door、Cloudflare 或獨立 redirect site 設定；詳見 [`docs/production-domain-migration.md`](docs/production-domain-migration.md)。
+
+SEO 產物可使用以下指令驗證：
+
+```sh
+npm run test:seo
+```
 
 ## 已知限制
 

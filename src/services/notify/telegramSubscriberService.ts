@@ -440,7 +440,7 @@ export async function broadcastTelegramMessage(
 }
 
 export function telegramWebhookUrl(): string {
-  const baseUrl = (process.env.PUBLIC_BASE_URL ?? "https://active-etf.chicoo.co").replace(/\/+$/u, "");
+  const baseUrl = (process.env.PUBLIC_BASE_URL ?? "https://active-etf.inthewins.com").replace(/\/+$/u, "");
   return `${baseUrl}/api/telegram/webhook`;
 }
 
