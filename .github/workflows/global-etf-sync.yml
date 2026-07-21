@@ -18,4 +18,4 @@ jobs:
           curl --fail-with-body --show-error --silent \
             -X POST \
             -H "x-admin-token: $ADMIN_JOB_TOKEN" \
-            https://active-etf.inthewins.com/api/jobs/global-etfs/sync-holdings
+            https://kind-coast-08b07e900.7.azurestaticapps.net/api/jobs/global-etfs/sync-holdings
