@@ -33,6 +33,18 @@ describe("daily brief rules", () => {
     expect(result.insights[0]?.description).toContain("目前僅反映已更新 ETF，尚不能視為完整市場方向");
   });
 
+  it("does not emit full-market conclusions for low coverage even with many impacts", () => {
+    const rows = Array.from({ length: 10 }, (_, index) => impact({ stockId: String(index + 1) }));
+    const result = buildDailyBrief(rows, sectors, coverage(4, 30, 26));
+    const copy = result.insights.map((item) => `${item.title} ${item.description}`).join(" ");
+    expect(result.confidence.level).toBe("low");
+    expect(copy).toContain("資料涵蓋不足");
+    expect(copy).toContain("已更新樣本");
+    expect(copy).not.toContain("今日主要產業方向");
+    expect(copy).not.toContain("跨 ETF 共識");
+    expect(copy).not.toContain("ETF 與三大法人方向偏一致");
+  });
+
   it("keeps every medium-confidence insight explicit about the coverage limitation", () => {
     const rows = [impact({ stockId: "1" }), impact({ stockId: "2" }), impact({ stockId: "3" }), impact({ stockId: "4" })];
     const result = buildDailyBrief(rows, sectors, coverage(7, 10, 3));
@@ -50,14 +62,18 @@ describe("daily brief rules", () => {
   });
 
   it("requires a directional majority and at least 60 percent before using consensus wording", () => {
+    const consensus = impact({ etfCount: 5, increaseEtfCount: 4, decreaseEtfCount: 1 });
+    const minority = impact({ etfCount: 7, increaseEtfCount: 2, decreaseEtfCount: 5 });
     const tie = impact({ etfCount: 4, increaseEtfCount: 2, decreaseEtfCount: 2 });
     const belowRatio = impact({ etfCount: 4, increaseEtfCount: 2, decreaseEtfCount: 0 });
-    const consensus = impact({ etfCount: 5, increaseEtfCount: 3, decreaseEtfCount: 2 });
+    const oneEtf = impact({ etfCount: 1, increaseEtfCount: 1, decreaseEtfCount: 0 });
     const noEtfs = impact({ etfCount: 0, increaseEtfCount: 2, decreaseEtfCount: 0 });
 
+    expect(hasDirectionConsensus(consensus, "increase")).toBe(true);
+    expect(hasDirectionConsensus(minority, "increase")).toBe(false);
     expect(hasDirectionConsensus(tie, "increase")).toBe(false);
     expect(hasDirectionConsensus(belowRatio, "increase")).toBe(false);
-    expect(hasDirectionConsensus(consensus, "increase")).toBe(true);
+    expect(hasDirectionConsensus(oneEtf, "increase")).toBe(false);
     expect(hasDirectionConsensus(noEtfs, "increase")).toBe(false);
   });
 

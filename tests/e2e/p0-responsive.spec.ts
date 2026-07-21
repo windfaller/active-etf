@@ -23,14 +23,14 @@ const globalReport = {
   ]
 };
 
-async function mockApis(page: Page) {
+async function mockApis(page: Page, globalReportFixture = globalReport) {
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
     const headers = { "access-control-allow-origin": "*" };
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
-    if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReport });
+    if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReportFixture });
     if (url.includes("/market/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21","2026-07-20"]} });
     if (/\/api\/etf\/[^/]+\/dates/u.test(url)) return route.fulfill({ headers, json:{dates:["2026-07-20","2026-07-19"]} });
     if (url.includes("/dashboard")) {
@@ -155,4 +155,21 @@ test("institution cards avoid empty expansion, provide parent navigation, and pe
   await backButton.click();
   await expect(page).toHaveURL(/\/institutions$/u);
   await expect(page.getByRole("heading", { name: "機構 13F 季度持倉" })).toBeVisible();
+});
+
+test("13F without filing metadata only labels reportDate as the report basis", async ({ page }) => {
+  const withoutFilingMetadata = {
+    ...globalReport,
+    sections: globalReport.sections.map((section) => section.etfCode === "ARK13F"
+      ? { ...section, filedAt: undefined, capturedAt: undefined }
+      : section)
+  };
+  await mockApis(page, withoutFilingMetadata);
+  await page.goto("/institutions/ARK13F");
+  await expect(page.getByRole("heading", { name: "ARK Investment Management 13F Portfolio" })).toBeVisible();
+  await expect(page.getByText("報表基準日").first()).toBeVisible();
+  await expect(page.getByText("SEC 申報日")).toHaveCount(0);
+  await expect(page.getByText("系統取得時間")).toHaveCount(0);
+  await expect(page.getByText("申報延遲")).toHaveCount(0);
+  await expect(page.getByText(/資料取得日/u)).toHaveCount(0);
 });
