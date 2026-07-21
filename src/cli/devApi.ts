@@ -27,6 +27,30 @@ import { marketDateOverview, safeMarketDateLimit } from "../services/market/mark
 import { getGlobalEtfDailyReport, syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { projectGlobalEtfWebReport } from "../services/globalEtf/webReportProjection.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
+import { compareEtfs } from "../services/intelligence/etfComparisonService.js";
+import { globalSearch, type SearchResultType } from "../services/intelligence/searchService.js";
+import { intelligenceSignals } from "../services/intelligence/signalIntelligenceService.js";
+import {
+  searchStocks,
+  stockEtfs,
+  stockHistory,
+  stockInstitutions,
+  stockOverview
+} from "../services/intelligence/stockIntelligenceService.js";
+import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
+import {
+  comparisonTypeSchema,
+  limitSchema,
+  marketSchema,
+  normalizedStockSymbol,
+  optionalDate,
+  querySchema,
+  searchResultTypeSchema,
+  signalKindSchema,
+  stockSymbolSchema,
+  styleWindowSchema,
+  windowSchema
+} from "../api/intelligenceValidation.js";
 import { assertTradeDate } from "../utils/date.js";
 
 const port = Number(process.env.PORT ?? 7071);
@@ -74,6 +98,19 @@ function enabledEtfSummaries() {
       fundCode: etf.fundCode,
       providerId: etf.source.providerId ?? null
     }));
+}
+
+function devStockParams(parts: string[], requestUrl: URL) {
+  const market = marketSchema.safeParse(parts[2]);
+  const rawSymbol = stockSymbolSchema.safeParse(parts[3]);
+  if (!market.success || !rawSymbol.success) {
+    return { error: "market must be tw or us and symbol is required" } as const;
+  }
+  const symbol = normalizedStockSymbol(market.data, rawSymbol.data);
+  if (!symbol) return { error: "symbol format does not match the selected market" } as const;
+  const date = optionalDate(requestUrl.searchParams.get("date"));
+  if (date.error) return { error: date.error } as const;
+  return { market: market.data, symbol, date: date.value } as const;
 }
 
 async function latestHoldingChangeTradeDate(): Promise<string | null> {
@@ -136,6 +173,123 @@ const server = createServer(async (req, res) => {
           trackingEnabled: envFlag("ENABLE_AD_TRACKING") ?? false
         }
       });
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "stocks" && parts[2] === "search") {
+      const query = querySchema.safeParse(requestUrl.searchParams.get("q") ?? "");
+      const marketValue = requestUrl.searchParams.get("market");
+      const market = marketValue ? marketSchema.safeParse(marketValue) : null;
+      const limit = limitSchema.safeParse(requestUrl.searchParams.get("limit") ?? "12");
+      if (!query.success || (market && !market.success) || !limit.success) {
+        sendJson(res, 400, { error: "invalid stock search query" });
+        return;
+      }
+      sendJson(res, 200, await searchStocks(await getDevDb(), query.data, market?.data, limit.data));
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "stocks" && parts.length === 5) {
+      const params = devStockParams(parts, requestUrl);
+      if ("error" in params) {
+        sendJson(res, 400, { error: params.error });
+        return;
+      }
+      const endpoint = parts[4];
+      if (endpoint === "overview") {
+        const body = await stockOverview(await getDevDb(), params.market, params.symbol, params.date);
+        sendJson(res, body.found ? 200 : 404, body.found ? body : { error: "stock was not found in the tracked data universe" });
+        return;
+      }
+      if (endpoint === "history") {
+        const window = windowSchema.safeParse(requestUrl.searchParams.get("window") ?? "20");
+        if (!window.success) {
+          sendJson(res, 400, { error: "window must be 3, 5, or 20 effective trading days" });
+          return;
+        }
+        sendJson(res, 200, await stockHistory(await getDevDb(), params.market, params.symbol, window.data, params.date));
+        return;
+      }
+      if (endpoint === "etfs") {
+        sendJson(res, 200, await stockEtfs(await getDevDb(), params.market, params.symbol, params.date));
+        return;
+      }
+      if (endpoint === "institutions") {
+        sendJson(res, 200, await stockInstitutions(await getDevDb(), params.market, params.symbol, params.date));
+        return;
+      }
+    }
+
+    if (req.method === "GET" && parts[1] === "compare" && parts[2] === "etfs") {
+      const type = comparisonTypeSchema.safeParse(requestUrl.searchParams.get("type") ?? "tw");
+      const codes = [...new Set((requestUrl.searchParams.get("codes") ?? "").split(",").map((value) => value.trim().toUpperCase()).filter(Boolean))];
+      const date = optionalDate(requestUrl.searchParams.get("date"));
+      if (!type.success || codes.length < 2 || codes.length > 4 || date.error) {
+        sendJson(res, 400, { error: "invalid ETF comparison query" });
+        return;
+      }
+      if (type.data === "tw") {
+        const known = new Set(configuredEtfs.filter((row) => row.enabled).map((row) => row.etfCode));
+        const unknown = codes.find((code) => !known.has(code));
+        if (unknown) {
+          sendJson(res, 404, { error: `unknown Taiwan ETF code: ${unknown}` });
+          return;
+        }
+      } else {
+        const unknown = codes.find((code) => !findGlobalEtfConfig(code)?.enabled);
+        if (unknown) {
+          sendJson(res, 404, { error: `unknown global ETF code: ${unknown}` });
+          return;
+        }
+        if (codes.some((code) => findGlobalEtfConfig(code)?.strategyType === "13f")) {
+          sendJson(res, 400, { error: "13F portfolios cannot be compared as ETFs" });
+          return;
+        }
+      }
+      sendJson(res, 200, await compareEtfs(await getDevDb(), type.data, codes, date.value));
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "signals") {
+      const kind = signalKindSchema.safeParse(requestUrl.searchParams.get("kind") ?? "all");
+      const window = windowSchema.safeParse(requestUrl.searchParams.get("window") ?? "20");
+      const limit = limitSchema.safeParse(requestUrl.searchParams.get("limit") ?? "30");
+      const date = optionalDate(requestUrl.searchParams.get("date"));
+      if (!kind.success || !window.success || !limit.success || date.error) {
+        sendJson(res, 400, { error: "invalid signal query" });
+        return;
+      }
+      sendJson(res, 200, await intelligenceSignals(await getDevDb(), kind.data, window.data, limit.data, date.value));
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "etf" && parts[3] === "style") {
+      const code = (parts[2] ?? "").trim().toUpperCase();
+      const window = styleWindowSchema.safeParse(requestUrl.searchParams.get("window") ?? "20");
+      const date = optionalDate(requestUrl.searchParams.get("date"));
+      if (!window.success || date.error || !configuredEtfs.some((row) => row.enabled && row.etfCode === code)) {
+        sendJson(res, 400, { error: "invalid ETF style query" });
+        return;
+      }
+      sendJson(res, 200, await etfStyleProfile(await getDevDb(), code, window.data, date.value));
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "search") {
+      const query = querySchema.safeParse(requestUrl.searchParams.get("q") ?? "");
+      const limit = limitSchema.safeParse(requestUrl.searchParams.get("limit") ?? "12");
+      const rawTypes = (requestUrl.searchParams.get("types") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+      const types: SearchResultType[] = [];
+      const invalidType = rawTypes.find((value) => {
+        const parsed = searchResultTypeSchema.safeParse(value);
+        if (parsed.success) types.push(parsed.data);
+        return !parsed.success;
+      });
+      if (!query.success || !limit.success || invalidType) {
+        sendJson(res, 400, { error: "invalid global search query" });
+        return;
+      }
+      sendJson(res, 200, await globalSearch(await getDevDb(), query.data, types, limit.data));
       return;
     }
 

@@ -18,13 +18,17 @@ export interface RouteMetadata {
   eyebrow: string;
   robots: "index, follow" | "noindex, nofollow";
   breadcrumbs: SeoBreadcrumb[];
-  pageType: "home" | "market" | "taiwan-etf" | "global-etf" | "institution" | "reference" | "not-found";
+  pageType: "home" | "market" | "taiwan-etf" | "global-etf" | "institution" | "stock" | "tool" | "signals" | "reference" | "not-found";
   sourceUrl?: string;
 }
 
 const taiwanEtfs = configuredEtfs.filter((etf) => etf.enabled);
 const globalEtfs = enabledGlobalEtfs.filter((etf) => etf.strategyType !== "13f");
 const institutions = enabledGlobalEtfs.filter((etf) => etf.strategyType === "13f");
+const prerenderedStocks = [
+  { market: "tw" as const, symbol: "2330", name: "台積電", marketLabel: "台灣" },
+  { market: "us" as const, symbol: "MU", name: "Micron Technology", marketLabel: "美國" }
+];
 
 function cleanPath(pathname: string): string {
   const decoded = (() => {
@@ -57,6 +61,7 @@ function metadataBase(
 }
 
 export function routeMetadataForPath(pathname: string): RouteMetadata | null {
+  const hasQuery = pathname.includes("?");
   const path = cleanPath(pathname);
   const parts = path.split("/").filter(Boolean);
 
@@ -84,6 +89,81 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
       "market",
       [homeBreadcrumb(), { name: "台灣 ETF 市場總覽", path }]
     );
+  }
+
+  if (path === "/stocks") {
+    return metadataBase(
+      path,
+      "股票情報｜反查主動 ETF 持股與調倉",
+      "搜尋台灣與美國股票，查看 ETF 持股、主動調倉、3／5／20 交易日趨勢、法人方向與資料日期。",
+      "從股票反查 ETF 調倉",
+      "查看哪些 ETF 正在買進或賣出某檔股票、方向持續多久，以及台灣股票的 ETF 與三大法人方向是否一致。",
+      "股票情報",
+      "stock",
+      [homeBreadcrumb(), { name: "股票情報", path }]
+    );
+  }
+
+  if (parts[0] === "stocks" && (parts[1] === "tw" || parts[1] === "us") && parts[2] && !parts[3]) {
+    const market = parts[1];
+    const symbol = market === "us" ? parts[2].toUpperCase() : parts[2];
+    const valid = market === "tw" ? /^\d{4,6}$/u.test(symbol) : /^[A-Z][A-Z0-9.-]{0,9}$/u.test(symbol);
+    if (!valid) return null;
+    const known = prerenderedStocks.find((row) => row.market === market && row.symbol === symbol);
+    const name = known?.name ?? symbol;
+    const marketLabel = known?.marketLabel ?? (market === "tw" ? "台灣" : "美國");
+    return metadataBase(
+      `/stocks/${market}/${symbol}`,
+      `${name} ${symbol}｜${marketLabel}股票 ETF 持股與調倉`,
+      `查看 ${name}（${symbol}）的 ETF 持股與調倉、資料日期、3／5／20 交易日趨勢及資料可信度。`,
+      `${symbol} ${name}`,
+      `${marketLabel}股票 ${symbol} 的 ETF 持股與調倉情報。每日 ETF、法人或 13F 資料依各自時間尺度與資料日期分開呈現。`,
+      `${marketLabel}股票情報`,
+      "stock",
+      [homeBreadcrumb(), { name: "股票情報", path: "/stocks" }, { name: symbol, path: `/stocks/${market}/${symbol}` }]
+    );
+  }
+
+  if (path === "/compare/etfs") {
+    const metadata = metadataBase(
+      path,
+      "ETF 多檔比較｜持股重疊與調倉差異",
+      "比較 2 至 4 檔台灣或海外 ETF 的持股、產業曝險、Jaccard、權重重疊、調倉強度與資料涵蓋率。",
+      "ETF 多檔比較工具",
+      "比較 ETF 的持股集合、權重重疊、配置與調倉差異。台灣 ETF、海外 ETF 與 13F 不會混合比較。",
+      "ETF 比較",
+      "tool",
+      [homeBreadcrumb(), { name: "ETF 比較", path }]
+    );
+    return hasQuery ? { ...metadata, robots: "noindex, nofollow" } : metadata;
+  }
+
+  const signalMetadata = new Map([
+    ["/signals", ["交易日訊號｜連續調倉、反轉與分歧", "連續調倉、反轉與分歧訊號"]],
+    ["/signals/consecutive", ["連續加碼與減碼｜3／5／20 交易日訊號", "連續加碼／減碼訊號"]],
+    ["/signals/reversals", ["調倉反轉訊號｜有效交易日方向翻轉", "方向反轉訊號"]],
+    ["/signals/divergence", ["ETF 與三大法人分歧｜方向一致性", "ETF 與法人分歧"]]
+  ]);
+  const signalCopy = signalMetadata.get(path);
+  if (signalCopy) {
+    return metadataBase(
+      path,
+      signalCopy[0] as string,
+      "以有效市場交易日計算主動 ETF 連續加減碼、方向反轉、多數 ETF 翻轉及 ETF 與三大法人一致／分歧。",
+      signalCopy[1] as string,
+      "訊號使用 neutral 門檻、跨 ETF 共識與資料涵蓋規則，並附高／中／低可信度原因，不預測未來報酬。",
+      "交易日訊號",
+      "signals",
+      [homeBreadcrumb(), { name: "訊號", path: "/signals" }, ...(path === "/signals" ? [] : [{ name: signalCopy[1] as string, path }])]
+    );
+  }
+
+  if (path === "/search") {
+    return { ...metadataBase(path, "全站搜尋｜ETF 持倉雷達", "搜尋股票、ETF、13F 機構、產業與訊號頁。", "全站搜尋", "搜尋結果依目的頁面顯示資料日期與來源。", "搜尋", "tool", [homeBreadcrumb(), { name: "搜尋", path }]), robots: "noindex, nofollow" };
+  }
+
+  if (path === "/methodology") {
+    return metadataBase(path, "方法論｜主動調倉、重疊、反轉與風格指標", "了解主動淨變動、規模校正、共識、連續與反轉訊號、ETF 重疊、經理人風格、可信度與 13F 限制。", "情報指標方法論與限制", "區分可觀察事實、系統計算結果與研究解讀，說明公式、缺失資料處理與不同時間尺度。", "研究方法", "tool", [homeBreadcrumb(), { name: "方法論", path }]);
   }
 
   if (parts[0] === "etf" && parts[1]) {
@@ -118,6 +198,20 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
         "台灣 ETF 折溢價",
         "taiwan-etf",
         [homeBreadcrumb(), { name: "台灣 ETF", path: "/market" }, rootCrumb, { name: "折溢價歷史", path: `/etf/${etf.etfCode}/premium-history` }],
+        etf.source.infoUrl
+      );
+    }
+
+    if (section === "style") {
+      return metadataBase(
+        `/etf/${etf.etfCode}/style`,
+        `${etf.etfCode} ${etf.name}經理人風格｜集中度與調整強度`,
+        `查看 ${etf.etfCode} ${etf.name}的持股集中度、調整廣度、調整強度、產業輪動、持股穩定度與同類百分位。`,
+        `${etf.etfCode} ${etf.name}經理人風格`,
+        `${common}。本頁使用中性指標描述公開持股與調整行為，不評價經理人優劣。`,
+        "經理人風格指紋",
+        "taiwan-etf",
+        [homeBreadcrumb(), { name: "台灣 ETF", path: "/market" }, rootCrumb, { name: "經理人風格", path: `/etf/${etf.etfCode}/style` }],
         etf.source.infoUrl
       );
     }
@@ -249,10 +343,19 @@ export function allStaticSeoPaths(): string[] {
     "/global-etfs",
     "/institutions",
     "/data-usage/",
+    "/stocks",
+    ...prerenderedStocks.map((stock) => `/stocks/${stock.market}/${stock.symbol}`),
+    "/compare/etfs",
+    "/signals",
+    "/signals/consecutive",
+    "/signals/reversals",
+    "/signals/divergence",
+    "/methodology",
     ...taiwanEtfs.flatMap((etf) => [
       `/etf/${etf.etfCode}`,
       `/etf/${etf.etfCode}/changes`,
-      `/etf/${etf.etfCode}/premium-history`
+      `/etf/${etf.etfCode}/premium-history`,
+      `/etf/${etf.etfCode}/style`
     ]),
     ...globalEtfs.map((etf) => `/global-etfs/${etf.etfCode}`),
     ...institutions.map((institution) => `/institutions/${institution.etfCode}`)

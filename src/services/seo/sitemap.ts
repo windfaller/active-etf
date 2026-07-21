@@ -3,7 +3,7 @@ import { enabledGlobalEtfs } from "../../config/globalEtfs.js";
 
 interface SitemapEntry {
   path: string;
-  changefreq: "daily" | "weekly";
+  changefreq: "daily" | "weekly" | "monthly";
   priority: string;
 }
 
@@ -25,6 +25,17 @@ export function sitemapEntries(): SitemapEntry[] {
     { path: "/active-etfs/", changefreq: "weekly", priority: "0.8" },
     { path: "/data-usage/", changefreq: "weekly", priority: "0.5" }
   ];
+  entries.push(
+    { path: "/stocks", changefreq: "daily", priority: "0.8" },
+    { path: "/stocks/tw/2330", changefreq: "daily", priority: "0.75" },
+    { path: "/stocks/us/MU", changefreq: "daily", priority: "0.7" },
+    { path: "/compare/etfs", changefreq: "weekly", priority: "0.7" },
+    { path: "/signals", changefreq: "daily", priority: "0.8" },
+    { path: "/signals/consecutive", changefreq: "daily", priority: "0.7" },
+    { path: "/signals/reversals", changefreq: "daily", priority: "0.7" },
+    { path: "/signals/divergence", changefreq: "daily", priority: "0.7" },
+    { path: "/methodology", changefreq: "monthly", priority: "0.6" }
+  );
 
   configuredEtfs
     .filter((etf) => etf.enabled)
@@ -32,7 +43,8 @@ export function sitemapEntries(): SitemapEntry[] {
       entries.push(
         { path: `/etf/${etf.etfCode}`, changefreq: "daily", priority: "0.8" },
         { path: `/etf/${etf.etfCode}/changes`, changefreq: "daily", priority: "0.75" },
-        { path: `/etf/${etf.etfCode}/premium-history`, changefreq: "daily", priority: "0.65" }
+        { path: `/etf/${etf.etfCode}/premium-history`, changefreq: "daily", priority: "0.65" },
+        { path: `/etf/${etf.etfCode}/style`, changefreq: "daily", priority: "0.65" }
       );
     });
 

@@ -9,6 +9,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { etfCode: 1, tradeDate: 1, stockId: 1 },
       { unique: true }
     ),
+    db.collection("etf_daily_holdings").createIndex({ stockId: 1, tradeDate: -1, etfCode: 1 }),
     db.collection("etf_daily_summary").createIndex(
       { etfCode: 1, tradeDate: 1 },
       { unique: true }
@@ -30,6 +31,8 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection("stock_sector_profiles").createIndex({ stockId: 1 }, { unique: true }),
     db.collection("stock_sector_profiles").createIndex({ sector: 1 }),
     db.collection("stock_sector_profiles").createIndex({ themeTags: 1 }),
+    db.collection("global_etf_snapshots").createIndex({ etfCode: 1, sourceAsOf: -1, fetchedAt: -1 }),
+    db.collection("global_etf_snapshots").createIndex({ "holdings.ticker": 1, sourceAsOf: -1, etfCode: 1 }),
     db.collection("active_etf_discoveries").createIndex({ etfCode: 1 }, { unique: true }),
     db.collection("active_etf_discoveries").createIndex({ discoveryStatus: 1, listingDate: -1 }),
     db.collection("telegram_subscribers").createIndex({ chatId: 1 }, { unique: true }),

@@ -91,7 +91,11 @@ function routeLinks(metadata: RouteMetadata): Array<{ path: string; label: strin
     { path: "/", label: "今日情報" },
     { path: "/market", label: "台灣 ETF" },
     { path: "/global-etfs", label: "海外 ETF" },
-    { path: "/institutions", label: "機構 13F" }
+    { path: "/institutions", label: "機構 13F" },
+    { path: "/stocks", label: "股票情報" },
+    { path: "/compare/etfs", label: "ETF 比較" },
+    { path: "/signals", label: "交易日訊號" },
+    { path: "/methodology", label: "方法論" }
   ].filter((item) => item.path !== metadata.path);
 }
 
