@@ -10,7 +10,7 @@ export async function getMarketDates(request: HttpRequest, _context: InvocationC
   if (Number.isNaN(parsedLimit)) return badRequest("numeric limit is required");
   const limit = safeMarketDateLimit(parsedLimit);
 
-  const body = await getOrSetDailyCache(["market", "dates", "v2", limit], async () =>
+  const body = await getOrSetDailyCache(["market", "dates", "v3", limit], async () =>
     marketDateOverview(await getDb(), limit)
   );
 

@@ -3,7 +3,7 @@ import { configuredEtfs } from "../../config/etfs.js";
 import type { EtfDailySummary } from "../../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 
-export const MARKET_DATE_COVERAGE_THRESHOLD = 0.9;
+export const MARKET_DATE_COVERAGE_THRESHOLD = 0.7;
 export const MARKET_DATE_COVERAGE_WINDOW = 5;
 
 export interface MarketDateCoverage {

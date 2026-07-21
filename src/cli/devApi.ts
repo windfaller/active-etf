@@ -159,7 +159,7 @@ const server = createServer(async (req, res) => {
         return;
       }
       const limit = safeMarketDateLimit(parsedLimit);
-      const body = await getOrSetDailyCache(["market", "dates", "v2", limit], async () =>
+      const body = await getOrSetDailyCache(["market", "dates", "v3", limit], async () =>
         marketDateOverview(await getDevDb(), limit)
       );
       sendJson(res, 200, body);

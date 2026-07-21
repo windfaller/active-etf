@@ -64,6 +64,7 @@ const globalError = ref("");
 const telegramInfo = ref<TelegramInfo | null>(null);
 const isMobileSearchOpen = ref(false);
 const { isDarkMode, toggleColorMode } = useColorMode();
+const marketDateCoverageThreshold = 0.7;
 
 const dashboard = computed(() => route.value.view === "taiwanEtf" ? selectedEtfDashboard.value : marketDashboard.value);
 const selectedEtfCoverage = computed(() => selectedEtfDashboard.value.coverage.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null);
@@ -76,7 +77,7 @@ const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions"
 const telegramUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const newerPartialMarketDate = computed(() => {
   const latest = marketDateCoverage.value[0];
-  if (!latest || latest.date === marketDate.value || latest.coverageRate >= 0.9) return null;
+  if (!latest || latest.date === marketDate.value || latest.coverageRate >= marketDateCoverageThreshold) return null;
   return latest;
 });
 const parentNavigation = computed<{ path: string; label: string } | null>(() => {

@@ -27,7 +27,7 @@ describe("market date service", () => {
     expect(JSON.stringify(pipeline)).not.toContain('"etfCode":"00981A"');
   });
 
-  it("recommends the newest date that reaches 90% same-date coverage", async () => {
+  it("recommends the newest date that reaches 70% same-date coverage", async () => {
     const enabledCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
     const dateRows = [{ _id: "2026-07-21" }, { _id: "2026-07-20" }, { _id: "2026-07-17" }];
     const summaryRows = [
@@ -41,7 +41,7 @@ describe("market date service", () => {
 
     const overview = await marketDateOverview({ collection } as never, 180);
 
-    expect(overview.recommendedDate).toBe("2026-07-17");
+    expect(overview.recommendedDate).toBe("2026-07-20");
     expect(overview.coverage.map((row) => [row.date, row.availableCount])).toEqual([
       ["2026-07-21", 4],
       ["2026-07-20", 22],
@@ -51,8 +51,15 @@ describe("market date service", () => {
 
   it("falls back to the highest-coverage recent date when none reaches the threshold", () => {
     expect(selectRecommendedMarketDate([
-      { date: "2026-07-21", availableCount: 4, trackedCount: 28, coverageRate: 4 / 28 },
-      { date: "2026-07-20", availableCount: 22, trackedCount: 28, coverageRate: 22 / 28 }
+      { date: "2026-07-21", availableCount: 18, trackedCount: 28, coverageRate: 18 / 28 },
+      { date: "2026-07-20", availableCount: 19, trackedCount: 28, coverageRate: 19 / 28 }
     ])).toBe("2026-07-20");
+  });
+
+  it("accepts exactly 70% coverage", () => {
+    expect(selectRecommendedMarketDate([
+      { date: "2026-07-21", availableCount: 7, trackedCount: 10, coverageRate: 0.7 },
+      { date: "2026-07-20", availableCount: 10, trackedCount: 10, coverageRate: 1 }
+    ])).toBe("2026-07-21");
   });
 });
