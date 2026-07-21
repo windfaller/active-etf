@@ -1,8 +1,12 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
+import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { intelligenceSignals } from "../services/intelligence/signalIntelligenceService.js";
 import { limitSchema, optionalDate, signalKindSchema, windowSchema } from "./intelligenceValidation.js";
 import { badRequest, cachedJsonResponse, jsonResponse } from "./response.js";
+
+const requestCache = new BoundedRequestCache();
+const requestCacheTtlMilliseconds = 60_000;
 
 export async function getSignals(request: HttpRequest, context: InvocationContext) {
   const kind = signalKindSchema.safeParse(request.query.get("kind") ?? "all");
@@ -14,7 +18,11 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
   if (!limit.success) return badRequest("limit must be between 1 and 50");
   if (date.error) return badRequest(date.error);
   try {
-    return cachedJsonResponse(await intelligenceSignals(await getDb(), kind.data, window.data, limit.data, date.value), 180);
+    const key = [kind.data, window.data, limit.data, date.value ?? "latest"].join(":");
+    const result = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
+      intelligenceSignals(await getDb(), kind.data, window.data, limit.data, date.value)
+    );
+    return cachedJsonResponse(result, 180);
   } catch (error) {
     context.error("signals failed", error);
     return jsonResponse({ error: "signals are temporarily unavailable" }, 500);

@@ -1,5 +1,6 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
+import { ensureP1IntelligenceIndexes } from "../db/indexes.js";
 import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
@@ -130,6 +131,19 @@ export async function postEnabledEtfs(request: HttpRequest, _context: Invocation
 
   const etfs = enabledEtfSummaries();
   return jsonResponse({ ok: true, job: "enabledEtfs", result: { count: etfs.length, etfs } });
+}
+
+export async function postEnsureP1Indexes(request: HttpRequest, context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  try {
+    const indexes = await ensureP1IntelligenceIndexes(await getDb());
+    return jsonResponse({ ok: true, job: "ensureP1Indexes", result: { ensured: indexes.length } });
+  } catch (error) {
+    context.error("P1 index ensure failed", error);
+    return jsonResponse({ ok: false, job: "ensureP1Indexes", error: "index ensure is temporarily unavailable" }, 500);
+  }
 }
 
 export async function postDailyRefresh(request: HttpRequest, _context: InvocationContext) {
@@ -328,6 +342,13 @@ app.http("postEnabledEtfs", {
   route: "jobs/etfs/enabled",
   authLevel: "anonymous",
   handler: postEnabledEtfs
+});
+
+app.http("postEnsureP1Indexes", {
+  methods: ["POST"],
+  route: "jobs/indexes/ensure",
+  authLevel: "anonymous",
+  handler: postEnsureP1Indexes
 });
 
 app.http("postDailyRefresh", {

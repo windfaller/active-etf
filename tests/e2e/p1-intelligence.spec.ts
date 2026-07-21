@@ -43,6 +43,38 @@ test("ETF compare enforces four selections and never offers 13F", async ({ page 
   await expect(page.getByText("已選 4 / 4 檔")).toBeVisible();
 });
 
+test("selected ETF options keep WCAG AA text contrast in dark mode", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/compare/etfs?type=tw&codes=00981A,00982A");
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+
+  const contrastRatios = await page.locator(".code-options button.selected").first().evaluate((button) => {
+    const luminance = (color: string): number => {
+      const channels = color.match(/[\d.]+/gu)?.slice(0, 3).map(Number) ?? [];
+      const linear = channels.map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+    };
+    const contrast = (foreground: string, background: string): number => {
+      const lighter = Math.max(luminance(foreground), luminance(background));
+      const darker = Math.min(luminance(foreground), luminance(background));
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+    const buttonStyle = getComputedStyle(button);
+    const small = button.querySelector("small");
+    return {
+      primary: contrast(buttonStyle.color, buttonStyle.backgroundColor),
+      secondary: small ? contrast(getComputedStyle(small).color, buttonStyle.backgroundColor) : 0
+    };
+  });
+
+  expect(contrastRatios.primary).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatios.secondary).toBeGreaterThanOrEqual(4.5);
+});
+
 test("global compare keeps daily ETF data separate from 13F", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/compare/etfs?type=global&codes=DRAM,HBMX");
