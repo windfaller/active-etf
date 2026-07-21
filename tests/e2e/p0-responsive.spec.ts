@@ -61,6 +61,7 @@ for (const viewport of viewports) {
     await mockApis(page);
     await page.goto("/market");
     await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
+    await expect(page.getByText("正負值同時使用文字與符號呈現，不只依賴顏色。")).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (viewport.width <= 760) {
       const card = page.locator("article.market-impact-card").first();
@@ -71,6 +72,15 @@ for (const viewport of viewports) {
       await expect(card.getByText("產業／主題")).toBeVisible();
       await expect(card.getByText("成交金額")).toBeVisible();
       await expect(card.getByRole("button", { name: /00981A/u })).toBeVisible();
+      const toneStyles = await page.locator("article.market-impact-card").evaluateAll((cards) => cards.slice(0, 2).map((toneCard) => ({
+        background: getComputedStyle(toneCard).backgroundColor,
+        accent: getComputedStyle(toneCard.querySelector(".impact-summary-primary b") as Element).color,
+        leftBorderWidth: getComputedStyle(toneCard).borderLeftWidth
+      })));
+      expect(toneStyles).toHaveLength(2);
+      expect(toneStyles[0].background).not.toBe(toneStyles[1].background);
+      expect(toneStyles[0].accent).not.toBe(toneStyles[1].accent);
+      expect(toneStyles.map((style) => style.leftBorderWidth)).toEqual(["1px", "1px"]);
       const search = page.getByPlaceholder("搜尋代碼、名稱、產業或 ETF");
       await search.fill("2317");
       await expect(page.locator("article.market-impact-card")).toHaveCount(1);
@@ -93,6 +103,24 @@ for (const viewport of viewports) {
     }
   });
 }
+
+test("market impact cards keep distinct tone surfaces in dark mode", async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await mockApis(page);
+  await page.goto("/market");
+  const toneStyles = async () => page.locator("article.market-impact-card").evaluateAll((cards) => cards.slice(0, 2).map((toneCard) => ({
+    background: getComputedStyle(toneCard).backgroundColor,
+    accent: getComputedStyle(toneCard.querySelector(".impact-summary-primary b") as Element).color
+  })));
+  const lightStyles = await toneStyles();
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  const darkStyles = await toneStyles();
+  expect(darkStyles[0].background).not.toBe(darkStyles[1].background);
+  expect(darkStyles[0].accent).not.toBe(darkStyles[1].accent);
+  expect(darkStyles[0].background).not.toBe(lightStyles[0].background);
+  expect(darkStyles[1].background).not.toBe(lightStyles[1].background);
+});
 
 test("homepage does not request the full global report and browser history follows URL", async ({ page }) => {
   await mockApis(page);

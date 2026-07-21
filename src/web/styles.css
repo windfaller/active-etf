@@ -223,6 +223,33 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 ) { color: #b7c4cd !important; }
 [data-theme="dark"] .coverage-status strong { color: var(--theme-text-strong) !important; }
 
+[data-theme="dark"] .market-impact-card.increase {
+  --impact-card-accent: #ff9f95;
+  --impact-card-bg: #321b1f;
+  --impact-card-detail-bg: #3b2126;
+  --impact-card-border: #744049;
+  border-color: var(--impact-card-border) !important;
+  background: var(--impact-card-bg) !important;
+}
+
+[data-theme="dark"] .market-impact-card.decrease {
+  --impact-card-accent: #71d7cb;
+  --impact-card-bg: #112b29;
+  --impact-card-detail-bg: #173632;
+  --impact-card-border: #316c65;
+  border-color: var(--impact-card-border) !important;
+  background: var(--impact-card-bg) !important;
+}
+
+[data-theme="dark"] .market-impact-card :is(.mobile-card-title, .impact-summary-primary b) {
+  color: var(--impact-card-accent) !important;
+}
+
+[data-theme="dark"] .market-impact-card .mobile-card-detail-static {
+  border-color: var(--impact-card-border) !important;
+  background: var(--impact-card-detail-bg) !important;
+}
+
 @media (max-width: 760px) {
   button,
   select,
