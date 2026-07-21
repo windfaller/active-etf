@@ -24,6 +24,22 @@ describe("build-time route metadata", () => {
     expect(allStaticSeoPaths()).not.toContain("/etf/UNKNOWN");
   });
 
+  it("publishes P1 stock, compare, signal, style, and methodology metadata", () => {
+    expect(routeMetadataForPath("/stocks/tw/2330")?.title).toContain("台積電 2330");
+    expect(routeMetadataForPath("/stocks/us/MU")?.description).toContain("資料日期");
+    expect(routeMetadataForPath("/compare/etfs")?.robots).toBe("index, follow");
+    expect(routeMetadataForPath("/compare/etfs?type=tw&codes=00981A,00982A")?.robots).toBe("noindex, nofollow");
+    expect(routeMetadataForPath("/search?q=台積電")?.robots).toBe("noindex, nofollow");
+    expect(routeMetadataForPath("/signals/reversals")?.h1).toContain("反轉");
+    expect(routeMetadataForPath("/etf/00981A/style")?.title).toContain("經理人風格");
+    expect(routeMetadataForPath("/methodology")?.description).toContain("13F");
+  });
+
+  it("never canonicalizes an unknown stock to a different stock", () => {
+    expect(routeMetadataForPath("/stocks/tw/9999")?.path).toBe("/stocks/tw/9999");
+    expect(routeMetadataForPath("/stocks/us/ZZZZ")?.path).toBe("/stocks/us/ZZZZ");
+  });
+
   it("uses an Organization creator and no false homepage license", () => {
     const metadata = routeMetadataForPath("/market");
     expect(metadata).not.toBeNull();

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { mockP1Apis } from "./p1-fixtures.js";
 
 const dashboard = {
   holdings: [], summary: null, summaries: [],
@@ -30,6 +31,7 @@ async function mockApis(page: Page) {
     if (url.includes("/telegram/info")) return route.fulfill({ json: { configured: false, username: null, subscribeUrl: null } });
     return route.fulfill({ status: 404, json: {} });
   });
+  await mockP1Apis(page);
 }
 
 const directRoutes = [
@@ -39,7 +41,17 @@ const directRoutes = [
   ["/etf/00981A/changes", "00981A 主動統一台股增長"],
   ["/global-etfs/DRAM", "DRAM Roundhill Memory ETF"],
   ["/institutions", "機構 13F 季度持倉"],
-  ["/institutions/ARK13F", "ARK Investment Management 13F Portfolio"]
+  ["/institutions/ARK13F", "ARK Investment Management 13F Portfolio"],
+  ["/stocks", "從股票反查 ETF 調倉"],
+  ["/stocks/tw/2330", "2330 台積電"],
+  ["/stocks/us/MU", "MU Micron Technology"],
+  ["/compare/etfs", "持股重疊、調倉與配置差異"],
+  ["/signals", "連續調倉、反轉與方向分歧"],
+  ["/signals/consecutive", "連續調倉、反轉與方向分歧"],
+  ["/signals/reversals", "連續調倉、反轉與方向分歧"],
+  ["/signals/divergence", "連續調倉、反轉與方向分歧"],
+  ["/etf/00981A/style", "00981A 主動統一台股增長"],
+  ["/methodology", "情報指標方法論與限制"]
 ] as const;
 
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {

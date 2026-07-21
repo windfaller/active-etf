@@ -46,7 +46,7 @@ describe("P1 intelligence APIs", () => {
     const response = await getStocksSearch(request("q=台積電&market=tw&limit=8"), context);
     expect(response.status).toBe(200);
     expect(mocks.searchStocks).toHaveBeenCalledWith(expect.anything(), "台積電", "tw", 8);
-    expect(response.headers?.["Cache-Control"]).toContain("stale-while-revalidate");
+    expect(new Headers(response.headers).get("Cache-Control")).toContain("stale-while-revalidate");
   });
 
   it("returns stock overview metadata without replacing delayed coverage with zero", async () => {
