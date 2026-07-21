@@ -88,3 +88,28 @@ test("homepage does not request the full global report and browser history follo
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();
 });
+
+test("institution cards avoid empty expansion, provide parent navigation, and persist dark mode", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApis(page);
+  await page.goto("/institutions/ARK13F");
+  await expect(page.getByRole("heading", { name: "ARK Investment Management 13F Portfolio" })).toBeVisible();
+
+  await expect(page.locator("article.mobile-data-card")).not.toHaveCount(0);
+  await expect(page.locator("details.mobile-data-card")).toHaveCount(0);
+  await expect(page.locator(".mobile-card-summary").filter({ hasText: "類型 Equity" })).toHaveCount(1);
+
+  const themeButton = page.getByRole("button", { name: "切換至深色模式" });
+  await expect(themeButton).toHaveCount(1);
+  await themeButton.click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  await expect(page.getByRole("button", { name: "切換至淺色模式" })).toBeVisible();
+
+  const backButton = page.getByRole("button", { name: "返回機構 13F 清單" });
+  await expect(backButton).toHaveCount(1);
+  await backButton.click();
+  await expect(page).toHaveURL(/\/institutions$/u);
+  await expect(page.getByRole("heading", { name: "機構 13F 季度持倉" })).toBeVisible();
+});

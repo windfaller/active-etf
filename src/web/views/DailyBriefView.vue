@@ -94,10 +94,9 @@ function institutionLabel(row: StockImpact): string {
         <p>只保留當日變動最明顯的產業。</p>
       </div>
       <div class="sector-direction-grid">
-        <MobileDataCard v-for="row in brief.sectors" :key="row.sector" :label="row.sector" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'">
+        <MobileDataCard v-for="row in brief.sectors" :key="row.sector" :label="row.sector" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
           <template #title>{{ row.sector }}</template>
-          <template #summary>主動 {{ formatLots(row.totalActiveDiffLots) }} 張｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票</template>
-          <p>三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</p>
+          <template #summary>主動 {{ formatLots(row.totalActiveDiffLots) }} 張｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票<br />三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</template>
           <p>主要標的：{{ row.topStocks.map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
         </MobileDataCard>
       </div>

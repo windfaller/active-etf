@@ -1,9 +1,9 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neutral"; open?: boolean }>(), { tone: "neutral", open: false });
+withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neutral"; open?: boolean; expandable?: boolean }>(), { tone: "neutral", open: false, expandable: true });
 </script>
 
 <template>
-  <details class="mobile-data-card" :class="tone" :open="open">
+  <details v-if="expandable" class="mobile-data-card" :class="tone" :open="open">
     <summary :aria-label="`展開 ${label} 詳細資料`">
       <span class="mobile-card-title"><slot name="title" /></span>
       <span class="mobile-card-summary"><slot name="summary" /></span>
@@ -12,6 +12,10 @@ withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neut
     </summary>
     <div class="mobile-card-detail"><slot /></div>
   </details>
+  <article v-else class="mobile-data-card mobile-data-card-static" :class="tone" :aria-label="label">
+    <span class="mobile-card-title"><slot name="title" /></span>
+    <span class="mobile-card-summary"><slot name="summary" /></span>
+  </article>
 </template>
 
 <style scoped>
@@ -19,6 +23,7 @@ withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neut
 .mobile-data-card.increase { border-left-color:#c84238; }
 .mobile-data-card.decrease { border-left-color:#07847d; }
 summary { display:grid; gap:7px; min-height:74px; padding:13px 14px; cursor:pointer; list-style:none; }
+.mobile-data-card-static { display:grid; gap:7px; min-height:74px; padding:13px 14px; }
 summary::-webkit-details-marker { display:none; }
 summary:focus-visible { outline:3px solid rgba(52,89,134,.28); outline-offset:-3px; }
 .mobile-card-title { color:#25313c; font-size:15px; font-weight:820; }
