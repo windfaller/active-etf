@@ -13,8 +13,11 @@ withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neut
     <div class="mobile-card-detail"><slot /></div>
   </details>
   <article v-else class="mobile-data-card mobile-data-card-static" :class="tone" :aria-label="label">
-    <span class="mobile-card-title"><slot name="title" /></span>
-    <span class="mobile-card-summary"><slot name="summary" /></span>
+    <div class="mobile-card-static-content">
+      <span class="mobile-card-title"><slot name="title" /></span>
+      <span class="mobile-card-summary"><slot name="summary" /></span>
+    </div>
+    <div v-if="$slots.default" class="mobile-card-detail mobile-card-detail-static"><slot /></div>
   </article>
 </template>
 
@@ -23,7 +26,8 @@ withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neut
 .mobile-data-card.increase { border-left-color:#c84238; }
 .mobile-data-card.decrease { border-left-color:#07847d; }
 summary { display:grid; gap:7px; min-height:74px; padding:13px 14px; cursor:pointer; list-style:none; }
-.mobile-data-card-static { display:grid; gap:7px; min-height:74px; padding:13px 14px; }
+.mobile-data-card-static { display:grid; gap:0; min-height:74px; padding:0; }
+.mobile-card-static-content { display:grid; gap:7px; padding:13px 14px; }
 summary::-webkit-details-marker { display:none; }
 summary:focus-visible { outline:3px solid rgba(52,89,134,.28); outline-offset:-3px; }
 .mobile-card-title { color:#25313c; font-size:15px; font-weight:820; }
@@ -32,4 +36,5 @@ summary:focus-visible { outline:3px solid rgba(52,89,134,.28); outline-offset:-3
 .mobile-card-toggle b { display:inline-block; margin-left:4px; transition:transform .15s ease; }
 details[open] .mobile-card-toggle b { transform:rotate(180deg); }
 .mobile-card-detail { padding:14px; border-top:1px solid #edf1f3; background:#f8fafb; color:#46535e; font-size:13px; line-height:1.65; }
+.mobile-card-detail-static { padding:0 14px 13px; border-top:0; background:transparent; }
 </style>

@@ -63,12 +63,19 @@ for (const viewport of viewports) {
     await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (viewport.width <= 760) {
-      const card = page.locator(".mobile-data-card").first();
+      const card = page.locator("article.market-impact-card").first();
       await expect(card).toBeVisible();
-      await card.locator("summary").focus();
-      await expect.poll(() => card.locator("summary").evaluate((node) => getComputedStyle(node).outlineStyle !== "none")).toBe(true);
-      await card.locator("summary").click();
-      await expect(card.locator(".mobile-card-detail")).toBeVisible();
+      await expect(page.locator("details.market-impact-card")).toHaveCount(0);
+      await expect(card.locator(".mobile-card-toggle")).toHaveCount(0);
+      await expect(card.locator(".mobile-card-detail-static")).toBeVisible();
+      await expect(card.getByText("產業／主題")).toBeVisible();
+      await expect(card.getByText("成交金額")).toBeVisible();
+      await expect(card.getByRole("button", { name: /00981A/u })).toBeVisible();
+      const search = page.getByPlaceholder("搜尋代碼、名稱、產業或 ETF");
+      await search.fill("2317");
+      await expect(page.locator("article.market-impact-card")).toHaveCount(1);
+      await expect(page.locator("article.market-impact-card")).toContainText("2317 鴻海");
+      await search.fill("");
       const nav = page.locator(".mobile-primary-nav");
       await expect(nav).toBeVisible();
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

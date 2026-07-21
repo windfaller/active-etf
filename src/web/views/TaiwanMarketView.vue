@@ -24,6 +24,7 @@ const displayed = computed(() => {
 });
 const leadSectors = computed(() => [...props.sectors].filter((row) => row.sector !== "其他").sort((a,b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots)).slice(0,6));
 function institutionLots(row: StockImpact): number | null { const value = row.institutional?.totalNetShares; return value === null || value === undefined ? null : value / 1000; }
+function institutionLotsLabel(row: StockImpact): string { const lots = institutionLots(row); return lots === null ? "-" : `${formatLots(lots)} 張`; }
 </script>
 
 <template>
@@ -60,10 +61,35 @@ function institutionLots(row: StockImpact): number | null { const value = row.in
           </div>
         </div>
         <template #mobile>
-          <MobileDataCard v-for="row in displayed" :id="`market-stock-${row.stockId}`" :key="row.stockId" :label="`${row.stockId} ${row.stockName}`" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :open="focusStockId === row.stockId">
+          <MobileDataCard v-for="row in displayed" :id="`market-stock-${row.stockId}`" :key="row.stockId" class="market-impact-card" :class="{ 'is-focused': focusStockId === row.stockId }" :label="`${row.stockId} ${row.stockName}`" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
             <template #title>{{ row.stockId }} {{ row.stockName }}</template>
-            <template #summary>{{ directionLabel(row.totalActiveDiffLots) }} {{ formatLots(row.totalActiveDiffLots) }} 張｜權重 {{ formatSignedPp(row.totalDiffWeightPoint) }}<br />{{ row.increaseEtfCount }} 檔加碼／{{ row.decreaseEtfCount }} 檔減碼｜法人 {{ formatLots(institutionLots(row)) }} 張</template>
-            <dl><div><dt>產業／主題</dt><dd>{{ row.sector || "其他" }}｜{{ row.themeTags.join("、") || "-" }}</dd></div><div><dt>成交金額</dt><dd>{{ formatMoney(row.market?.turnover) }}</dd></div><div><dt>主要來源 ETF</dt><dd><button v-for="etf in row.etfs.slice(0,5)" :key="etf.etfCode" type="button" class="chip" @click="emit('etf', etf.etfCode)">{{ etf.etfCode }} {{ formatLots(etf.activeDiffLots ?? etf.diffLots) }} 張</button></dd></div></dl>
+            <template #summary>
+              <span class="impact-summary-primary">
+                <b :class="row.totalActiveDiffLots >= 0 ? 'positive' : 'negative'">{{ directionLabel(row.totalActiveDiffLots) }} {{ formatLots(row.totalActiveDiffLots) }} 張</b>
+                <span>權重 {{ formatSignedPp(row.totalDiffWeightPoint) }}</span>
+              </span>
+              <span class="impact-summary-secondary">
+                <span>加 {{ row.increaseEtfCount }}／減 {{ row.decreaseEtfCount }} 檔</span>
+                <span>法人 {{ institutionLotsLabel(row) }}</span>
+              </span>
+            </template>
+            <dl class="impact-card-facts">
+              <div class="impact-card-fact">
+                <dt>產業／主題</dt>
+                <dd><strong>{{ row.sector || "其他" }}</strong><span v-if="row.themeTags.length" class="impact-theme">{{ row.themeTags.join("、") }}</span></dd>
+              </div>
+              <div class="impact-card-fact">
+                <dt>成交金額</dt>
+                <dd>{{ formatMoney(row.market?.turnover) }}</dd>
+              </div>
+              <div class="impact-card-fact impact-card-source">
+                <dt>主要來源 ETF</dt>
+                <dd class="impact-source-list">
+                  <button v-for="etf in row.etfs.slice(0,5)" :key="etf.etfCode" type="button" class="chip source-chip" @click="emit('etf', etf.etfCode)">{{ etf.etfCode }} {{ formatLots(etf.activeDiffLots ?? etf.diffLots) }} 張</button>
+                  <span v-if="!row.etfs.length">-</span>
+                </dd>
+              </div>
+            </dl>
           </MobileDataCard>
         </template>
       </ResponsiveDataTable>
@@ -72,7 +98,7 @@ function institutionLots(row: StockImpact): number | null { const value = row.in
 </template>
 
 <style scoped>
-.view-shell{display:grid;gap:16px}.view-heading{display:flex;justify-content:space-between;gap:24px;padding:30px;border:1px solid #dfe6e9;border-radius:14px;background:#fff}.eyebrow{color:#087b72;font-size:12px;font-weight:850;letter-spacing:.12em}.view-heading h1{margin:8px 0 10px;color:#1d2c38;font-size:32px}.view-heading p{max-width:760px;margin:0;color:#67747f;line-height:1.7}.date-pill{align-self:flex-start;padding:8px 12px;border-radius:999px;background:#eef5f4;color:#176f69;font-size:12px;font-weight:780;white-space:nowrap}.market-sector-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.market-sector-grid article{display:grid;gap:6px;padding:14px;border:1px solid #e0e7ea;border-top:3px solid #7d8993;border-radius:10px;background:#fff}.market-sector-grid article.increase{border-top-color:#cf493e}.market-sector-grid article.decrease{border-top-color:#07847d}.market-sector-grid span,.market-sector-grid small{color:#71808b;font-size:12px}.market-sector-grid strong{color:#27343f;font-size:17px}.data-panel{padding:24px;border:1px solid #dfe6e9;border-radius:14px;background:#fff}.table-title{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:16px}.table-title h2{display:flex;align-items:center;gap:8px;margin:0 0 5px;color:#24323e}.table-title p{margin:0;color:#73808b;font-size:13px}.market-search{display:flex;align-items:center;gap:8px;width:min(320px,100%);height:44px;padding:0 12px;border:1px solid #d7e0e4;border-radius:10px}.market-search input{width:100%;border:0;outline:0;background:transparent}.desktop-table{overflow:hidden;border:1px solid #e2e8eb;border-radius:10px}.impact-grid .table-head,.impact-grid .table-row{display:grid;grid-template-columns:1.1fr 1fr 1.2fr .9fr 1.1fr .85fr 1fr;gap:10px;align-items:center}.table-head{padding:11px 13px;background:#f2f6f7;color:#66737e;font-size:12px;font-weight:780}.table-row{width:100%;min-height:72px;padding:10px 13px;border:0;border-top:1px solid #edf1f3;background:#fff;color:#35424d;text-align:left;cursor:pointer}.table-row:hover,.table-row.focused{background:#f3f8f8}.table-row:focus-visible{outline:3px solid rgba(52,89,134,.28);outline-offset:-3px}.table-row>span{display:grid;gap:3px}.table-row small{color:#7a8791}.positive b{color:#ba3e36}.negative b{color:#087b72}.inline-link,.chip{min-height:32px;border:1px solid #cbd8df;border-radius:7px;background:#f7fafb;color:#345986;font-weight:780;cursor:pointer}.chip{margin:3px;padding:5px 8px}.mobile-data-card dl{display:grid;gap:10px;margin:0}.mobile-data-card dl div{display:grid;gap:4px}.mobile-data-card dt{color:#76838d;font-size:11px;font-weight:750}.mobile-data-card dd{margin:0;color:#34424e}.stock b{font-size:15px}
+.view-shell{display:grid;gap:16px}.view-heading{display:flex;justify-content:space-between;gap:24px;padding:30px;border:1px solid #dfe6e9;border-radius:14px;background:#fff}.eyebrow{color:#087b72;font-size:12px;font-weight:850;letter-spacing:.12em}.view-heading h1{margin:8px 0 10px;color:#1d2c38;font-size:32px}.view-heading p{max-width:760px;margin:0;color:#67747f;line-height:1.7}.date-pill{align-self:flex-start;padding:8px 12px;border-radius:999px;background:#eef5f4;color:#176f69;font-size:12px;font-weight:780;white-space:nowrap}.market-sector-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.market-sector-grid article{display:grid;gap:6px;padding:14px;border:1px solid #e0e7ea;border-top:3px solid #7d8993;border-radius:10px;background:#fff}.market-sector-grid article.increase{border-top-color:#cf493e}.market-sector-grid article.decrease{border-top-color:#07847d}.market-sector-grid span,.market-sector-grid small{color:#71808b;font-size:12px}.market-sector-grid strong{color:#27343f;font-size:17px}.data-panel{padding:24px;border:1px solid #dfe6e9;border-radius:14px;background:#fff}.table-title{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:16px}.table-title h2{display:flex;align-items:center;gap:8px;margin:0 0 5px;color:#24323e}.table-title p{margin:0;color:#73808b;font-size:13px}.market-search{display:flex;align-items:center;gap:8px;width:min(320px,100%);height:44px;padding:0 12px;border:1px solid #d7e0e4;border-radius:10px}.market-search input{width:100%;border:0;outline:0;background:transparent}.desktop-table{overflow:hidden;border:1px solid #e2e8eb;border-radius:10px}.impact-grid .table-head,.impact-grid .table-row{display:grid;grid-template-columns:1.1fr 1fr 1.2fr .9fr 1.1fr .85fr 1fr;gap:10px;align-items:center}.table-head{padding:11px 13px;background:#f2f6f7;color:#66737e;font-size:12px;font-weight:780}.table-row{width:100%;min-height:72px;padding:10px 13px;border:0;border-top:1px solid #edf1f3;background:#fff;color:#35424d;text-align:left;cursor:pointer}.table-row:hover,.table-row.focused{background:#f3f8f8}.table-row:focus-visible{outline:3px solid rgba(52,89,134,.28);outline-offset:-3px}.table-row>span{display:grid;gap:3px}.table-row small{color:#7a8791}.positive b{color:#ba3e36}.negative b{color:#087b72}.inline-link,.chip{min-height:32px;border:1px solid #cbd8df;border-radius:7px;background:#f7fafb;color:#345986;font-weight:780;cursor:pointer}.chip{margin:3px;padding:5px 8px}.market-impact-card.is-focused{border-color:#345986}.market-impact-card :deep(.mobile-card-static-content){gap:5px;padding:13px 14px 11px}.market-impact-card :deep(.mobile-card-title){font-size:16px;line-height:1.35}.market-impact-card :deep(.mobile-card-summary){display:grid;gap:4px;font-size:13px;line-height:1.45}.market-impact-card :deep(.mobile-card-detail-static){padding:10px 14px 13px;border-top:1px solid var(--theme-border);background:transparent}.impact-summary-primary,.impact-summary-secondary{display:flex;flex-wrap:wrap;gap:3px 12px}.impact-summary-primary{color:var(--theme-text);font-weight:680}.impact-summary-primary b{font-weight:820}.impact-summary-secondary{color:var(--theme-text-muted);font-weight:620}.impact-card-facts{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(88px,.6fr);gap:9px 14px;margin:0}.impact-card-fact{display:grid;align-content:start;gap:3px;min-width:0}.impact-card-fact dt{color:var(--theme-text-muted);font-size:12px;font-weight:820}.impact-card-fact dd{margin:0;color:var(--theme-text);font-size:13px;font-weight:680;line-height:1.4;overflow-wrap:anywhere}.impact-card-fact dd strong{font-weight:820}.impact-theme{color:var(--theme-text-muted);font-weight:620}.impact-theme::before{content:"·";margin:0 5px}.impact-card-source{grid-column:1/-1}.impact-source-list{display:flex;flex-wrap:wrap;gap:6px}.source-chip{margin:0;padding:6px 9px}.stock b{font-size:15px}
 @media(max-width:1100px){.market-sector-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.view-heading{display:grid;padding:20px 16px}.view-heading h1{font-size:28px}.date-pill{justify-self:start}.market-sector-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.data-panel{padding:16px 12px}.table-title{display:grid;align-items:stretch}.market-search{width:100%}}
 </style>
