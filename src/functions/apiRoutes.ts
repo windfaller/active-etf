@@ -7,6 +7,7 @@ import "../api/getEtfRanking.js";
 import "../api/getEtfSummary.js";
 import "../api/getEtfSummaryHistory.js";
 import "../api/getGlobalEtfs.js";
+import "../api/getMarketDates.js";
 import "../api/getMarketStockImpact.js";
 import "../api/getDashboard.js";
 import "../api/getRuntimeConfig.js";
