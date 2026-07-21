@@ -229,6 +229,10 @@ export function sectorForStock(stockId: string, stockName?: string): SectorName 
   return mappingByStockId.get(stockId)?.sector ?? heuristicSector(stockId, stockName);
 }
 
+export function mappedStockNameForStock(stockId: string): string | undefined {
+  return mappingByStockId.get(stockId)?.stockName;
+}
+
 export function sectorProfileForStock(stockId: string, stockName?: string) {
   const mapping = mappingByStockId.get(stockId);
   const sector = mapping?.sector ?? heuristicSector(stockId, stockName);

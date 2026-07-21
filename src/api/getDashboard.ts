@@ -70,7 +70,7 @@ export async function getDashboard(request: HttpRequest, _context: InvocationCon
   if (!etfCode || !dateParam) return badRequest("etfCode and date are required");
   const date = assertTradeDate(dateParam);
 
-  const body = await getOrSetDailyCache(["dashboard", etfCode, date], async () => {
+  const body = await getOrSetDailyCache(["dashboard", "v2", etfCode, date], async () => {
     const db = await getDb();
     const enabledCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
     const [holdings, summary, etfChanges, summaries, allChanges, latestRows, availableRows] = await Promise.all([

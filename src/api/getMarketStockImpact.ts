@@ -9,7 +9,7 @@ export async function getMarketStockImpact(request: HttpRequest, _context: Invoc
   const date = request.query.get("date");
   if (!date) return badRequest("date is required");
 
-  const body = await getOrSetDailyCache(["market", "stock-impact", date], async () => {
+  const body = await getOrSetDailyCache(["market", "stock-impact", "v2", date], async () => {
     const db = await getDb();
     const changes = await db
       .collection<EtfHoldingChange>("etf_holding_changes")

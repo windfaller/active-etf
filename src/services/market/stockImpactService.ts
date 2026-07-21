@@ -5,7 +5,7 @@ import type { StockDailyMarket } from "../../models/StockDailyMarket.js";
 import type { StockInstitutionalFlow } from "../../models/StockInstitutionalFlow.js";
 import type { StockSectorProfile } from "../../models/StockSectorProfile.js";
 import { round } from "../../utils/number.js";
-import { sectorProfileForStock } from "../sector/sectorMapping.js";
+import { mappedStockNameForStock, sectorProfileForStock } from "../sector/sectorMapping.js";
 
 export interface StockImpactEtf {
   etfCode: string;
@@ -65,6 +65,12 @@ export interface StockImpactResponse {
 }
 
 const unknownTagLabels = new Set(["未分類", "其他"]);
+const hanCharacter = /\p{Script=Han}/u;
+
+export function preferredStockName(...candidates: Array<string | null | undefined>): string {
+  const names = candidates.map((name) => name?.replace(/\s+/gu, " ").trim()).filter((name): name is string => Boolean(name));
+  return names.find((name) => hanCharacter.test(name)) ?? names[0] ?? "";
+}
 
 function usableTags(tags: string[] = []): string[] {
   return [...new Set(tags.filter((tag) => tag && !unknownTagLabels.has(tag)))].slice(0, 5);
@@ -96,6 +102,11 @@ function computeImpacts(changes: EtfHoldingChange[]): StockImpactRow[] {
         primaryImpactEtf: null,
         etfs: []
       } satisfies StockImpactRow);
+    row.stockName = preferredStockName(
+      row.stockName,
+      change.stockName,
+      mappedStockNameForStock(change.stockId)
+    );
     const activeDiffLots = change.activeDiffLots ?? change.diffLots;
     const diffWeightPoint = change.diffWeightPoint ?? 0;
     const etfImpact: StockImpactEtf = {
@@ -223,12 +234,20 @@ export async function stockImpactsForDate(db: Db, date: string, changes: EtfHold
     const market = marketByStockId.get(impact.stockId);
     const institutional = institutionalByStockId.get(impact.stockId);
     const profile = profileByStockId.get(impact.stockId);
-    const fallback = sectorProfileForStock(impact.stockId, impact.stockName);
+    const stockName = preferredStockName(
+      market?.stockName,
+      institutional?.stockName,
+      profile?.stockName,
+      mappedStockNameForStock(impact.stockId),
+      impact.stockName
+    );
+    const fallback = sectorProfileForStock(impact.stockId, stockName);
     const sector = profile?.sector && profile.sector !== "其他" ? profile.sector : impact.sector !== "其他" ? impact.sector : fallback.sector;
     const themeTags = usableTags([...(profile?.themeTags ?? []), ...impact.themeTags, ...fallback.themeTags]);
 
     return {
       ...impact,
+      stockName,
       sector,
       themeTags,
       market: market

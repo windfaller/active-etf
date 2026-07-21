@@ -58,9 +58,15 @@ export async function invalidateDailyCache(etfCode: string, tradeDate: string): 
     buildCacheKey(["etf", etfCode, "summary", tradeDate]),
     buildCacheKey(["etf", etfCode, "changes", tradeDate]),
     buildCacheKey(["dashboard", etfCode, tradeDate]),
+    buildCacheKey(["dashboard", "v2", etfCode, tradeDate]),
     buildCacheKey(["market", "stock-impact", tradeDate]),
+    buildCacheKey(["market", "stock-impact", "v2", tradeDate]),
     buildCacheKey(["etf", "active", "ranking", tradeDate]),
     buildCacheKey(["etfs", "coverage", tradeDate]),
+    ...commonDateLimits.flatMap((limit) => [
+      buildCacheKey(["market", "dates", limit]),
+      buildCacheKey(["market", "dates", "v2", limit])
+    ]),
     ...commonDateLimits.map((limit) => buildCacheKey(["etf", etfCode, "dates", limit])),
     ...commonSummaryHistoryLimits.map((limit) => buildCacheKey(["etf", etfCode, "summary-history", limit]))
   ];

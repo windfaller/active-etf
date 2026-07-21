@@ -19,7 +19,7 @@ const globalReport = {
 async function mockApis(page: Page) {
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
-    if (url.includes("/market/dates")) return route.fulfill({ json: { dates: ["2026-07-21"] } });
+    if (url.includes("/market/dates")) return route.fulfill({ json: { dates: ["2026-07-21"], recommendedDate: "2026-07-21", coverage: [{ date: "2026-07-21", availableCount: 1, trackedCount: 1, coverageRate: 1 }] } });
     if (/\/api\/etf\/[^/]+\/dates/u.test(url)) return route.fulfill({ json: { dates: ["2026-07-20"] } });
     if (url.includes("/dashboard")) return route.fulfill({ json: dashboard });
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ json: { productGroup: "global_etf", enabled: [{ etfCode: "DRAM", fundName: "Roundhill Memory ETF", strategyType: "index" }, { etfCode: "ARK13F", fundName: "ARK Investment Management 13F Portfolio", strategyType: "13f" }], candidates: [] } });

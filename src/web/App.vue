@@ -19,6 +19,8 @@ import TaiwanEtfView from "./views/TaiwanEtfView.vue";
 import TaiwanMarketView from "./views/TaiwanMarketView.vue";
 
 interface TelegramInfo { configured: boolean; username: string | null; subscribeUrl: string | null }
+interface MarketDateCoverage { date: string; availableCount: number; trackedCount: number; coverageRate: number }
+interface MarketDatesResponse { dates: string[]; recommendedDate?: string | null; coverage?: MarketDateCoverage[] }
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled).map((etf) => ({
@@ -36,6 +38,7 @@ const route = ref<AppRoute>({ view: "daily", path: "/" });
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const marketDate = ref("");
 const marketAvailableDates = ref<string[]>([]);
+const marketDateCoverage = ref<MarketDateCoverage[]>([]);
 const selectedEtfDate = ref("");
 const selectedEtfAvailableDates = ref<string[]>([]);
 const emptyDashboard = (): DashboardResponse => ({
@@ -71,6 +74,11 @@ const isTaiwanMarketArea = computed(() => route.value.view === "daily" || route.
 const isTaiwanEtfArea = computed(() => route.value.view === "taiwanEtf");
 const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view));
 const telegramUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
+const newerPartialMarketDate = computed(() => {
+  const latest = marketDateCoverage.value[0];
+  if (!latest || latest.date === marketDate.value || latest.coverageRate >= 0.9) return null;
+  return latest;
+});
 const parentNavigation = computed<{ path: string; label: string } | null>(() => {
   if (route.value.view === "taiwanEtf") {
     if ((route.value.etfSection === "changes" || route.value.etfPage === "premiumHistory") && route.value.etfCode) {
@@ -163,15 +171,30 @@ async function loadMarketAvailableDates(): Promise<boolean> {
   marketDateAbort?.abort();
   marketDateAbort = new AbortController();
   try {
-    const result = await getJson<{ dates: string[] }>("/api/market/dates?limit=180", marketDateAbort.signal);
+    const result = await getJson<MarketDatesResponse>("/api/market/dates?limit=180", marketDateAbort.signal);
     marketAvailableDates.value = result.dates;
-    if (!marketDate.value || !result.dates.includes(marketDate.value)) marketDate.value = result.dates[0] ?? "";
+    marketDateCoverage.value = result.coverage ?? [];
+    const recommendedDate = result.recommendedDate && result.dates.includes(result.recommendedDate)
+      ? result.recommendedDate
+      : result.dates[0] ?? "";
+    if (!marketDate.value || !result.dates.includes(marketDate.value)) marketDate.value = recommendedDate;
     return Boolean(marketDate.value);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return false;
     taiwanError.value = error instanceof Error ? error.message : "日期資料讀取失敗。";
     return false;
   }
+}
+
+function marketDateLabel(date: string): string {
+  const coverage = marketDateCoverage.value.find((row) => row.date === date);
+  return coverage ? `${date}（${coverage.availableCount}/${coverage.trackedCount}）` : date;
+}
+
+async function showNewerPartialMarketDate(): Promise<void> {
+  if (!newerPartialMarketDate.value) return;
+  marketDate.value = newerPartialMarketDate.value.date;
+  await loadMarketDashboard();
 }
 
 async function loadSelectedEtfAvailableDates(code = selectedEtfCode.value): Promise<boolean> {
@@ -345,7 +368,7 @@ onBeforeUnmount(() => {
       </nav>
       <div class="top-actions">
         <a class="telegram-link" :href="telegramUrl" target="_blank" rel="noreferrer" :aria-disabled="telegramInfo && !telegramInfo.configured">Telegram</a>
-        <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
+        <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ marketDateLabel(date) }}</option></select></label>
         <label v-else-if="isTaiwanEtfArea" class="date-control"><Calendar :size="15" /><select v-model="selectedEtfDate" aria-label="單檔 ETF 資料日期" @change="loadSelectedEtfDashboard()"><option v-if="!selectedEtfAvailableDates.length" value="">載入中</option><option v-for="date in selectedEtfAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
         <label v-else-if="isGlobalArea" class="date-control"><Calendar :size="15" /><select v-model="selectedGlobalDate" aria-label="海外資料日期" @change="loadGlobalReport(true)"><option v-if="!globalAvailableDates.length" value="">載入中</option><option v-for="date in globalAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
         <button class="theme-button" type="button" :aria-label="isDarkMode ? '切換至淺色模式' : '切換至深色模式'" :title="isDarkMode ? '切換至淺色模式' : '切換至深色模式'" @click="toggleColorMode"><Sun v-if="isDarkMode" :size="17" /><Moon v-else :size="17" /></button>
@@ -356,6 +379,11 @@ onBeforeUnmount(() => {
     <nav v-if="route.view === 'market' || route.view === 'taiwanEtf'" class="area-subnav" aria-label="台灣 ETF 導覽"><button type="button" :class="{ active: route.view === 'market' }" @click="navigate('/market')"><Layers :size="16" />市場總覽</button><button type="button" :class="{ active: route.view === 'taiwanEtf' }" @click="navigate(`/etf/${selectedEtfCode}`)"><ListChecks :size="16" />單檔 ETF</button></nav>
     <nav v-if="route.view === 'globalMarket' || route.view === 'globalEtf'" class="area-subnav" aria-label="海外 ETF 導覽"><button type="button" :class="{ active: route.view === 'globalMarket' }" @click="navigate('/global-etfs')"><Globe2 :size="16" />市場總覽</button><button type="button" :class="{ active: route.view === 'globalEtf' }" @click="navigate(`/global-etfs/${selectedGlobalCode}`)"><ListChecks :size="16" />單檔 ETF</button></nav>
     <nav v-if="parentNavigation" class="context-back-nav" aria-label="上一層導覽"><button type="button" @click="navigate(parentNavigation.path)"><ArrowLeft :size="17" />{{ parentNavigation.label }}</button></nav>
+
+    <section v-if="isTaiwanMarketArea && newerPartialMarketDate" class="newer-date-notice" aria-label="較新資料日揭露進度">
+      <div><b>較新資料持續揭露中</b><span>{{ newerPartialMarketDate.date }} 已有 {{ newerPartialMarketDate.availableCount }} / {{ newerPartialMarketDate.trackedCount }} 檔更新；目前預設顯示涵蓋較完整的 {{ marketDate }}。</span></div>
+      <button type="button" @click="showNewerPartialMarketDate">查看 {{ newerPartialMarketDate.date }}</button>
+    </section>
 
     <p v-if="taiwanError && isTaiwanArea" class="app-alert">{{ taiwanError }}</p>
 
@@ -392,7 +420,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.p0-shell{display:grid;gap:16px;width:min(1380px,100%);margin:0 auto;padding:18px 22px 96px}.p0-topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;min-height:68px;padding:9px 14px;border:1px solid rgba(215,225,229,.92);border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 8px 28px rgba(28,48,65,.08);backdrop-filter:blur(14px)}.brand-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#25333e;text-align:left;cursor:pointer}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eef5f4}.brand-mark img{width:29px;height:29px}.brand-link>span:last-child{display:grid;gap:1px}.brand-link b{font-size:15px}.brand-link small{color:#7a8791;font-size:10px}.desktop-primary-nav{display:flex;justify-content:center;gap:3px}.desktop-primary-nav button{min-height:42px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:#64717c;font-weight:760;cursor:pointer}.desktop-primary-nav button.active{background:#173f56;color:#fff}.top-actions{display:flex;align-items:center;gap:7px}.telegram-link{display:flex;align-items:center;min-height:40px;padding:0 10px;border:1px solid #d7e0e4;border-radius:8px;color:#345986;font-size:12px;font-weight:760;text-decoration:none}.date-control{display:flex;align-items:center;gap:6px;height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;color:#61707b}.date-control select{border:0;outline:0;background:#fff;color:#35424e;font-size:12px}.theme-button,.refresh-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;cursor:pointer}.refresh-button:disabled{opacity:.55}.spinning{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.area-subnav{display:flex;justify-content:center;gap:5px}.area-subnav button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;cursor:pointer}.area-subnav button.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav{display:flex}.context-back-nav button{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;cursor:pointer}.context-back-nav button:hover{border-color:#8ca5b9;background:#f7fafb}.app-alert{margin:0;padding:13px 15px;border:1px solid #f1c4c0;border-radius:10px;background:#fff4f3;color:#a8322a}.p0-footer{display:flex;justify-content:space-between;gap:20px;padding:20px 4px;color:#6d7984;font-size:12px;line-height:1.6}.p0-footer p{margin:0}.p0-footer span{display:flex;gap:14px}.p0-footer a{color:#47657f;font-weight:720}.mobile-primary-nav,.mobile-search-overlay{display:none}
+.p0-shell{display:grid;gap:16px;width:min(1380px,100%);margin:0 auto;padding:18px 22px 96px}.p0-topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;min-height:68px;padding:9px 14px;border:1px solid rgba(215,225,229,.92);border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 8px 28px rgba(28,48,65,.08);backdrop-filter:blur(14px)}.brand-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#25333e;text-align:left;cursor:pointer}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eef5f4}.brand-mark img{width:29px;height:29px}.brand-link>span:last-child{display:grid;gap:1px}.brand-link b{font-size:15px}.brand-link small{color:#7a8791;font-size:10px}.desktop-primary-nav{display:flex;justify-content:center;gap:3px}.desktop-primary-nav button{min-height:42px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:#64717c;font-weight:760;cursor:pointer}.desktop-primary-nav button.active{background:#173f56;color:#fff}.top-actions{display:flex;align-items:center;gap:7px}.telegram-link{display:flex;align-items:center;min-height:40px;padding:0 10px;border:1px solid #d7e0e4;border-radius:8px;color:#345986;font-size:12px;font-weight:760;text-decoration:none}.date-control{display:flex;align-items:center;gap:6px;height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;color:#61707b}.date-control select{border:0;outline:0;background:#fff;color:#35424e;font-size:12px}.theme-button,.refresh-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;cursor:pointer}.refresh-button:disabled{opacity:.55}.spinning{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.area-subnav{display:flex;justify-content:center;gap:5px}.area-subnav button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;cursor:pointer}.area-subnav button.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav{display:flex}.context-back-nav button{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;cursor:pointer}.context-back-nav button:hover{border-color:#8ca5b9;background:#f7fafb}.newer-date-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #b9d7d3;border-radius:10px;background:#edf8f6;color:#29464d}.newer-date-notice>div{display:grid;gap:3px}.newer-date-notice b{font-size:13px}.newer-date-notice span{font-size:12px;line-height:1.5}.newer-date-notice button{flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #0d7770;border-radius:8px;background:#fff;color:#0d6f69;font-weight:760;cursor:pointer}.app-alert{margin:0;padding:13px 15px;border:1px solid #f1c4c0;border-radius:10px;background:#fff4f3;color:#a8322a}.p0-footer{display:flex;justify-content:space-between;gap:20px;padding:20px 4px;color:#6d7984;font-size:12px;line-height:1.6}.p0-footer p{margin:0}.p0-footer span{display:flex;gap:14px}.p0-footer a{color:#47657f;font-weight:720}.mobile-primary-nav,.mobile-search-overlay{display:none}
 @media(max-width:1050px){.p0-topbar{grid-template-columns:auto 1fr}.desktop-primary-nav{grid-row:2;grid-column:1 / -1;order:3}.top-actions{justify-self:end}.telegram-link{display:none}}
-@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.mobile-search-overlay{position:fixed;inset:0;z-index:100;display:grid;align-items:end;background:rgba(7,22,34,.48)}.mobile-search-overlay>section{display:grid;gap:16px;padding:20px 16px calc(22px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:#fff;box-shadow:0 -20px 60px rgba(7,22,34,.18)}.mobile-search-overlay header{display:flex;justify-content:space-between;gap:16px}.mobile-search-overlay header>div{display:grid;gap:4px}.mobile-search-overlay header small{color:#64727c}.mobile-search-overlay header button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #d9e1e5;border-radius:9px;background:#fff}.mobile-search-overlay label{display:grid;gap:6px;color:#5e6c77;font-size:12px;font-weight:760}.mobile-search-overlay select{width:100%;height:48px;padding:0 12px;border:1px solid #d4dee2;border-radius:9px;background:#fff}.institution-search-link{display:flex;align-items:center;gap:9px;min-height:48px;padding:0 13px;border:0;border-radius:9px;background:#173f56;color:#fff;font-weight:760}}
+@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.newer-date-notice{display:grid;gap:10px}.newer-date-notice button{width:100%;min-height:44px}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.mobile-search-overlay{position:fixed;inset:0;z-index:100;display:grid;align-items:end;background:rgba(7,22,34,.48)}.mobile-search-overlay>section{display:grid;gap:16px;padding:20px 16px calc(22px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:#fff;box-shadow:0 -20px 60px rgba(7,22,34,.18)}.mobile-search-overlay header{display:flex;justify-content:space-between;gap:16px}.mobile-search-overlay header>div{display:grid;gap:4px}.mobile-search-overlay header small{color:#64727c}.mobile-search-overlay header button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #d9e1e5;border-radius:9px;background:#fff}.mobile-search-overlay label{display:grid;gap:6px;color:#5e6c77;font-size:12px;font-weight:760}.mobile-search-overlay select{width:100%;height:48px;padding:0 12px;border:1px solid #d4dee2;border-radius:9px;background:#fff}.institution-search-link{display:flex;align-items:center;gap:9px;min-height:48px;padding:0 13px;border:0;border-radius:9px;background:#173f56;color:#fff;font-weight:760}}
 </style>

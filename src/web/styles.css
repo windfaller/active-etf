@@ -91,6 +91,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .coverage-status > div,
   .mobile-data-card,
   .source-disclosure,
+  .newer-date-notice,
+  .newer-date-notice button,
   .not-found-view,
   .static-seo-shell
 ) {
@@ -152,6 +154,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .market-sector-grid small,
   .filing-status span,
   .institution-grid small,
+  .newer-date-notice span,
   .p0-footer,
   .static-seo-shell p,
   .static-seo-shell li
@@ -207,6 +210,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 [data-theme="dark"] :is(.error-message, .app-alert) { border-color: #75433f !important; background: #321d1d !important; color: #ffaaa3 !important; }
 [data-theme="dark"] .p0-footer a,
 [data-theme="dark"] .context-back-nav button,
+[data-theme="dark"] .newer-date-notice button,
 [data-theme="dark"] .telegram-link { color: #8eb9df !important; }
 [data-theme="dark"] :is(
   .coverage-status span,

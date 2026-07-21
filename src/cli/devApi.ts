@@ -22,7 +22,7 @@ import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
-import { availableMarketDates, safeMarketDateLimit } from "../services/market/marketDatesService.js";
+import { marketDateOverview, safeMarketDateLimit } from "../services/market/marketDatesService.js";
 import { getGlobalEtfDailyReport, syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
@@ -139,7 +139,7 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET" && parts[1] === "market" && parts[2] === "stock-impact") {
       const date = required(requestUrl.searchParams.get("date"), "date");
-      const body = await getOrSetDailyCache(["market", "stock-impact", date], async () => {
+      const body = await getOrSetDailyCache(["market", "stock-impact", "v2", date], async () => {
         const db = await getDevDb();
         const changes = await db
           .collection<EtfHoldingChange>("etf_holding_changes")
@@ -159,9 +159,9 @@ const server = createServer(async (req, res) => {
         return;
       }
       const limit = safeMarketDateLimit(parsedLimit);
-      const body = await getOrSetDailyCache(["market", "dates", limit], async () => ({
-        dates: await availableMarketDates(await getDevDb(), limit)
-      }));
+      const body = await getOrSetDailyCache(["market", "dates", "v2", limit], async () =>
+        marketDateOverview(await getDevDb(), limit)
+      );
       sendJson(res, 200, body);
       return;
     }

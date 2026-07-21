@@ -32,11 +32,19 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
     if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReportFixture });
-    if (url.includes("/market/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21","2026-07-20"]} });
+    if (url.includes("/market/dates")) return route.fulfill({ headers, json:{
+      dates:["2026-07-21","2026-07-20"],
+      recommendedDate:"2026-07-20",
+      coverage:[
+        {date:"2026-07-21",availableCount:4,trackedCount:10,coverageRate:.4},
+        {date:"2026-07-20",availableCount:10,trackedCount:10,coverageRate:1}
+      ]
+    } });
     if (/\/api\/etf\/[^/]+\/dates/u.test(url)) return route.fulfill({ headers, json:{dates:["2026-07-20","2026-07-19"]} });
     if (url.includes("/dashboard")) {
       const selected = new URL(url).searchParams.get("date") ?? "2026-07-21";
-      return route.fulfill({ headers, json:{...dashboard,summary:{...dashboard.summary,tradeDate:selected},coverage:{...dashboard.coverage,date:selected}} });
+      const latestPartial = selected === "2026-07-21";
+      return route.fulfill({ headers, json:{...dashboard,summary:{...dashboard.summary,tradeDate:selected},coverage:{...dashboard.coverage,date:selected,availableCount:latestPartial ? 4 : 10,staleCount:latestPartial ? 6 : 0}} });
     }
     if (url.includes("/telegram/info")) return route.fulfill({ headers, json:{configured:false,username:null,subscribeUrl:null} });
     return route.fulfill({ headers, status:404, json:{} });
@@ -107,7 +115,8 @@ test("market and single-ETF dates stay independent across navigation and history
   await mockApis(page);
   await page.goto("/");
   const marketDate = page.getByLabel("台灣市場資料日期");
-  await expect(marketDate).toHaveValue("2026-07-21");
+  await expect(marketDate).toHaveValue("2026-07-20");
+  await expect(page.getByText("2026-07-21 已有 4 / 10 檔更新")).toBeVisible();
 
   await page.getByRole("button", { name: /選擇台灣單檔 ETF/u }).click();
   await expect(page).toHaveURL(/\/etf\/00981A$/u);
@@ -116,14 +125,28 @@ test("market and single-ETF dates stay independent across navigation and history
 
   await page.getByRole("button", { name: "返回台灣 ETF 市場總覽" }).click();
   await expect(page).toHaveURL(/\/market$/u);
-  await expect(page.getByLabel("台灣市場資料日期")).toHaveValue("2026-07-21");
+  await expect(page.getByLabel("台灣市場資料日期")).toHaveValue("2026-07-20");
 
   await page.goBack();
   await expect(page).toHaveURL(/\/etf\/00981A$/u);
   await expect(page.getByLabel("單檔 ETF 資料日期")).toHaveValue("2026-07-20");
   await page.goBack();
   await expect(page).toHaveURL(/\/$/u);
-  await expect(page.getByLabel("台灣市場資料日期")).toHaveValue("2026-07-21");
+  await expect(page.getByLabel("台灣市場資料日期")).toHaveValue("2026-07-20");
+});
+
+test("market defaults to high coverage and can open the newer partial date", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/market");
+  const marketDate = page.getByLabel("台灣市場資料日期");
+  await expect(marketDate).toHaveValue("2026-07-20");
+  await expect(page.getByText("目前預設顯示涵蓋較完整的 2026-07-20")).toBeVisible();
+
+  await page.getByRole("button", { name: "查看 2026-07-21" }).click();
+
+  await expect(marketDate).toHaveValue("2026-07-21");
+  await expect(page.getByText("較新資料持續揭露中")).toHaveCount(0);
+  await expect(page.locator(".coverage-status")).toContainText("4 / 10");
 });
 
 test("institution cards avoid empty expansion, provide parent navigation, and persist dark mode", async ({ page }) => {
