@@ -161,6 +161,43 @@ test("market impact cards keep distinct tone surfaces in dark mode", async ({ pa
   expect(darkStyles[1].background).not.toBe(lightStyles[1].background);
 });
 
+test("desktop market table keeps dark surfaces and readable text", async ({ page }) => {
+  await page.setViewportSize({ width:1440, height:900 });
+  await mockApis(page);
+  await page.goto("/market");
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+
+  const row = page.locator(".impact-grid .table-row").first();
+  const tableStyles = await row.evaluate((element) => {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const rowStyles = getComputedStyle(element);
+    const headStyles = getComputedStyle(document.querySelector(".impact-grid .table-head") as Element);
+    const smallStyles = getComputedStyle(element.querySelector("small") as Element);
+    return {
+      rowBackground: rowStyles.backgroundColor,
+      rowColor: rowStyles.color,
+      headColor: headStyles.color,
+      smallColor: smallStyles.color,
+      themeSurface: rootStyles.getPropertyValue("--theme-surface").trim(),
+      themeTextStrong: rootStyles.getPropertyValue("--theme-text-strong").trim(),
+      themeTextMuted: rootStyles.getPropertyValue("--theme-text-muted").trim()
+    };
+  });
+
+  expect(tableStyles.rowBackground).toBe("rgb(18, 29, 38)");
+  expect(tableStyles.rowColor).toBe("rgb(241, 245, 247)");
+  expect(tableStyles.headColor).toBe("rgb(168, 182, 192)");
+  expect(tableStyles.smallColor).toBe("rgb(168, 182, 192)");
+  expect(tableStyles.themeSurface).toBe("#121d26");
+  expect(tableStyles.themeTextStrong).toBe("#f1f5f7");
+  expect(tableStyles.themeTextMuted).toBe("#a8b6c0");
+
+  await row.click();
+  await expect(row).toHaveClass(/focused/u);
+  await expect.poll(() => row.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(28, 44, 55)");
+});
+
 test("homepage does not request the full global report and browser history follows URL", async ({ page }) => {
   await mockApis(page);
   const globalReportRequests: string[] = [];

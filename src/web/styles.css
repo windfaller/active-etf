@@ -185,6 +185,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 
 [data-theme="dark"] :is(.table-row, .change-list > div) {
   border-color: #253541 !important;
+  background: var(--theme-surface) !important;
+}
+
+[data-theme="dark"] :is(.table-head, .table-row small) {
+  color: var(--theme-text-muted) !important;
 }
 
 [data-theme="dark"] .consensus-row:hover,
