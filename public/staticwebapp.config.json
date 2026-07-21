@@ -5,59 +5,25 @@
       "rewrite": "/api/sitemap.xml"
     },
     {
-      "route": "/sitemap-inthewins.xml",
-      "rewrite": "/api/sitemap-inthewins.xml"
-    },
-    {
       "route": "/robots.txt",
       "rewrite": "/api/robots.txt"
     },
     {
       "route": "/",
       "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
+        "cache-control": "no-cache, must-revalidate"
       }
     },
     {
       "route": "/index.html",
       "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
+        "cache-control": "no-cache, must-revalidate"
       }
     },
     {
       "route": "/app-version.json",
       "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
-      "route": "/market",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
-      "route": "/etf/*",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
-      "route": "/global-etfs",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
-      "route": "/global-etfs/*",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
-      }
-    },
-    {
-      "route": "/assets/index-cTTlnrt5.js",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate"
+        "cache-control": "no-store"
       }
     },
     {
@@ -72,7 +38,14 @@
     "exclude": [
       "/api/*",
       "/assets/*",
+      "/market",
+      "/etf/*",
+      "/global-etfs",
+      "/global-etfs/*",
+      "/institutions",
+      "/institutions/*",
       "/active-etfs/*",
+      "/data-usage/*",
       "/sitemap.xml",
       "/robots.txt",
       "/favicon.svg",

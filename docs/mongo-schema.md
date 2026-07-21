@@ -185,6 +185,8 @@ Important fields:
 - `snapshotId`
 - `etfCode`
 - `sourceAsOf`
+- `filedAt` (optional; SEC 13F filing date)
+- `capturedAt` (optional ISO timestamp; normalized acquisition time)
 - `fetchedAt`
 - `sourceUrl`
 - `sourceStatus`
@@ -198,6 +200,8 @@ Important fields:
 - `unusableReason`
 
 EUV snapshots that look like historical aggregation pollution should be marked unusable and skipped as previous-comparison baselines.
+
+For `strategyType: "13f"`, `sourceAsOf` is the SEC `reportDate` (period of report), not the filing date. Older snapshots without `filedAt` are read with metadata recovered from their linked SEC submissions raw snapshot when available.
 
 ### `global_etf_holding_changes`
 

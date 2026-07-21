@@ -22,7 +22,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 台新投信 `taishin` | `00986A`, `00987A` | Verified and enabled | Official `ETF/Home/Pcf/{code}` page renders complete server-side PCF HTML. No JSON/XLSX endpoint was found in the official JS, so this provider uses the HTML parser fallback with table-header validation. Production daily refresh is enabled. |
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Verified and enabled | Official Fuh Hwa JSON endpoints `/api/assets` and `/api/ETFPcf` were captured from `etf_detail.js` / `util_footer.js`; complete holdings, NAV, AUM, total units, allocation rows and PCF unit delta were verified. Production daily refresh is enabled. |
-| 第一金投信 `first` | `00994A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
+| 第一金投信 `first` | `00994A`, `00408A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
 
 ## Verified Endpoints
 
@@ -216,15 +216,18 @@ This project does not guess provider APIs. A provider can be enabled for product
 
 ### First Securities Investment Trust FundDetail WebAPI
 
-- Product page: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+- Product pages:
+  - `00994A`: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+  - `00408A`: `https://www.fsitc.com.tw/FundDetail.aspx?ID=183`
 - Official page JavaScript reviewed: the `申購買回清單` tab calls `WebAPI.aspx/Get_BuySellA` for summary rows and `WebAPI.aspx/Get_hd` for holding/allocation rows.
 - Method: `POST`
 - URLs:
   - `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellA`
   - `https://www.fsitc.com.tw/WebAPI.aspx/Get_hd`
-- Body: `{ "pStrFundID": "182", "pStrDate": "YYYY-MM-DD" }`
+- Body: `{ "pStrFundID": "<fund ID>", "pStrDate": "YYYY-MM-DD" }`
 - Confirmed ETF codes:
   - `00994A`: official page maps it to fund ID `182`; latest run returned holdings trade date `2026-05-15` and 41 stock rows.
+  - `00408A`: official page maps it to fund ID `183`; live run returned holdings trade date `2026-07-17` and 39 stock rows.
 - Response type: ASP.NET JSON envelope, where `d` is a JSON string.
 - Contains:
   - `Get_BuySellA` rows for fund size, NAV, total units, unit delta and creation/redemption summary

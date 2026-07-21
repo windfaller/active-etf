@@ -43,6 +43,8 @@ export interface GlobalEtfSnapshot {
   fundName: string;
   issuer: string;
   sourceAsOf: string;
+  filedAt?: string;
+  capturedAt?: string;
   fetchedAt: Date;
   sourceUrl: string;
   sourceStatus: GlobalEtfSourceStatus;
@@ -107,6 +109,8 @@ export interface GlobalEtfReportSection {
   issuer: string;
   strategyType?: GlobalEtfStrategyType;
   sourceAsOf: string;
+  filedAt?: string;
+  capturedAt?: string;
   sourceUrl: string;
   sourceStatus: GlobalEtfSourceStatus;
   rowCount: number;

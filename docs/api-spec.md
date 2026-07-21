@@ -52,13 +52,17 @@ Returns the enabled overseas ETF product line and the candidate universe that st
 
 `GET /api/global-etfs/daily-report?date=YYYY-MM-DD`
 
-Returns the Traditional Chinese Global ETF Holdings Radar report with source status rows, all-ETF movers, per-ETF Top 10 holdings, source links, and Forvix ad context tags. `date` is optional; when provided, each ETF uses the latest usable official snapshot whose `sourceAsOf` is on or before that date. If no `global_etf_snapshots` exist in local development, the dev API returns a `demoMode: true` report so the UI can be inspected without polluting production data.
+Returns the Traditional Chinese Global ETF Holdings Radar report with source status rows, all-ETF movers, per-ETF Top 10 holdings, source links, and Forvix ad context tags. `date` is optional; when provided, each ETF uses the latest usable official snapshot whose `sourceAsOf` is on or before that date. For SEC 13F sections, `sourceAsOf` is the period-of-report date; optional `filedAt` and `capturedAt` identify the filing date and actual system acquisition time. Top-level `reportDate` is the report basis date and must not be presented as an acquisition date. If no `global_etf_snapshots` exist in local development, the dev API returns a `demoMode: true` report so the UI can be inspected without polluting production data.
 
 ## Get Global ETF Dates
 
 `GET /api/global-etfs/dates?limit=180`
 
 Returns distinct ISO `sourceAsOf` dates from usable overseas ETF snapshots, newest first. The frontend uses this list for the overseas ETF date selector.
+
+`GET /api/market/dates?limit=180`
+
+Returns `{ "dates": ["YYYY-MM-DD", ...] }` for the cross-ETF Taiwan market timeline, newest first. Dates are aggregated from all enabled ETF rows in `etf_holding_changes`; this endpoint is intentionally independent of the currently selected single ETF. `limit` defaults to 180 and is clamped to 1–365.
 
 ## Get Global ETF Holdings
 
@@ -150,7 +154,7 @@ Fetches the official TWSE ETFortune active ETF screener (`managerType=Active`), 
 
 `POST /api/jobs/telegram/set-webhook`
 
-Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.chicoo.co/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
+Registers the Telegram bot webhook to `{PUBLIC_BASE_URL}/api/telegram/webhook`. Production default is `https://active-etf.inthewins.com/api/telegram/webhook`. Include `x-admin-token`; the value must match `ADMIN_JOB_TOKEN`. Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`.
 
 ## Admin Telegram Daily Digest
 

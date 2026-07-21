@@ -39,7 +39,7 @@ Check these app settings first:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
-- `PUBLIC_BASE_URL=https://active-etf.chicoo.co`
+- `PUBLIC_BASE_URL=https://active-etf.inthewins.com`
 - `TELEGRAM_ETF_ONBOARDING_CHAT_IDS` for new active ETF onboarding alerts
 
 Then call `POST /api/jobs/telegram/set-webhook` with `x-admin-token`. Ask the user to send `/start` to the bot; this should create or update a row in `telegram_subscribers`. If `TELEGRAM_ALLOWED_USER_IDS` or `TELEGRAM_ALLOWED_CHAT_IDS` is configured, the sender must be in one of those allowlists.

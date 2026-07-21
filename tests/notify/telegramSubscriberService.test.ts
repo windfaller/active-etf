@@ -18,10 +18,10 @@ afterEach(() => {
 describe("telegram subscriber service", () => {
   it("uses the production custom domain for webhook registration", () => {
     delete process.env.PUBLIC_BASE_URL;
-    expect(telegramWebhookUrl()).toBe("https://active-etf.chicoo.co/api/telegram/webhook");
+    expect(telegramWebhookUrl()).toBe("https://active-etf.inthewins.com/api/telegram/webhook");
 
-    process.env.PUBLIC_BASE_URL = "https://active-etf.chicoo.co/";
-    expect(telegramWebhookUrl()).toBe("https://active-etf.chicoo.co/api/telegram/webhook");
+    process.env.PUBLIC_BASE_URL = "https://active-etf.inthewins.com/";
+    expect(telegramWebhookUrl()).toBe("https://active-etf.inthewins.com/api/telegram/webhook");
   });
 
   it("stores /start subscriber data and sends status text", async () => {

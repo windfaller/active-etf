@@ -188,6 +188,8 @@ async function fetchSec13fHoldings(etfCode: string) {
       recent?: {
         form?: string[];
         filingDate?: string[];
+        reportDate?: string[];
+        acceptanceDateTime?: string[];
         accessionNumber?: string[];
       };
     };
@@ -196,7 +198,8 @@ async function fetchSec13fHoldings(etfCode: string) {
   const index = recent?.form?.findIndex((form) => form === "13F-HR" || form === "13F-HR/A") ?? -1;
   const accessionNumber = index >= 0 ? recent?.accessionNumber?.[index] : undefined;
   const filingDate = index >= 0 ? recent?.filingDate?.[index] : undefined;
-  if (!accessionNumber || !filingDate) throw new Error(`${etfCode} latest 13F filing not found`);
+  const reportDate = index >= 0 ? recent?.reportDate?.[index] : undefined;
+  if (!accessionNumber || !filingDate || !reportDate) throw new Error(`${etfCode} latest 13F filing not found`);
 
   const archiveCik = String(Number(cik));
   const archiveBase = `https://www.sec.gov/Archives/edgar/data/${archiveCik}/${accessionNumber.replace(/-/gu, "")}/`;
@@ -221,8 +224,8 @@ async function fetchSec13fHoldings(etfCode: string) {
     throw new Error(`${etfCode} SEC 13F table returned ${raw.responseStatus}`);
   }
 
-  const parsed = parseSec13fInformationTable(raw.rawBody, etf, raw.url, filingDate);
-  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw: [submissions, filingIndex, raw] };
+  const parsed = parseSec13fInformationTable(raw.rawBody, etf, raw.url, reportDate);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url, filedAt: filingDate }), raw: [submissions, filingIndex, raw] };
 }
 
 export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtfFetchOutput> {

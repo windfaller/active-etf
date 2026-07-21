@@ -6,4 +6,6 @@ output/
 .env
 local.settings.json
 coverage/
+playwright-report/
+test-results/
 *.log

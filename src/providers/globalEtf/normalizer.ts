@@ -45,11 +45,12 @@ export function aggregateGlobalHoldings(holdings: GlobalEtfHolding[]): GlobalEtf
   return [...byKey.values()].sort((a, b) => (b.weightPercent ?? -1) - (a.weightPercent ?? -1));
 }
 
-export function buildGlobalEtfSignature(snapshot: Pick<GlobalEtfSnapshot, "etfCode" | "sourceAsOf" | "sourceStatus" | "rowCount" | "rawRowCount" | "holdings">): string {
+export function buildGlobalEtfSignature(snapshot: Pick<GlobalEtfSnapshot, "etfCode" | "sourceAsOf" | "filedAt" | "sourceStatus" | "rowCount" | "rawRowCount" | "holdings">): string {
   const payload = {
     etfCode: snapshot.etfCode,
     sourceStatus: snapshot.sourceStatus,
     sourceAsOf: snapshot.sourceAsOf,
+    filedAt: snapshot.filedAt ?? null,
     rowCount: snapshot.rowCount,
     rawRowCount: snapshot.rawRowCount,
     positions: snapshot.holdings.map((holding) => ({
@@ -76,6 +77,8 @@ export function buildGlobalSnapshot(
     rawRowCount: number;
     holdings: GlobalEtfHolding[];
     rawSnapshotId?: string;
+    filedAt?: string;
+    capturedAt?: string;
   }
 ): GlobalEtfSnapshot {
   const holdings = aggregateGlobalHoldings(input.holdings).map((holding) => ({
@@ -89,13 +92,16 @@ export function buildGlobalSnapshot(
       : etf.etfCode === "EUV" && ((input.rawRowCount > 200 && holdings.length > 200) || holdings.some((holding) => (holding.weightPercent ?? 0) > 100))
         ? "historical_aggregation_pollution"
         : undefined;
+  const fetchedAt = new Date();
   const snapshot: GlobalEtfSnapshot = {
     snapshotId: randomUUID(),
     etfCode: etf.etfCode,
     fundName: etf.fundName,
     issuer: etf.issuer,
     sourceAsOf: input.sourceAsOf,
-    fetchedAt: new Date(),
+    filedAt: input.filedAt,
+    capturedAt: input.capturedAt ?? fetchedAt.toISOString(),
+    fetchedAt,
     sourceUrl: input.sourceUrl,
     sourceStatus: "ok",
     productGroup: "global_etf",

@@ -1,5 +1,5 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
-import { defaultSiteBaseUrl, inthewinsSiteBaseUrl } from "../services/seo/siteUrls.js";
+import { defaultSiteBaseUrl } from "../services/seo/siteUrls.js";
 import { buildRobotsTxt, buildSitemapXml } from "../services/seo/sitemap.js";
 
 function textResponse(body: string, contentType: string): HttpResponseInit {
@@ -15,10 +15,6 @@ function textResponse(body: string, contentType: string): HttpResponseInit {
 
 export async function getSitemapXml(_request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
   return textResponse(buildSitemapXml(defaultSiteBaseUrl), "application/xml; charset=utf-8");
-}
-
-export async function getInthewinsSitemapXml(_request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
-  return textResponse(buildSitemapXml(inthewinsSiteBaseUrl), "application/xml; charset=utf-8");
 }
 
 export async function getRobotsTxt(_request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> {
@@ -37,11 +33,4 @@ app.http("getRobotsTxt", {
   route: "robots.txt",
   authLevel: "anonymous",
   handler: getRobotsTxt
-});
-
-app.http("getInthewinsSitemapXml", {
-  methods: ["GET", "HEAD"],
-  route: "sitemap-inthewins.xml",
-  authLevel: "anonymous",
-  handler: getInthewinsSitemapXml
 });
