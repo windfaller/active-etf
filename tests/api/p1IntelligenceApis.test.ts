@@ -150,4 +150,38 @@ describe("P1 intelligence APIs", () => {
     expect((await getSearch(request("q=台積電&types=tw_stock,tw_etf&limit=12"), context)).status).toBe(200);
     expect((await getSearch(request("q=a&limit=12"), context)).status).toBe(400);
   });
+
+  it("deduplicates concurrent identical signals requests", async () => {
+    mocks.intelligenceSignals.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { consecutive: [], reversals: [], divergences: [] };
+    });
+    const query = "kind=consecutive&window=3&limit=1&date=2026-07-20";
+
+    const [first, second] = await Promise.all([getSignals(request(query), context), getSignals(request(query), context)]);
+
+    expect(first.status).toBe(200);
+    expect(second.jsonBody).toEqual(first.jsonBody);
+    expect(mocks.intelligenceSignals).toHaveBeenCalledTimes(1);
+    expect(mocks.getDb).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent identical style profile requests", async () => {
+    mocks.etfStyleProfile.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { etf: { code: "00981A" }, period: { window: 60 } };
+    });
+    const query = "window=60&date=2026-07-19";
+    const params = { etfCode: "00981A" };
+
+    const [first, second] = await Promise.all([
+      getStyleProfile(request(query, params), context),
+      getStyleProfile(request(query, params), context)
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(second.jsonBody).toEqual(first.jsonBody);
+    expect(mocks.etfStyleProfile).toHaveBeenCalledTimes(1);
+    expect(mocks.getDb).toHaveBeenCalledTimes(1);
+  });
 });

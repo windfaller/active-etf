@@ -1,9 +1,13 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
 import { getDb } from "../db/mongo.js";
+import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
 import { optionalDate, styleWindowSchema } from "./intelligenceValidation.js";
 import { badRequest, cachedJsonResponse, jsonResponse, notFound } from "./response.js";
+
+const requestCache = new BoundedRequestCache();
+const requestCacheTtlMilliseconds = 60_000;
 
 export async function getStyleProfile(request: HttpRequest, context: InvocationContext) {
   const code = (request.params.etfCode ?? "").trim().toUpperCase();
@@ -14,7 +18,11 @@ export async function getStyleProfile(request: HttpRequest, context: InvocationC
   if (!window.success) return badRequest("window must be 20 or 60 effective trading days");
   if (date.error) return badRequest(date.error);
   try {
-    return cachedJsonResponse(await etfStyleProfile(await getDb(), code, window.data, date.value), 300);
+    const key = [code, window.data, date.value ?? "latest"].join(":");
+    const result = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
+      etfStyleProfile(await getDb(), code, window.data, date.value)
+    );
+    return cachedJsonResponse(result, 300);
   } catch (error) {
     context.error("style profile failed", error);
     return jsonResponse({ error: "style profile is temporarily unavailable" }, 500);
