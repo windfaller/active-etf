@@ -839,11 +839,15 @@ component row "Market Value Base" / "Estimated NAV" * 100 -> etf_daily_holdings.
 
 ## 第一金 holdings and summary
 
-Product page: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+Product pages:
+
+- `00994A`: `https://www.fsitc.com.tw/FundDetail.aspx?ID=182`
+- `00408A`: `https://www.fsitc.com.tw/FundDetail.aspx?ID=183`
 
 Confirmed product:
 
 - `00994A`: `pStrFundID` `182`
+- `00408A`: `pStrFundID` `183`
 
 Summary URL: `https://www.fsitc.com.tw/WebAPI.aspx/Get_BuySellA`
 
@@ -857,7 +861,7 @@ Headers:
 Accept: application/json, text/javascript, */*; q=0.01
 Content-Type: application/json; charset=utf-8
 X-Requested-With: XMLHttpRequest
-Referer: https://www.fsitc.com.tw/FundDetail.aspx?ID=182
+Referer: matching FundDetail page for the fund ID
 User-Agent: browser user-agent
 ```
 
@@ -865,8 +869,8 @@ Payload:
 
 ```json
 {
-  "pStrFundID": "182",
-  "pStrDate": "2026-05-18"
+  "pStrFundID": "183",
+  "pStrDate": "2026-07-20"
 }
 ```
 

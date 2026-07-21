@@ -11,5 +11,16 @@ export const firstEtfs: EtfInfo[] = [
     implementationStatus: "verified",
     fundCode: "182",
     notes: "Official First Securities Investment Trust FundDetail WebAPI PCF endpoints"
+  },
+  {
+    etfCode: "00408A",
+    name: "主動第一金優股息",
+    issuer: "第一金投信",
+    providerId: "first",
+    currency: "TWD",
+    enabled: true,
+    implementationStatus: "verified",
+    fundCode: "183",
+    notes: "Official First Securities Investment Trust FundDetail WebAPI PCF endpoints"
   }
 ];

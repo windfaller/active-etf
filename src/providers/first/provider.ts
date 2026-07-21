@@ -6,7 +6,10 @@ import { detectFirstPcfTradeDate } from "./parser.js";
 import { firstEtfs } from "./types.js";
 
 const firstApiBase = "https://www.fsitc.com.tw/WebAPI.aspx";
-const firstProductUrl = "https://www.fsitc.com.tw/FundDetail.aspx?ID=182";
+
+function productUrlForFundId(fundId: string): string {
+  return `https://www.fsitc.com.tw/FundDetail.aspx?ID=${encodeURIComponent(fundId)}`;
+}
 
 function addDays(date: string, days: number): string {
   const parsed = new Date(`${date}T00:00:00.000Z`);
@@ -32,11 +35,12 @@ function fundIdForEtf(etfCode: string): string {
 }
 
 async function postFirstWebApi(endpoint: "Get_BuySellA" | "Get_hd", fundId: string, queryDate: string) {
+  const productUrl = productUrlForFundId(fundId);
   return fetchSource({
     url: `${firstApiBase}/${endpoint}`,
     method: "POST",
     headers: {
-      ...defaultCrawlerHeaders(firstProductUrl),
+      ...defaultCrawlerHeaders(productUrl),
       Accept: "application/json, text/javascript, */*; q=0.01",
       "Content-Type": "application/json; charset=utf-8",
       "X-Requested-With": "XMLHttpRequest"
@@ -50,6 +54,7 @@ async function postFirstWebApi(endpoint: "Get_BuySellA" | "Get_hd", fundId: stri
 
 async function requestPcf(etfCode: string, queryDate: string): Promise<RawHoldingResponse> {
   const fundId = fundIdForEtf(etfCode);
+  const productUrl = productUrlForFundId(fundId);
   const [summary, holdings] = await Promise.all([
     postFirstWebApi("Get_BuySellA", fundId, queryDate),
     postFirstWebApi("Get_hd", fundId, queryDate)
@@ -59,7 +64,7 @@ async function requestPcf(etfCode: string, queryDate: string): Promise<RawHoldin
     holdings: JSON.parse(holdings.rawBody)
   });
   const fetchResult: SourceFetchResult = {
-    url: firstProductUrl,
+    url: productUrl,
     method: "POST",
     requestHeaders: summary.requestHeaders,
     requestBody: JSON.stringify({
