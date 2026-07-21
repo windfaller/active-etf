@@ -8,6 +8,8 @@
     "build": "npm run web:build",
     "functions:build": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:seo": "npm run web:build && node scripts/verify-prerender.mjs",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "web:dev": "vite --host 127.0.0.1",
     "web:build": "vue-tsc -p tsconfig.web.json && vite build",
