@@ -22,7 +22,7 @@ const props = defineProps<{
   holdings: Holding[];
   loading: boolean;
 }>();
-const emit = defineEmits<{ select: [code: string]; report: []; premium: []; changes: [] }>();
+const emit = defineEmits<{ select: [code: string]; report: []; premium: []; changes: []; style: [] }>();
 const holdingQuery = ref("");
 const selected = computed(() => props.options.find((row) => row.etfCode === props.selectedCode) ?? props.options[0]);
 const operationRows = computed(() => {
@@ -49,6 +49,7 @@ function operationStatus(row: Change): string { if (row.status === "new" || row.
       <button type="button" :class="{ active: page === 'report' && section === 'overview' }" @click="emit('report')">持股總覽</button>
       <button type="button" :class="{ active: page === 'report' && section === 'changes' }" @click="emit('changes')">持股變化</button>
       <button type="button" :class="{ active: page === 'premiumHistory' }" @click="emit('premium')">折溢價歷史</button>
+      <button type="button" @click="emit('style')">經理人風格</button>
     </nav>
 
     <template v-if="page === 'premiumHistory'">

@@ -6,6 +6,13 @@ export type AppView =
   | "globalEtf"
   | "institutions"
   | "institution"
+  | "stocks"
+  | "stock"
+  | "compareEtfs"
+  | "signals"
+  | "etfStyle"
+  | "search"
+  | "methodology"
   | "notFound";
 
 export type TaiwanEtfPage = "report" | "premiumHistory";
@@ -19,4 +26,10 @@ export interface AppRoute {
   etfSection?: TaiwanEtfSection;
   globalCode?: string;
   institutionCode?: string;
+  stockMarket?: "tw" | "us";
+  stockSymbol?: string;
+  compareType?: "tw" | "global";
+  compareCodes?: string[];
+  signalKind?: "all" | "consecutive" | "reversals" | "divergence";
+  searchQuery?: string;
 }

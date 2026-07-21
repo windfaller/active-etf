@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { ArrowLeft, Building2, Calendar, Globe2, Home, Layers, ListChecks, Moon, RefreshCw, Search, Sun, X } from "@lucide/vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { ArrowLeft, Calendar, Globe2, Home, Layers, ListChecks, Moon, RefreshCw, Search, Sun } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
 import { enabledGlobalEtfs } from "../config/globalEtfs";
 import AdSlot from "../components/ads/AdSlot";
@@ -18,6 +18,15 @@ import NotFoundView from "./views/NotFoundView.vue";
 import TaiwanEtfView from "./views/TaiwanEtfView.vue";
 import TaiwanMarketView from "./views/TaiwanMarketView.vue";
 import ForvixMarketEmbed from "./components/ForvixMarketEmbed.vue";
+
+const StocksIndexView = defineAsyncComponent(() => import("./views/StocksIndexView.vue"));
+const StockDetailView = defineAsyncComponent(() => import("./views/StockDetailView.vue"));
+const EtfCompareView = defineAsyncComponent(() => import("./views/EtfCompareView.vue"));
+const SignalsView = defineAsyncComponent(() => import("./views/SignalsView.vue"));
+const EtfStyleView = defineAsyncComponent(() => import("./views/EtfStyleView.vue"));
+const SearchResultsView = defineAsyncComponent(() => import("./views/SearchResultsView.vue"));
+const MethodologyView = defineAsyncComponent(() => import("./views/MethodologyView.vue"));
+const GlobalSearchDialog = defineAsyncComponent(() => import("./components/search/GlobalSearchDialog.vue"));
 
 interface TelegramInfo { configured: boolean; username: string | null; subscribeUrl: string | null }
 interface MarketDateCoverage { date: string; availableCount: number; trackedCount: number; coverageRate: number }
@@ -73,6 +82,7 @@ const globalError = ref("");
 
 const telegramInfo = ref<TelegramInfo | null>(null);
 const isMobileSearchOpen = ref(false);
+const p1RefreshKey = ref(0);
 const { isDarkMode, toggleColorMode } = useColorMode();
 const marketDateCoverageThreshold = 0.7;
 
@@ -84,6 +94,7 @@ const isTaiwanArea = computed(() => ["daily", "market", "taiwanEtf"].includes(ro
 const isTaiwanMarketArea = computed(() => route.value.view === "daily" || route.value.view === "market");
 const isTaiwanEtfArea = computed(() => route.value.view === "taiwanEtf");
 const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view));
+const isP1Area = computed(() => ["stocks", "stock", "compareEtfs", "signals", "etfStyle", "search", "methodology"].includes(route.value.view));
 const telegramUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const newerPartialMarketDate = computed(() => {
   const latest = marketDateCoverage.value[0];
@@ -100,6 +111,8 @@ const parentNavigation = computed<{ path: string; label: string } | null>(() => 
   if (route.value.view === "globalEtf") return { path: "/global-etfs", label: "返回海外 ETF 市場總覽" };
   if (route.value.view === "institution") return { path: "/institutions", label: "返回機構 13F 清單" };
   if (route.value.view === "institutions") return { path: "/global-etfs", label: "返回海外 ETF" };
+  if (route.value.view === "stock") return { path: "/stocks", label: "返回股票情報" };
+  if (route.value.view === "etfStyle" && route.value.etfCode) return { path: `/etf/${route.value.etfCode}`, label: `返回 ${route.value.etfCode} 單檔 ETF` };
   return null;
 });
 
@@ -108,15 +121,34 @@ function cleanPath(pathname: string): string {
   return path || "/";
 }
 
-function routeFromPath(pathname: string): AppRoute {
+function routeFromPath(pathname: string, search = ""): AppRoute {
   const path = cleanPath(pathname);
   const parts = path.split("/").filter(Boolean);
+  const params = new URLSearchParams(search);
   if (path === "/") return { view: "daily", path };
   if (path === "/market") return { view: "market", path };
+  if (path === "/stocks") return { view: "stocks", path };
+  if (parts[0] === "stocks" && (parts[1] === "tw" || parts[1] === "us") && parts[2] && !parts[3]) {
+    const symbol = parts[1] === "us" ? parts[2].toUpperCase() : parts[2];
+    const valid = parts[1] === "tw" ? /^\d{4,6}$/u.test(symbol) : /^[A-Z][A-Z0-9.-]{0,9}$/u.test(symbol);
+    return valid ? { view: "stock", path: `/stocks/${parts[1]}/${symbol}`, stockMarket: parts[1], stockSymbol: symbol } : { view: "notFound", path };
+  }
+  if (path === "/compare/etfs") {
+    const type = params.get("type") === "global" ? "global" : "tw";
+    const codes = [...new Set((params.get("codes") ?? "").split(",").map((code) => code.trim().toUpperCase()).filter(Boolean))];
+    return { view: "compareEtfs", path, compareType: type, compareCodes: codes };
+  }
+  if (path === "/signals") return { view: "signals", path, signalKind: "all" };
+  if (path === "/signals/consecutive") return { view: "signals", path, signalKind: "consecutive" };
+  if (path === "/signals/reversals") return { view: "signals", path, signalKind: "reversals" };
+  if (path === "/signals/divergence") return { view: "signals", path, signalKind: "divergence" };
+  if (path === "/search") return { view: "search", path, searchQuery: params.get("q") ?? "" };
+  if (path === "/methodology") return { view: "methodology", path };
 
   if (parts[0] === "etf" && parts[1]) {
     const code = parts[1].toUpperCase();
     if (!knownTaiwanCodes.has(code)) return { view: "notFound", path };
+    if (parts[2] === "style" && !parts[3]) return { view: "etfStyle", path: `/etf/${code}/style`, etfCode: code };
     if (!parts[2]) return { view: "taiwanEtf", path: `/etf/${code}`, etfCode: code, etfPage: "report", etfSection: "overview" };
     if (parts[2] === "changes" && !parts[3]) return { view: "taiwanEtf", path: `/etf/${code}/changes`, etfCode: code, etfPage: "report", etfSection: "changes" };
     if (parts[2] === "premium-history" && !parts[3]) return { view: "taiwanEtf", path: `/etf/${code}/premium-history`, etfCode: code, etfPage: "premiumHistory", etfSection: "overview" };
@@ -151,7 +183,8 @@ function setLink(rel: string, href: string | null): void {
 }
 
 function updateDocumentMetadata(): void {
-  const metadata = routeMetadataForPath(route.value.path) ?? notFoundMetadata(route.value.path);
+  const metadataPath = `${window.location.pathname}${window.location.search}`;
+  const metadata = routeMetadataForPath(metadataPath) ?? notFoundMetadata(route.value.path);
   const canonical = metadata.robots.startsWith("noindex") ? null : `${SITE_ORIGIN}${metadata.path}`;
   document.title = metadata.title;
   setMeta('meta[name="description"]', "name", "description", metadata.description);
@@ -327,7 +360,7 @@ async function loadForCurrentRoute(): Promise<void> {
 }
 
 function applyRouteFromLocation(): void {
-  route.value = routeFromPath(window.location.pathname);
+  route.value = routeFromPath(window.location.pathname, window.location.search);
   if (route.value.etfCode) selectedEtfCode.value = route.value.etfCode;
   if (route.value.globalCode) selectedGlobalCode.value = route.value.globalCode;
   if (route.value.institutionCode) selectedInstitutionCode.value = route.value.institutionCode;
@@ -335,8 +368,11 @@ function applyRouteFromLocation(): void {
 }
 
 async function navigate(path: string, replace = false): Promise<void> {
-  const next = cleanPath(path);
-  if (cleanPath(window.location.pathname) !== next) window.history[replace ? "replaceState" : "pushState"]({}, "", next);
+  const url = new URL(path, window.location.origin);
+  const next = cleanPath(url.pathname);
+  const nextLocation = `${next}${url.search}`;
+  const currentLocation = `${cleanPath(window.location.pathname)}${window.location.search}`;
+  if (currentLocation !== nextLocation) window.history[replace ? "replaceState" : "pushState"]({}, "", nextLocation);
   applyRouteFromLocation();
   isMobileSearchOpen.value = false;
   await loadForCurrentRoute();
@@ -364,6 +400,22 @@ async function refreshCurrent(): Promise<void> {
   if (isGlobalArea.value) await loadGlobalReport(true);
   else if (isTaiwanMarketArea.value) await loadMarketDashboard(true);
   else if (isTaiwanEtfArea.value) await loadSelectedEtfDashboard(true);
+  else if (isP1Area.value) p1RefreshKey.value += 1;
+}
+
+function updateSearchQuery(value: string): void {
+  if (route.value.view !== "search") return;
+  const next = value.trim() ? `/search?q=${encodeURIComponent(value)}` : "/search";
+  window.history.replaceState({}, "", next);
+  route.value = { ...route.value, searchQuery: value };
+  updateDocumentMetadata();
+}
+
+function onGlobalShortcut(event: KeyboardEvent): void {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    isMobileSearchOpen.value = true;
+  }
 }
 
 function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute(); }
@@ -371,6 +423,7 @@ function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute
 onMounted(() => {
   applyRouteFromLocation();
   window.addEventListener("popstate", onPopState);
+  window.addEventListener("keydown", onGlobalShortcut);
   void loadForCurrentRoute();
   const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void) => number };
   if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(() => void loadTelegramInfo());
@@ -379,6 +432,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("popstate", onPopState);
+  window.removeEventListener("keydown", onGlobalShortcut);
   selectedEtfDateAbort?.abort(); dashboardAbort?.abort(); globalAbort?.abort();
 });
 </script>
@@ -395,8 +449,12 @@ onBeforeUnmount(() => {
         <button type="button" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @click="navigate('/market')">台灣 ETF</button>
         <button type="button" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' }" @click="navigate('/global-etfs')">海外 ETF</button>
         <button type="button" :class="{ active: route.view === 'institutions' || route.view === 'institution' }" @click="navigate('/institutions')">機構 13F</button>
+        <button type="button" :class="{ active: route.view === 'stocks' || route.view === 'stock' }" @click="navigate('/stocks')">股票</button>
+        <button type="button" :class="{ active: route.view === 'compareEtfs' }" @click="navigate('/compare/etfs')">比較</button>
+        <button type="button" :class="{ active: route.view === 'signals' }" @click="navigate('/signals')">訊號</button>
       </nav>
       <div class="top-actions">
+        <button class="global-search-button" type="button" aria-label="開啟全站搜尋" title="全站搜尋（Cmd/Ctrl + K）" @click="isMobileSearchOpen = true"><Search :size="16" /><span>搜尋</span><kbd>⌘K</kbd></button>
         <a class="telegram-link" :href="telegramUrl" target="_blank" rel="noreferrer" :aria-disabled="telegramInfo && !telegramInfo.configured">Telegram</a>
         <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ marketDateLabel(date) }}</option></select></label>
         <label v-else-if="isTaiwanEtfArea" class="date-control"><Calendar :size="15" /><select v-model="selectedEtfDate" aria-label="單檔 ETF 資料日期" @change="loadSelectedEtfDashboard()"><option v-if="!selectedEtfAvailableDates.length" value="">載入中</option><option v-for="date in selectedEtfAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
@@ -419,10 +477,17 @@ onBeforeUnmount(() => {
 
     <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" @navigate="navigate" @stock="showMarketStock" />
     <TaiwanMarketView v-else-if="route.view === 'market'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :loading="isTaiwanLoading" :focus-stock-id="focusStockId" @etf="selectTaiwanEtf" @stock="showMarketStock" />
-    <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedEtfDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" />
+    <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedEtfDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" @style="navigate(`/etf/${selectedEtfCode}/style`)" />
     <GlobalMarketView v-else-if="route.view === 'globalMarket'" :report="globalReport" :loading="isGlobalLoading" :error="globalError" :selected-date="selectedGlobalDate" @etf="selectGlobalEtf" @institutions="navigate('/institutions')" />
     <GlobalEtfView v-else-if="route.view === 'globalEtf'" :report="globalReport" :options="globalEtfOptions" :selected-code="selectedGlobalCode" :loading="isGlobalLoading" :error="globalError" @select="selectGlobalEtf" />
     <InstitutionView v-else-if="route.view === 'institutions' || route.view === 'institution'" :report="globalReport" :options="institutionOptions" :selected-code="route.view === 'institution' ? selectedInstitutionCode : undefined" :loading="isGlobalLoading" :error="globalError" @select="selectInstitution" />
+    <StocksIndexView v-else-if="route.view === 'stocks'" @navigate="navigate" />
+    <div v-else-if="route.view === 'stock'" class="p1-route-slot p1-route-slot--stock"><StockDetailView :market="route.stockMarket ?? 'tw'" :symbol="route.stockSymbol ?? ''" :refresh-key="p1RefreshKey" /></div>
+    <EtfCompareView v-else-if="route.view === 'compareEtfs'" :type="route.compareType ?? 'tw'" :codes="route.compareCodes ?? []" :refresh-key="p1RefreshKey" @navigate="navigate" />
+    <SignalsView v-else-if="route.view === 'signals'" :kind="route.signalKind ?? 'all'" :refresh-key="p1RefreshKey" @navigate="navigate" />
+    <EtfStyleView v-else-if="route.view === 'etfStyle'" :code="route.etfCode ?? ''" :refresh-key="p1RefreshKey" />
+    <SearchResultsView v-else-if="route.view === 'search'" :query="route.searchQuery ?? ''" @navigate="navigate" @query="updateSearchQuery" />
+    <MethodologyView v-else-if="route.view === 'methodology'" />
     <NotFoundView v-else :path="route.path" @navigate="navigate" />
 
     <AdSlot v-if="route.view !== 'daily' && route.view !== 'notFound'" slot="article-inline" mode="compact" compact :page="route.path" :etf-code="route.etfCode ?? route.globalCode" :tags="globalReport?.adContext.tags ?? ['active-etf','institutional-flow']" />
@@ -430,28 +495,24 @@ onBeforeUnmount(() => {
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>
-      <span><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a></span>
+      <span><a href="/methodology">方法論</a><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a></span>
     </footer>
 
     <nav class="mobile-primary-nav" aria-label="行動版主要導覽">
       <button type="button" :class="{ active: route.view === 'daily' }" @click="navigate('/')"><Home :size="20" /><span>今日</span></button>
       <button type="button" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @click="navigate('/market')"><Layers :size="20" /><span>台灣</span></button>
       <button type="button" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' || route.view === 'institutions' || route.view === 'institution' }" @click="navigate('/global-etfs')"><Globe2 :size="20" /><span>海外</span></button>
-      <button type="button" :class="{ active: isMobileSearchOpen }" @click="isMobileSearchOpen = true"><Search :size="20" /><span>搜尋</span></button>
+      <button type="button" :class="{ active: isMobileSearchOpen || route.view === 'stocks' || route.view === 'stock' || route.view === 'search' || route.view === 'compareEtfs' || route.view === 'signals' }" @click="isMobileSearchOpen = true"><Search :size="20" /><span>搜尋</span></button>
     </nav>
 
-    <div v-if="isMobileSearchOpen" class="mobile-search-overlay" role="dialog" aria-modal="true" aria-label="ETF 與機構搜尋" @click.self="isMobileSearchOpen = false">
-      <section><header><div><b>搜尋與快速前往</b><small>台灣 ETF、海外 ETF 與機構 13F</small></div><button type="button" aria-label="關閉搜尋" @click="isMobileSearchOpen = false"><X :size="20" /></button></header>
-        <label><span>台灣 ETF</span><select @change="selectTaiwanEtf(($event.target as HTMLSelectElement).value)"><option value="">選擇 ETF</option><option v-for="etf in etfOptions" :key="etf.etfCode" :value="etf.etfCode">{{ etf.etfCode }} {{ etf.name }}</option></select></label>
-        <label><span>海外 ETF</span><select @change="selectGlobalEtf(($event.target as HTMLSelectElement).value)"><option value="">選擇 ETF</option><option v-for="etf in globalEtfOptions" :key="etf.etfCode" :value="etf.etfCode">{{ etf.etfCode }} {{ etf.fundName }}</option></select></label>
-        <button class="institution-search-link" type="button" @click="navigate('/institutions')"><Building2 :size="19" />機構 13F 季度持倉</button>
-      </section>
+    <div v-if="isMobileSearchOpen" class="global-search-overlay" role="dialog" aria-modal="true" aria-label="全站搜尋" @click.self="isMobileSearchOpen = false">
+      <GlobalSearchDialog @close="isMobileSearchOpen = false" @navigate="navigate" />
     </div>
   </main>
 </template>
 
 <style scoped>
-.p0-shell{display:grid;gap:16px;width:min(1380px,100%);margin:0 auto;padding:18px 22px 96px}.p0-topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;min-height:68px;padding:9px 14px;border:1px solid rgba(215,225,229,.92);border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 8px 28px rgba(28,48,65,.08);backdrop-filter:blur(14px)}.brand-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#25333e;text-align:left;cursor:pointer}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eef5f4}.brand-mark img{width:29px;height:29px}.brand-link>span:last-child{display:grid;gap:1px}.brand-link b{font-size:15px}.brand-link small{color:#7a8791;font-size:10px}.desktop-primary-nav{display:flex;justify-content:center;gap:3px}.desktop-primary-nav button{min-height:42px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:#64717c;font-weight:760;cursor:pointer}.desktop-primary-nav button.active{background:#173f56;color:#fff}.top-actions{display:flex;align-items:center;gap:7px}.telegram-link{display:flex;align-items:center;min-height:40px;padding:0 10px;border:1px solid #d7e0e4;border-radius:8px;color:#345986;font-size:12px;font-weight:760;text-decoration:none}.date-control{display:flex;align-items:center;gap:6px;height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;color:#61707b}.date-control select{border:0;outline:0;background:#fff;color:#35424e;font-size:12px}.theme-button,.refresh-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;cursor:pointer}.refresh-button:disabled{opacity:.55}.spinning{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.area-subnav{display:flex;justify-content:center;gap:5px}.area-subnav button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;cursor:pointer}.area-subnav button.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav{display:flex}.context-back-nav button{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;cursor:pointer}.context-back-nav button:hover{border-color:#8ca5b9;background:#f7fafb}.newer-date-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #b9d7d3;border-radius:10px;background:#edf8f6;color:#29464d}.newer-date-notice>div{display:grid;gap:3px}.newer-date-notice b{font-size:13px}.newer-date-notice span{font-size:12px;line-height:1.5}.newer-date-notice button{flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #0d7770;border-radius:8px;background:#fff;color:#0d6f69;font-weight:760;cursor:pointer}.app-alert{margin:0;padding:13px 15px;border:1px solid #f1c4c0;border-radius:10px;background:#fff4f3;color:#a8322a}.p0-footer{display:flex;justify-content:space-between;gap:20px;padding:20px 4px;color:#6d7984;font-size:12px;line-height:1.6}.p0-footer p{margin:0}.p0-footer span{display:flex;gap:14px}.p0-footer a{color:#47657f;font-weight:720}.mobile-primary-nav,.mobile-search-overlay{display:none}
-@media(max-width:1050px){.p0-topbar{grid-template-columns:auto 1fr}.desktop-primary-nav{grid-row:2;grid-column:1 / -1;order:3}.top-actions{justify-self:end}.telegram-link{display:none}}
-@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.newer-date-notice{display:grid;gap:10px}.newer-date-notice button{width:100%;min-height:44px}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.mobile-search-overlay{position:fixed;inset:0;z-index:100;display:grid;align-items:end;background:rgba(7,22,34,.48)}.mobile-search-overlay>section{display:grid;gap:16px;padding:20px 16px calc(22px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:#fff;box-shadow:0 -20px 60px rgba(7,22,34,.18)}.mobile-search-overlay header{display:flex;justify-content:space-between;gap:16px}.mobile-search-overlay header>div{display:grid;gap:4px}.mobile-search-overlay header small{color:#64727c}.mobile-search-overlay header button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #d9e1e5;border-radius:9px;background:#fff}.mobile-search-overlay label{display:grid;gap:6px;color:#5e6c77;font-size:12px;font-weight:760}.mobile-search-overlay select{width:100%;height:48px;padding:0 12px;border:1px solid #d4dee2;border-radius:9px;background:#fff}.institution-search-link{display:flex;align-items:center;gap:9px;min-height:48px;padding:0 13px;border:0;border-radius:9px;background:#173f56;color:#fff;font-weight:760}}
+.p0-shell{display:grid;gap:16px;width:min(1380px,100%);margin:0 auto;padding:18px 22px 96px}.p1-route-slot--stock{min-height:1900px}.p1-route-slot--stock:has(.p1-error){min-height:0}.p0-topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;min-height:68px;padding:9px 14px;border:1px solid rgba(215,225,229,.92);border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 8px 28px rgba(28,48,65,.08);backdrop-filter:blur(14px)}.brand-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#25333e;text-align:left;cursor:pointer}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eef5f4}.brand-mark img{width:29px;height:29px}.brand-link>span:last-child{display:grid;gap:1px}.brand-link b{font-size:15px}.brand-link small{color:#7a8791;font-size:10px}.desktop-primary-nav{display:flex;justify-content:center;gap:2px}.desktop-primary-nav button{min-height:42px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#64717c;font-size:13px;font-weight:760;cursor:pointer}.desktop-primary-nav button.active{background:#173f56;color:#fff}.top-actions{display:flex;align-items:center;gap:7px}.global-search-button{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;font-size:12px;font-weight:760}.global-search-button kbd{padding:2px 4px;border:1px solid #d7e0e4;border-radius:4px;background:#f5f8f9;color:#73818b;font-size:10px}.telegram-link{display:flex;align-items:center;min-height:40px;padding:0 10px;border:1px solid #d7e0e4;border-radius:8px;color:#345986;font-size:12px;font-weight:760;text-decoration:none}.date-control{display:flex;align-items:center;gap:6px;height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;color:#61707b}.date-control select{border:0;outline:0;background:#fff;color:#35424e;font-size:12px}.theme-button,.refresh-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;cursor:pointer}.refresh-button:disabled{opacity:.55}.spinning{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.area-subnav{display:flex;justify-content:center;gap:5px}.area-subnav button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;cursor:pointer}.area-subnav button.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav{display:flex}.context-back-nav button{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;cursor:pointer}.context-back-nav button:hover{border-color:#8ca5b9;background:#f7fafb}.newer-date-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #b9d7d3;border-radius:10px;background:#edf8f6;color:#29464d}.newer-date-notice>div{display:grid;gap:3px}.newer-date-notice b{font-size:13px}.newer-date-notice span{font-size:12px;line-height:1.5}.newer-date-notice button{flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #0d7770;border-radius:8px;background:#fff;color:#0d6f69;font-weight:760;cursor:pointer}.app-alert{margin:0;padding:13px 15px;border:1px solid #f1c4c0;border-radius:10px;background:#fff4f3;color:#a8322a}.p0-footer{display:flex;justify-content:space-between;gap:20px;padding:20px 4px;color:#6d7984;font-size:12px;line-height:1.6}.p0-footer p{margin:0}.p0-footer span{display:flex;gap:14px}.p0-footer a{color:#47657f;font-weight:720}.mobile-primary-nav,.mobile-search-overlay{display:none}.global-search-overlay{position:fixed;inset:0;z-index:110;display:grid;place-items:center;padding:16px;background:rgba(7,22,34,.56);backdrop-filter:blur(4px)}
+@media(max-width:1120px){.p0-topbar{grid-template-columns:auto 1fr}.desktop-primary-nav{grid-row:2;grid-column:1 / -1;order:3}.top-actions{justify-self:end}.telegram-link{display:none}}
+@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p1-route-slot--stock{min-height:4800px}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control,.global-search-button{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.newer-date-notice{display:grid;gap:10px}.newer-date-notice button{width:100%;min-height:44px}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.global-search-overlay{place-items:end center;padding:0}}
 </style>
