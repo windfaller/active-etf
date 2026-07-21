@@ -1,0 +1,21 @@
+name: Global ETF Holdings Sync
+
+on:
+  schedule:
+    - cron: "15 23 * * 0-4"
+    - cron: "45 13 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  trigger-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger production global ETF sync
+        env:
+          ADMIN_JOB_TOKEN: ${{ secrets.ADMIN_JOB_TOKEN }}
+        run: |
+          test -n "$ADMIN_JOB_TOKEN"
+          curl --fail-with-body --show-error --silent \
+            -X POST \
+            -H "x-admin-token: $ADMIN_JOB_TOKEN" \
+            https://active-etf.inthewins.com/api/jobs/global-etfs/sync-holdings

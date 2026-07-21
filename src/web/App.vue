@@ -313,6 +313,8 @@ const defaultGlobalEtfOptions = enabledGlobalEtfs.map((etf) => ({ etfCode: etf.e
 
 const availableDates = ref<string[]>([]);
 const selectedDate = ref("");
+const globalAvailableDates = ref<string[]>([]);
+const selectedGlobalDate = ref("");
 const selectedEtfCode = ref(etfOptions[0]?.etfCode ?? "00981A");
 const activeMainTab = ref<MainTab>("market");
 const activeEtfPage = ref<EtfPage>("report");
@@ -402,7 +404,7 @@ const globalEtfOptionGroups = computed(() => ({
   filings13f: filteredGlobalEtfOptions.value.filter((etf) => etf.strategyType === "13f")
 }));
 const globalDateLabel = computed(() =>
-  selectedGlobalSection.value?.sourceAsOf ?? globalReport.value?.reportDate ?? (isGlobalLoading.value ? "載入中" : "-")
+  selectedGlobalDate.value || selectedGlobalSection.value?.sourceAsOf || globalReport.value?.reportDate || (isGlobalLoading.value ? "載入中" : "-")
 );
 const globalCommonHoldingRows = computed(() => globalReport.value?.commonHoldings ?? []);
 const globalMarketRows = computed(() => {
@@ -1378,9 +1380,11 @@ function applyGlobalEtfUniverse(universe: GlobalEtfUniverseResponse): void {
 
 let globalReportPromise: Promise<void> | null = null;
 let availableDatesRequestId = 0;
+let globalDatesRequestId = 0;
 let dashboardRequestId = 0;
 
-async function loadGlobalReport(): Promise<void> {
+async function loadGlobalReport(options: { force?: boolean } = {}): Promise<void> {
+  if (options.force) globalReportPromise = null;
   if (globalReportPromise) return globalReportPromise;
 
   globalErrorMessage.value = "";
@@ -1388,16 +1392,31 @@ async function loadGlobalReport(): Promise<void> {
 
   globalReportPromise = (async () => {
     try {
-      const [universeResult, report] = await Promise.all([
+      const dateRequestId = ++globalDatesRequestId;
+      const [universeResult, datesResult] = await Promise.all([
         getJson<GlobalEtfUniverseResponse>("/api/global-etfs/enabled")
           .then((universe) => ({ ok: true as const, universe }))
           .catch((error) => ({ ok: false as const, error })),
-        getJson<GlobalReport>("/api/global-etfs/daily-report")
+        getJson<{ dates: string[] }>("/api/global-etfs/dates?limit=180")
+          .then((result) => ({ ok: true as const, dates: result.dates }))
+          .catch((error) => ({ ok: false as const, error }))
       ]);
 
       if (universeResult.ok) {
         applyGlobalEtfUniverse(universeResult.universe);
       }
+
+      if (datesResult.ok && dateRequestId === globalDatesRequestId) {
+        globalAvailableDates.value = datesResult.dates;
+        if (!selectedGlobalDate.value || !datesResult.dates.includes(selectedGlobalDate.value)) {
+          selectedGlobalDate.value = datesResult.dates[0] ?? "";
+        }
+      }
+
+      const reportPath = selectedGlobalDate.value
+        ? `/api/global-etfs/daily-report?date=${encodeURIComponent(selectedGlobalDate.value)}`
+        : "/api/global-etfs/daily-report";
+      const report = await getJson<GlobalReport>(reportPath);
 
       globalReport.value = report;
       if (!globalEtfOptions.value.some((etf) => etf.etfCode === selectedGlobalEtfCode.value)) {
@@ -1704,10 +1723,11 @@ watch(
         </label>
         <label v-else class="control">
           <span><Calendar :size="14" /> 資料日期</span>
-          <select :value="globalDateLabel" aria-label="海外 ETF 資料日期" disabled>
-            <option :value="globalDateLabel">
-              {{ globalDateLabel }}
+          <select v-model="selectedGlobalDate" aria-label="海外 ETF 資料日期" :disabled="isGlobalLoading || !globalAvailableDates.length" @change="loadGlobalReport({ force: true })">
+            <option v-if="!globalAvailableDates.length" value="" disabled>
+              {{ isGlobalLoading ? "載入中" : "尚無日期" }}
             </option>
+            <option v-for="date in globalAvailableDates" :key="date" :value="date">{{ date }}</option>
           </select>
         </label>
 
@@ -1716,7 +1736,7 @@ watch(
           type="button"
           :disabled="((activeMainTab === 'market' || activeMainTab === 'etf') && isLoading) || ((activeMainTab === 'global' || activeMainTab === 'globalMarket') && isGlobalLoading)"
           aria-label="重新整理"
-          @click="activeMainTab === 'global' || activeMainTab === 'globalMarket' ? loadGlobalReport() : loadDashboard()"
+          @click="activeMainTab === 'global' || activeMainTab === 'globalMarket' ? loadGlobalReport({ force: true }) : loadDashboard()"
         >
           <RefreshCw :size="18" :class="{ spinning: isLoading || isGlobalLoading }" />
         </button>

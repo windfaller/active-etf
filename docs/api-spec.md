@@ -50,21 +50,27 @@ Returns the enabled overseas ETF product line and the candidate universe that st
 
 ## Get Global ETF Daily Report
 
-`GET /api/global-etfs/daily-report`
+`GET /api/global-etfs/daily-report?date=YYYY-MM-DD`
 
-Returns the Traditional Chinese Global ETF Holdings Radar report with source status rows, all-ETF movers, per-ETF Top 10 holdings, source links, and Forvix ad context tags. If no `global_etf_snapshots` exist in local development, the dev API returns a `demoMode: true` report so the UI can be inspected without polluting production data.
+Returns the Traditional Chinese Global ETF Holdings Radar report with source status rows, all-ETF movers, per-ETF Top 10 holdings, source links, and Forvix ad context tags. `date` is optional; when provided, each ETF uses the latest usable official snapshot whose `sourceAsOf` is on or before that date. If no `global_etf_snapshots` exist in local development, the dev API returns a `demoMode: true` report so the UI can be inspected without polluting production data.
+
+## Get Global ETF Dates
+
+`GET /api/global-etfs/dates?limit=180`
+
+Returns distinct ISO `sourceAsOf` dates from usable overseas ETF snapshots, newest first. The frontend uses this list for the overseas ETF date selector.
 
 ## Get Global ETF Holdings
 
-`GET /api/global-etf/{etfCode}/holdings`
+`GET /api/global-etf/{etfCode}/holdings?date=YYYY-MM-DD`
 
-Returns the latest normalized Top 10 holdings for one enabled overseas ETF.
+Returns the normalized Top 10 holdings for one enabled overseas ETF. `date` is optional and follows the same as-of rule as the daily report.
 
 ## Get Global ETF Changes
 
-`GET /api/global-etf/{etfCode}/changes`
+`GET /api/global-etf/{etfCode}/changes?date=YYYY-MM-DD`
 
-Returns new/exited positions, weight/share/market-value changes, and sector/country aggregates for one enabled overseas ETF.
+Returns new/exited positions, weight/share/market-value changes, and sector/country aggregates for one enabled overseas ETF. `date` is optional and follows the same as-of rule as the daily report.
 
 ## Admin Sync Holdings
 
@@ -114,7 +120,7 @@ Runs official-source holdings sync for all enabled overseas ETFs and 13F portfol
 
 Runs official-source holdings sync for one enabled overseas ETF. Raw responses are saved under `global_etf_raw_snapshots`, normalized snapshots under `global_etf_snapshots`, and changes under `global_etf_holding_changes`.
 
-When `ENABLE_TIMER_TRIGGERS=true`, Azure Functions also runs `syncGlobalEtfHoldings` at `07:00` and `21:30` on weekdays. SEC 13F filings do not include exchange tickers, so ticker display is enriched only by the conservative CUSIP mapping in `src/config/globalHoldingTickerMap.ts`; unmapped or private/SPV positions remain `-`.
+Production scheduling should call the HTTP admin endpoint from GitHub Actions or Logic App. The repository includes `.github/workflows/global-etf-sync.yml`, which triggers the all-global sync at `07:15` and `21:45` Asia/Taipei on weekdays when the `ADMIN_JOB_TOKEN` GitHub secret is configured. Static Web Apps managed Functions expose HTTP APIs; non-HTTP timer triggers require a separate bring-your-own Functions app. SEC 13F filings do not include exchange tickers, so ticker display is enriched only by the conservative CUSIP mapping in `src/config/globalHoldingTickerMap.ts`; unmapped or private/SPV positions remain `-`.
 
 ## Admin Daily Aggregates
 

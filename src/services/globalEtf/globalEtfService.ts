@@ -212,9 +212,18 @@ export function demoGlobalEtfSnapshots(): GlobalEtfSnapshot[] {
   ];
 }
 
-async function latestSnapshotsFromDb(db: Db): Promise<GlobalEtfSnapshot[]> {
+const ISO_SOURCE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+
+function normalizeGlobalSourceDate(value?: string): string | undefined {
+  if (!value) return undefined;
+  return ISO_SOURCE_DATE_PATTERN.test(value) ? value : undefined;
+}
+
+async function latestSnapshotsFromDb(db: Db, sourceDate?: string): Promise<GlobalEtfSnapshot[]> {
+  const normalizedSourceDate = normalizeGlobalSourceDate(sourceDate);
   const usableSnapshotsFilter: Filter<GlobalEtfSnapshot> = {
     etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
+    sourceAsOf: normalizedSourceDate ? { $regex: "^\\d{4}-\\d{2}-\\d{2}$", $lte: normalizedSourceDate } : { $regex: "^\\d{4}-\\d{2}-\\d{2}$" },
     $or: usableSnapshotClauses()
   };
   const rows = await db
@@ -228,6 +237,27 @@ async function latestSnapshotsFromDb(db: Db): Promise<GlobalEtfSnapshot[]> {
     .toArray();
 
   return rows;
+}
+
+export async function availableGlobalEtfSourceDates(db: Db, limit = 180): Promise<string[]> {
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit) || 180, 365));
+  const rows = await db
+    .collection<GlobalEtfSnapshot>("global_etf_snapshots")
+    .aggregate<{ _id: string }>([
+      {
+        $match: {
+          etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
+          sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" },
+          $or: usableSnapshotClauses()
+        }
+      },
+      { $group: { _id: "$sourceAsOf" } },
+      { $sort: { _id: -1 } },
+      { $limit: safeLimit }
+    ])
+    .toArray();
+
+  return rows.map((row) => row._id);
 }
 
 async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promise<GlobalEtfSnapshot | null> {
@@ -245,7 +275,7 @@ async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promi
     .next();
 }
 
-async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[], demoMode = false): Promise<GlobalEtfDailyReport> {
+async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[], demoMode = false, selectedDate?: string): Promise<GlobalEtfDailyReport> {
   const sections: GlobalEtfReportSection[] = [];
   const globalMovers = [];
 
@@ -297,7 +327,7 @@ async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[]
 
   return buildGlobalEtfDailyReport({
     productGroup: "global_etf",
-    reportDate: new Date().toISOString().slice(0, 10),
+    reportDate: normalizeGlobalSourceDate(selectedDate) ?? new Date().toISOString().slice(0, 10),
     coveredEtfs: sections.map((section) => section.etfCode),
     successCount,
     totalCount: sections.length,
@@ -343,13 +373,13 @@ function emptyGlobalEtfSection(etf: GlobalEtfConfig): GlobalEtfReportSection {
   };
 }
 
-export async function getGlobalEtfDailyReport(db?: Db): Promise<GlobalEtfDailyReport> {
+export async function getGlobalEtfDailyReport(db?: Db, sourceDate?: string): Promise<GlobalEtfDailyReport> {
   if (db) {
-    const snapshots = await latestSnapshotsFromDb(db);
-    if (snapshots.length) return reportFromSnapshots(db, snapshots, false);
-    return reportFromSnapshots(db, [], false);
+    const snapshots = await latestSnapshotsFromDb(db, sourceDate);
+    if (snapshots.length) return reportFromSnapshots(db, snapshots, false, sourceDate);
+    return reportFromSnapshots(db, [], false, sourceDate);
   }
-  return reportFromSnapshots(null, demoGlobalEtfSnapshots(), true);
+  return reportFromSnapshots(null, demoGlobalEtfSnapshots(), true, sourceDate);
 }
 
 export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
