@@ -13,7 +13,7 @@ export interface EtfComparison extends IntelligenceMeta {
     top10Concentration: number | null;
     hhi: number | null;
     sectorExposure: Array<{ sector: string; weight: number }>;
-    activeAdjustments?: Array<{ window: number; cumulativeActiveNetLots: number | null; adjustmentIntensity: number | null; increaseCount: number; decreaseCount: number }>;
+    activeAdjustments?: Array<{ window: number; cumulativeActiveNetLots: number | null; adjustmentIntensity: number | null; increaseHoldingChangeCount: number; decreaseHoldingChangeCount: number }>;
     addedHoldings?: number;
     exitedHoldings?: number;
     dataCoverageRate?: number;
@@ -25,5 +25,6 @@ export interface EtfComparison extends IntelligenceMeta {
     topHoldings: Array<{ key: string; symbol: string | null; name: string; assetType: string; weight: number | null }>;
   }>;
   pairwise: Array<{ left: string; right: string; intersectionCount: number; unionCount: number; similarity: number | null; weightedOverlap: number | null; common: Array<{ key: string; label: string; leftWeight: number | null; rightWeight: number | null }> }>;
-  methodology: { setOverlap: string; weightedOverlap: string; commonDateOnly: boolean; missingWeight: string; exposureIdentity: string };
+  dateAlignment?: { commonDateOnly: false; commonDate: string | null; rows: Array<{ code: string; sourceAsOf: string | null; fetchedAt: string | null }> };
+  methodology: { setOverlap: string; weightedOverlap: string; commonDateOnly: boolean; missingWeight: string; exposureIdentity: string; dateBasis?: string };
 }

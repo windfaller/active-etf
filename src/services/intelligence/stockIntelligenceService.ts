@@ -14,6 +14,7 @@ import {
   consensusFromDirections,
   detectReversal,
   directionForChange,
+  hasDirectionConflict,
   relationBetweenEtfAndInstitution,
   type DailyDirectionObservation,
   type SignalDirection
@@ -48,6 +49,7 @@ export interface DailyAggregate {
   availableEtfs: number;
   scaleCompleteEtfs: number;
   dominantShare: number | null;
+  directionConflictCount: number;
 }
 
 function normalizeSymbol(market: StockMarket, symbol: string): string {
@@ -60,6 +62,7 @@ function activeValue(change: EtfHoldingChange): number | null {
 
 export function aggregateTaiwanDay(date: string, rows: EtfHoldingChange[]): DailyAggregate {
   const directions = rows.map((row) => directionForChange({ activeDiffLots: activeValue(row), diffWeightPoint: row.diffWeightPoint }));
+  const directionConflictCount = rows.filter((row) => hasDirectionConflict({ activeDiffLots: activeValue(row), diffWeightPoint: row.diffWeightPoint })).length;
   const consensus = consensusFromDirections(directions);
   const activeValues = rows.map(activeValue).filter((value): value is number => value !== null);
   const absoluteTotal = activeValues.reduce((sum, value) => sum + Math.abs(value), 0);
@@ -83,7 +86,8 @@ export function aggregateTaiwanDay(date: string, rows: EtfHoldingChange[]): Dail
     direction,
     availableEtfs: new Set(rows.map((row) => row.etfCode)).size,
     scaleCompleteEtfs: new Set(rows.filter((row) => row.activeDiffLots !== null).map((row) => row.etfCode)).size,
-    dominantShare: absoluteTotal > 0 ? maxMagnitude / absoluteTotal : null
+    dominantShare: absoluteTotal > 0 ? maxMagnitude / absoluteTotal : null,
+    directionConflictCount
   };
 }
 
@@ -97,22 +101,46 @@ function latestHoldingForTicker(snapshot: GlobalEtfSnapshot, symbol: string): Gl
   return snapshot.holdings.filter((holding) => holding.ticker?.trim().toUpperCase() === symbol);
 }
 
-async function globalSnapshotsForStock(db: Db, symbol: string, include13f: boolean): Promise<GlobalEtfSnapshot[]> {
+export function latestSnapshotsForStockPipeline(symbol: string, include13f: boolean) {
   const codes = include13f ? enabledInstitutionCodes : enabledDailyGlobalEtfCodes;
-  return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<GlobalEtfSnapshot>([
+  return [
     {
       $match: {
         etfCode: { $in: codes },
         strategyType: include13f ? "13f" : { $ne: "13f" },
         sourceStatus: "ok",
-        holdings: { $elemMatch: { ticker: symbol } }
+        sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
       }
     },
     { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
     { $group: { _id: "$etfCode", snapshot: { $first: "$$ROOT" } } },
     { $replaceRoot: { newRoot: "$snapshot" } },
+    { $match: { holdings: { $elemMatch: { ticker: symbol } } } },
     { $sort: { sourceAsOf: -1, etfCode: 1 } }
-  ]).toArray();
+  ];
+}
+
+export async function globalSnapshotsForStock(db: Db, symbol: string, include13f: boolean): Promise<GlobalEtfSnapshot[]> {
+  return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<GlobalEtfSnapshot>(
+    latestSnapshotsForStockPipeline(symbol, include13f)
+  ).toArray();
+}
+
+export function latestStockSearchPipeline(normalizedQuery: string, limit: number) {
+  const escaped = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const usEscaped = normalizedQuery.toUpperCase().replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return [
+    { $match: { etfCode: { $in: enabledDailyGlobalEtfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok", sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" } } },
+    { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
+    { $group: { _id: "$etfCode", snapshot: { $first: "$$ROOT" } } },
+    { $replaceRoot: { newRoot: "$snapshot" } },
+    { $unwind: "$holdings" },
+    { $match: { $or: [{ "holdings.ticker": { $regex: `^${usEscaped}`, $options: "i" } }, { "holdings.name": { $regex: `^${escaped}`, $options: "i" } }] } },
+    { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
+    { $group: { _id: { $toUpper: "$holdings.ticker" }, name: { $first: "$holdings.name" }, sector: { $first: "$holdings.sector" }, sourceAsOf: { $first: "$sourceAsOf" } } },
+    { $limit: Math.max(0, limit) },
+    { $project: { _id: 0, ticker: "$_id", name: 1, sector: 1, sourceAsOf: 1 } }
+  ];
 }
 
 async function previousGlobalSnapshots(db: Db, snapshots: GlobalEtfSnapshot[]): Promise<Map<string, GlobalEtfSnapshot>> {
@@ -150,22 +178,12 @@ export async function searchStocks(db: Db, query: string, market: StockMarket | 
   }
 
   if ((!market || market === "us") && results.length < limit) {
-    const usQuery = normalizedQuery.toUpperCase();
-    const usEscaped = usQuery.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<{
       ticker: string;
       name: string;
       sector?: string;
       sourceAsOf: string;
-    }>([
-      { $match: { etfCode: { $in: enabledDailyGlobalEtfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok" } },
-      { $unwind: "$holdings" },
-      { $match: { $or: [{ "holdings.ticker": { $regex: `^${usEscaped}`, $options: "i" } }, { "holdings.name": { $regex: `^${escaped}`, $options: "i" } }] } },
-      { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
-      { $group: { _id: { $toUpper: "$holdings.ticker" }, name: { $first: "$holdings.name" }, sector: { $first: "$holdings.sector" }, sourceAsOf: { $first: "$sourceAsOf" } } },
-      { $limit: Math.max(0, limit - results.length) },
-      { $project: { _id: 0, ticker: "$_id", name: 1, sector: 1, sourceAsOf: 1 } }
-    ]).toArray();
+    }>(latestStockSearchPipeline(normalizedQuery, limit - results.length)).toArray();
     for (const row of rows) {
       if (!row.ticker) continue;
       results.push({ market: "us", symbol: row.ticker, normalizedSymbol: row.ticker, name: row.name, sector: row.sector ?? null, latestDataDate: row.sourceAsOf, path: `/stocks/us/${row.ticker}` });
@@ -200,12 +218,19 @@ export async function stockOverview(db: Db, market: StockMarket, rawSymbol: stri
       requiredObservations: 3,
       actualObservations: base.days.filter((row) => row.availableEtfs > 0).length,
       dominantShare: current.dominantShare,
-      directionalRatio: current.sameDirectionEtfRatio
+      directionalRatio: current.sameDirectionEtfRatio,
+      directionConflictCount: current.directionConflictCount
     });
     const primaryEtfs = [...base.currentRows]
       .sort((a, b) => Math.abs(b.activeDiffLots ?? 0) - Math.abs(a.activeDiffLots ?? 0))
       .slice(0, 4)
-      .map((row) => ({ etfCode: row.etfCode, activeDiffLots: row.activeDiffLots, diffLots: row.diffLots, direction: directionForChange({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint }) }));
+      .map((row) => ({
+        etfCode: row.etfCode,
+        activeDiffLots: row.activeDiffLots,
+        diffLots: row.diffLots,
+        direction: directionForChange({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint }),
+        directionConflict: hasDirectionConflict({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint })
+      }));
     const institutionRelation = relationBetweenEtfAndInstitution(current.direction, base.institutional?.totalNetShares ?? null);
     return {
       generatedAt: generatedAt(),
@@ -288,7 +313,7 @@ export async function stockHistory(db: Db, market: StockMarket, rawSymbol: strin
     const reversal = detectReversal(observations);
     const coverage = await taiwanCoverageForDate(db, dates[0] ?? null);
     const current = days[0];
-    const confidence = confidenceForSignal({ ...coverage, scaleComplete: current?.scaleCompleteEtfs ?? 0, requiredObservations: window, actualObservations: days.filter((row) => row.availableEtfs > 0).length, dominantShare: current?.dominantShare ?? null, directionalRatio: current?.sameDirectionEtfRatio ?? null });
+    const confidence = confidenceForSignal({ ...coverage, scaleComplete: current?.scaleCompleteEtfs ?? 0, requiredObservations: window, actualObservations: days.filter((row) => row.availableEtfs > 0).length, dominantShare: current?.dominantShare ?? null, directionalRatio: current?.sameDirectionEtfRatio ?? null, directionConflictCount: current?.directionConflictCount ?? 0 });
     return {
       generatedAt: generatedAt(), sourceAsOf: dates[0] ?? null, coverage, confidence, market, symbol, window,
       summary: {
@@ -338,9 +363,20 @@ export async function stockEtfs(db: Db, market: StockMarket, rawSymbol: string, 
       const current = currentChanges.find((row) => row.etfCode === etfCode);
       const observations = dates.map((tradeDate) => {
         const row = changes.find((change) => change.etfCode === etfCode && change.tradeDate === tradeDate);
-        return { date: tradeDate, direction: row ? directionForChange({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint }) : "neutral" as const, activeNetLots: row?.activeDiffLots ?? null };
+        return { date: tradeDate, direction: row ? directionForChange({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint }) : "unknown" as const, activeNetLots: row?.activeDiffLots ?? null };
       });
       const streak = consecutiveDirection(observations);
+      const directionConflict = current ? hasDirectionConflict({ activeDiffLots: current.activeDiffLots, diffWeightPoint: current.diffWeightPoint }) : false;
+      const observationCoverage = { expected: dates.length, actual: streak.actualObservationCount, missing: streak.missingObservationCount };
+      const confidence = !current || (current.activeDiffLots === null && current.diffWeightPoint === null)
+        ? "low"
+        : directionConflict || observationCoverage.missing > 0 ? "medium" : "high";
+      const confidenceReason = !current
+        ? "最新資料日沒有此 ETF 的實際觀察。"
+        : [
+          directionConflict ? "張數與權重方向不一致，方向以張數為準。" : null,
+          observationCoverage.missing > 0 ? `觀察期缺少 ${observationCoverage.missing} 個實際觀察日。` : null
+        ].filter(Boolean).join("；") || "觀察期與方向資料完整。";
       return {
         etfCode,
         name: optionsByCode.get(etfCode)?.name ?? etfCode,
@@ -350,11 +386,14 @@ export async function stockEtfs(db: Db, market: StockMarket, rawSymbol: string, 
         surfaceNetLots: current?.diffLots ?? null,
         consecutiveDirection: streak.direction,
         consecutiveTradingDays: streak.tradingDays,
+        directionConflict,
+        observationCoverage,
         dataDate: sourceAsOf,
-        confidence: current?.activeDiffLots === null || current?.activeDiffLots === undefined ? "low" : "high"
+        confidence,
+        confidenceReason
       };
     }).sort((a, b) => Math.abs(b.activeNetLots ?? 0) - Math.abs(a.activeNetLots ?? 0));
-    return { generatedAt: generatedAt(), sourceAsOf, coverage, confidence: confidenceForSignal({ ...coverage, scaleComplete: currentChanges.filter((row) => row.activeDiffLots !== null).length, requiredObservations: 1, actualObservations: sourceAsOf ? 1 : 0, dominantShare: null, directionalRatio: null }), rows };
+    return { generatedAt: generatedAt(), sourceAsOf, coverage, confidence: confidenceForSignal({ ...coverage, scaleComplete: currentChanges.filter((row) => row.activeDiffLots !== null).length, requiredObservations: 1, actualObservations: sourceAsOf ? 1 : 0, dominantShare: null, directionalRatio: null, directionConflictCount: currentChanges.filter((row) => hasDirectionConflict({ activeDiffLots: row.activeDiffLots, diffWeightPoint: row.diffWeightPoint })).length }), rows };
   }
 
   const snapshots = await globalSnapshotsForStock(db, symbol, false);
@@ -385,7 +424,7 @@ export async function stockInstitutions(db: Db, market: StockMarket, rawSymbol: 
     const row = base.institutional;
     return {
       generatedAt: generatedAt(), sourceAsOf: base.sourceAsOf, coverage: base.coverage,
-      confidence: confidenceForSignal({ ...base.coverage, scaleComplete: base.days[0]?.scaleCompleteEtfs ?? 0, requiredObservations: 1, actualObservations: row ? 1 : 0, dominantShare: base.days[0]?.dominantShare ?? null, directionalRatio: base.days[0]?.sameDirectionEtfRatio ?? null }),
+      confidence: confidenceForSignal({ ...base.coverage, scaleComplete: base.days[0]?.scaleCompleteEtfs ?? 0, requiredObservations: 1, actualObservations: row ? 1 : 0, dominantShare: base.days[0]?.dominantShare ?? null, directionalRatio: base.days[0]?.sameDirectionEtfRatio ?? null, directionConflictCount: base.days[0]?.directionConflictCount ?? 0 }),
       timeScale: "台灣交易日",
       row: row ? { foreignNetShares: row.foreignNetShares, investmentTrustNetShares: row.investmentTrustNetShares, dealerNetShares: row.dealerNetShares, totalNetShares: row.totalNetShares, source: row.source, relation: relationBetweenEtfAndInstitution(currentDirection, row.totalNetShares) } : null
     };

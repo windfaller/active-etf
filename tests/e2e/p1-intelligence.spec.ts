@@ -7,6 +7,8 @@ test("P1 routes are shareable, preserve time scales, and support browser history
   await page.goto("/stocks/tw/2330");
   await expect(page.getByRole("heading", { name: "2330 台積電" })).toBeVisible();
   await expect(page.getByText("3／5／20 個有效交易日趨勢")).toBeVisible();
+  await expect(page.getByText("方向指標分歧").first()).toBeVisible();
+  await expect(page.getByText("有效觀察 17/20").first()).toBeVisible();
   await page.getByRole("button", { name: "比較" }).click();
   await expect(page).toHaveURL(/\/compare\/etfs$/u);
   await page.goBack();
@@ -17,14 +19,22 @@ test("P1 routes are shareable, preserve time scales, and support browser history
   await page.goto("/stocks/us/MU");
   await expect(page.getByRole("heading", { name: "MU Micron Technology" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "海外 ETF 曝險" })).toBeVisible();
+  await expect(page.locator(".exposure-grid").getByText(/HBMX/u)).toBeVisible();
+  await expect(page.locator(".exposure-grid").getByText(/DRAM/u)).toHaveCount(0);
+  await expect(page.locator(".etf-detail-table").getByText(/HBMX/u)).toBeVisible();
+  await expect(page.locator(".etf-detail-table").getByText(/DRAM/u)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "機構 13F 季度持倉" })).toBeVisible();
-  await expect(page.getByText(/持倉截止 2026-03-31/u)).toBeVisible();
+  await expect(page.getByText(/持倉截止 2026-06-30/u)).toBeVisible();
+  await expect(page.locator(".filing-cards").getByText(/ARK13F/u)).toHaveCount(0);
 });
 
 test("ETF compare enforces four selections and never offers 13F", async ({ page }) => {
   await page.goto("/compare/etfs?type=tw&codes=00981A,00982A");
   await expect(page.getByRole("heading", { name: "持股重疊、調倉與配置差異" })).toBeVisible();
   await expect(page.getByText("Jaccard", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "調整" }).click();
+  await expect(page.getByText(/加碼持股筆數 5/u).first()).toBeVisible();
+  await expect(page.getByText(/減碼持股筆數 2/u).first()).toBeVisible();
   await page.locator(".type-toggle").getByRole("button", { name: "海外 ETF" }).click();
   await expect(page.getByRole("button", { name: /ARK13F/u })).toHaveCount(0);
   const options = page.locator(".code-options button");
@@ -34,10 +44,21 @@ test("ETF compare enforces four selections and never offers 13F", async ({ page 
 });
 
 test("global compare keeps daily ETF data separate from 13F", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/compare/etfs?type=global&codes=DRAM,HBMX");
   await expect(page.getByRole("heading", { name: "持股重疊、調倉與配置差異" })).toBeVisible();
   await expect(page.getByText("Jaccard", { exact: true })).toBeVisible();
   await expect(page.locator(".code-options").getByText(/13F/u)).toHaveCount(0);
+  const dateNotice = page.getByTestId("global-date-alignment");
+  await expect(dateNotice.getByText("非共同資料日", { exact: true })).toBeVisible();
+  await expect(dateNotice.getByText(/DRAM.*2026-07-21/u)).toBeVisible();
+  await expect(dateNotice.getByText(/HBMX.*2026-07-19/u)).toBeVisible();
+  await expect(dateNotice.getByText(/最後抓取/u)).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  await expect(dateNotice).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.reload();
   await expect(page).toHaveURL(/type=global&codes=DRAM%2CHBMX|type=global&codes=DRAM,HBMX/u);
 });
@@ -46,6 +67,7 @@ test("signals, style, and search interactions are keyboard accessible", async ({
   await page.goto("/signals");
   await expect(page.getByRole("heading", { name: "連續調倉、反轉與方向分歧" })).toBeVisible();
   await expect(page.getByText("連續 3 日")).toBeVisible();
+  await expect(page.getByText("有效觀察 17/20")).toBeVisible();
   await page.goto("/etf/00981A/style");
   await expect(page.getByRole("heading", { name: "00981A 主動統一台股增長" })).toBeVisible();
   await expect(page.getByText("第 78 百分位")).toBeVisible();

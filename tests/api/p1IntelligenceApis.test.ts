@@ -55,6 +55,24 @@ describe("P1 intelligence APIs", () => {
     expect(response.jsonBody).toMatchObject({ coverage: { tracked: 28, available: 24, delayed: 4 }, confidence: { level: "medium" } });
   });
 
+  it("serves only current US ETF and 13F reverse-lookup rows", async () => {
+    mocks.stockOverview.mockResolvedValueOnce({
+      found: true,
+      overseasEtfExposure: { rows: [{ etfCode: "HBMX", sourceAsOf: "2026-07-19" }] },
+      sec13f: { rows: [{ institutionCode: "BRK13F", periodOfReport: "2026-06-30" }] }
+    } as never);
+    mocks.stockEtfs.mockResolvedValueOnce({ rows: [{ etfCode: "HBMX", dataDate: "2026-07-19" }] } as never);
+    mocks.stockInstitutions.mockResolvedValueOnce({ rows: [{ institutionCode: "BRK13F", periodOfReport: "2026-06-30" }] } as never);
+
+    const overview = await getStockOverview(request("", { market: "us", symbol: "MU" }), context);
+    const etfs = await getStockEtfs(request("", { market: "us", symbol: "MU" }), context);
+    const institutions = await getStockInstitutions(request("", { market: "us", symbol: "MU" }), context);
+    expect(JSON.stringify([overview.jsonBody, etfs.jsonBody, institutions.jsonBody])).not.toContain("DRAM");
+    expect(overview.jsonBody).toMatchObject({ overseasEtfExposure: { rows: [{ etfCode: "HBMX" }] }, sec13f: { rows: [{ institutionCode: "BRK13F" }] } });
+    expect(etfs.jsonBody).toMatchObject({ rows: [{ etfCode: "HBMX" }] });
+    expect(institutions.jsonBody).toMatchObject({ rows: [{ institutionCode: "BRK13F" }] });
+  });
+
   it("serves bounded stock history, ETF details, and missing institution data", async () => {
     const historyResponse = await getStockHistory(request("window=20&date=2026-07-21", { market: "tw", symbol: "2330" }), context);
     const etfResponse = await getStockEtfs(request("date=2026-07-21", { market: "tw", symbol: "2330" }), context);
@@ -93,6 +111,35 @@ describe("P1 intelligence APIs", () => {
     expect((await getEtfComparison(request("type=tw&codes=00981A,00982A,00980A,00985A,00988A"), context)).status).toBe(400);
     expect((await getEtfComparison(request("type=global&codes=DRAM,ARK13F"), context)).status).toBe(400);
     expect((await getEtfComparison(request("type=global&codes=DRAM,NOTREAL"), context)).status).toBe(404);
+  });
+
+  it("returns unambiguous adjustment keys and per-ETF global dates", async () => {
+    mocks.compareEtfs.mockResolvedValueOnce({
+      type: "tw",
+      cards: [{ activeAdjustments: [{ increaseHoldingChangeCount: 5, decreaseHoldingChangeCount: 2 }] }]
+    } as never);
+    const taiwan = await getEtfComparison(request("type=tw&codes=00981A,00982A"), context);
+    expect(taiwan.jsonBody).toMatchObject({ cards: [{ activeAdjustments: [{ increaseHoldingChangeCount: 5, decreaseHoldingChangeCount: 2 }] }] });
+    expect(JSON.stringify(taiwan.jsonBody)).not.toContain('"increaseCount"');
+    expect(JSON.stringify(taiwan.jsonBody)).not.toContain('"decreaseCount"');
+
+    mocks.compareEtfs.mockResolvedValueOnce({
+      type: "global",
+      cards: [
+        { code: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
+        { code: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
+      ],
+      dateAlignment: {
+        commonDateOnly: false,
+        commonDate: null,
+        rows: [
+          { code: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
+          { code: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
+        ]
+      }
+    } as never);
+    const global = await getEtfComparison(request("type=global&codes=DRAM,HBMX"), context);
+    expect(global.jsonBody).toMatchObject({ dateAlignment: { commonDateOnly: false, commonDate: null, rows: [{ code: "DRAM", sourceAsOf: "2026-07-21" }, { code: "HBMX", sourceAsOf: "2026-07-19" }] } });
   });
 
   it("validates and returns signals, style profiles, and global search", async () => {

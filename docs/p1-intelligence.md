@@ -20,7 +20,7 @@ P1 延續「主動 ETF 機構調倉情報」定位，將可觀察事實、系統
 | `GET /api/stocks/search` | q、market、limit 驗證 |
 | `GET /api/stocks/:market/:symbol/overview` | 股票摘要與日／季資料區隔 |
 | `GET /api/stocks/:market/:symbol/history` | window 只允許 3、5、20 |
-| `GET /api/stocks/:market/:symbol/etfs` | 有界 ETF 明細 |
+| `GET /api/stocks/:market/:symbol/etfs` | 有界 ETF 明細；台股回傳實際／缺失觀察數與方向衝突旗標 |
 | `GET /api/stocks/:market/:symbol/institutions` | 未知法人資料保留為 null |
 | `GET /api/compare/etfs` | 同類 2–4 檔；排除 13F |
 | `GET /api/signals` | kind、window、limit 驗證 |
@@ -31,17 +31,25 @@ P1 延續「主動 ETF 機構調倉情報」定位，將可觀察事實、系統
 
 ## 計算規則
 
-- neutral：主動張數絕對值低於 0.01 且權重變化低於 0.0001 percentage point。
+- 方向優先序：主動張數跨過 ±0.01 張時以張數決定方向；張數落在門檻內才使用權重 ±0.0001 percentage point。
+- neutral／unknown：有實際觀察且張數、權重都未跨門檻才是 neutral；ETF 在預期交易日沒有紀錄為 unknown。兩者都會中斷連續訊號，不會跳過 unknown 延長 streak。
+- 方向衝突：張數與權重都顯著且方向相反時，方向仍以張數為準，另回傳 `directionConflict: true`，信心原因會說明不一致且不可為 high。
 - 共識：同方向至少 2 檔、超過反方向，且佔 directional ETF 至少 60%；neutral 另列但不稀釋分母。
-- 連續訊號：只讀有效交易日序列；每筆都需超過 neutral 門檻。
+- 連續訊號：只讀有效交易日序列；每筆都需超過 neutral 門檻。response 回傳 `actualObservationCount` 與 `missingObservationCount`，UI 顯示如「有效觀察 17/20」。
 - 反轉：反轉前至少 2 個有效交易日同方向，反轉日也需達門檻。
 - ETF／法人：方向相同為一致、方向相反為分歧；任一側缺資料為資料不足。
 - 集合重疊：`intersection / union`（Jaccard）。
 - 權重重疊：`Σ min(weightA, weightB)`；identity 同時包含 ticker 與 exposure type。
 - 集中度：前 5、前 10 與 `Σ weight²`（HHI）。
-- 調整強度：`Σ |weight change| / 2`。
+- 調整強度：`Σ |weight change| / 2`。比較卡的資料列筆數欄位為 `increaseHoldingChangeCount`／`decreaseHoldingChangeCount`；不再公開容易誤認為交易日數的 `increaseCount`／`decreaseCount`。
 - 百分位：同類有效樣本至少 5 檔才顯示。
-- 可信度：由涵蓋率、延遲、規模資料完整度、觀察日完整度、單一 ETF 主導程度及同方向比例給出高／中／低與文字原因。
+- 可信度：由涵蓋率、延遲、規模資料完整度、實際觀察日完整度、單一 ETF 主導程度、同方向比例及方向衝突給出高／中／低與文字原因。
+
+### 美股現況反查與海外比較
+
+- overview、ETF 明細、13F／機構與搜尋都先依 ETF／機構選出 `sourceStatus=ok` 且資料日為 `YYYY-MM-DD` 的最新有效快照，再篩選 ticker。若舊快照曾持有、最新快照已退出，就不會回退到舊快照把它列為現況持股；非標準資料日也不參與排序。
+- 歷史端點仍可呈現歷史持有事實；這與現況反查分開。
+- 海外 ETF 比較不是強制共同資料日。每張卡與 `dateAlignment.rows` 都提供 `sourceAsOf`、`fetchedAt`；資料日相同時顯示共同資料日，不同時顯示「非共同資料日」及逐檔日期，避免誤認為同日橫截面。
 
 ## MongoDB 與部署
 
@@ -71,5 +79,6 @@ Lighthouse 使用 production build、static preview proxy 與本地實際 API。
 - 法人資料缺少時顯示「資料不足」，不以零補值。
 - 13F 保留 period of report、filedAt、capturedAt 三個時間欄位，永不併入每日 ETF 淨變動。
 - 海外 ETF ticker 相同但 Equity／Swap／Cash 類型不同時不靜默合併。
+- 海外 ETF 發行商更新頻率不同；非共同資料日比較只反映各檔最新有效公開快照。
 - 60 日保留率、平均新增持股維持時間或頻繁進出比例在歷史不足時維持 null。
 - signals 與 style 目前由既有資料即時計算；若 production latency 持續超過門檻，再考慮可重建、冪等的每日 snapshot。

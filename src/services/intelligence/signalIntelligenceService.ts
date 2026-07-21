@@ -56,7 +56,8 @@ export async function intelligenceSignals(
       requiredObservations: window,
       actualObservations: days.filter((row) => row.availableEtfs > 0).length,
       dominantShare: current.dominantShare,
-      directionalRatio: current.sameDirectionEtfRatio
+      directionalRatio: current.sameDirectionEtfRatio,
+      directionConflictCount: current.directionConflictCount
     });
     const stockName = rows[0]?.stockName ?? stockId;
 
@@ -71,6 +72,8 @@ export async function intelligenceSignals(
         neutralEtfs: current.neutralEtfCount,
         startDate: streak.startDate,
         latestDate: streak.latestDate,
+        actualObservationCount: streak.actualObservationCount,
+        missingObservationCount: streak.missingObservationCount,
         coverage: rowCoverage,
         confidence
       });
@@ -122,7 +125,8 @@ export async function intelligenceSignals(
     kind,
     methodology: {
       tradingDays: "使用資料庫中的有效市場交易日，不使用日曆天。",
-      neutralThreshold: "主動淨變動絕對值不超過 0.01 張且權重變化不超過 0.0001 個百分點時視為 neutral。",
+      neutralThreshold: "有實際觀察且主動淨變動落在門檻內時，才使用權重變化判斷；兩者都未跨門檻才是 neutral。缺少該日觀察為 unknown，兩者都會中斷連續訊號。",
+      directionPriority: "主動張數跨門檻時以張數決定方向；張數在門檻內才使用權重。兩者顯著反向時保留衝突旗標並降低信心。",
       reversal: "反轉前至少 2 個有效交易日同方向，反轉日需跨過 neutral 門檻。",
       consensus: "同方向至少 2 檔、多於反方向且占 directional ETF 至少 60%；neutral 另列。"
     },

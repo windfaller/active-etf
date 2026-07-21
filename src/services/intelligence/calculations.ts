@@ -55,6 +55,7 @@ export interface ConfidenceInput {
   actualObservations: number;
   dominantShare: number | null;
   directionalRatio: number | null;
+  directionConflictCount?: number;
 }
 
 export const DEFAULT_SIGNAL_THRESHOLDS: SignalThresholds = {
@@ -68,10 +69,24 @@ export function directionForChange(
 ): SignalDirection {
   const lots = input.activeDiffLots;
   const weight = input.diffWeightPoint;
-  if (lots === null && weight === null) return "unknown";
-  if ((lots ?? 0) > thresholds.minActiveLots || (weight ?? 0) > thresholds.minWeightPoint) return "increase";
-  if ((lots ?? 0) < -thresholds.minActiveLots || (weight ?? 0) < -thresholds.minWeightPoint) return "decrease";
+  if (lots !== null) {
+    if (lots > thresholds.minActiveLots) return "increase";
+    if (lots < -thresholds.minActiveLots) return "decrease";
+  }
+  if (weight === null) return lots === null ? "unknown" : "neutral";
+  if (weight > thresholds.minWeightPoint) return "increase";
+  if (weight < -thresholds.minWeightPoint) return "decrease";
   return "neutral";
+}
+
+export function hasDirectionConflict(
+  input: DirectionInput,
+  thresholds: SignalThresholds = DEFAULT_SIGNAL_THRESHOLDS
+): boolean {
+  const { activeDiffLots: lots, diffWeightPoint: weight } = input;
+  if (lots === null || weight === null) return false;
+  if (Math.abs(lots) <= thresholds.minActiveLots || Math.abs(weight) <= thresholds.minWeightPoint) return false;
+  return Math.sign(lots) !== Math.sign(weight);
 }
 
 export function countDirections(directions: SignalDirection[]): DirectionalCounts {
@@ -120,8 +135,12 @@ export function consecutiveDirection(observations: DailyDirectionObservation[]):
   startDate: string | null;
   latestDate: string | null;
   cumulativeActiveNetLots: number | null;
+  actualObservationCount: number;
+  missingObservationCount: number;
 } {
   const ordered = [...observations].sort((a, b) => b.date.localeCompare(a.date));
+  const actualObservationCount = ordered.filter((row) => row.direction !== "unknown").length;
+  const missingObservationCount = ordered.length - actualObservationCount;
   const latest = ordered[0];
   if (!latest || latest.direction === "neutral" || latest.direction === "unknown") {
     return {
@@ -129,7 +148,9 @@ export function consecutiveDirection(observations: DailyDirectionObservation[]):
       tradingDays: 0,
       startDate: null,
       latestDate: latest?.date ?? null,
-      cumulativeActiveNetLots: latest?.activeNetLots ?? null
+      cumulativeActiveNetLots: latest?.activeNetLots ?? null,
+      actualObservationCount,
+      missingObservationCount
     };
   }
   const actualRun: DailyDirectionObservation[] = [];
@@ -143,7 +164,9 @@ export function consecutiveDirection(observations: DailyDirectionObservation[]):
     tradingDays: actualRun.length,
     startDate: actualRun.at(-1)?.date ?? latest.date,
     latestDate: latest.date,
-    cumulativeActiveNetLots: values.length ? round(values.reduce((sum, value) => sum + value, 0)) : null
+    cumulativeActiveNetLots: values.length ? round(values.reduce((sum, value) => sum + value, 0)) : null,
+    actualObservationCount,
+    missingObservationCount
   };
 }
 
@@ -229,7 +252,8 @@ export function confidenceForSignal(input: ConfidenceInput): { level: Confidence
   const completeWindow = input.actualObservations >= input.requiredObservations;
   const notDominated = input.dominantShare === null || input.dominantShare <= 0.6;
   const directionIsBroad = input.directionalRatio === null || input.directionalRatio >= 0.6;
-  if (coverageRatio >= 0.8 && scaleRatio >= 0.8 && completeWindow && input.delayed === 0 && notDominated && directionIsBroad) {
+  const hasDirectionConflict = (input.directionConflictCount ?? 0) > 0;
+  if (coverageRatio >= 0.8 && scaleRatio >= 0.8 && completeWindow && input.delayed === 0 && notDominated && directionIsBroad && !hasDirectionConflict) {
     return { level: "high", reason: "ETF 涵蓋與規模校正資料完整，觀察期足夠，且訊號未由單一 ETF 主導。" };
   }
   if (coverageRatio >= 0.5 && scaleRatio >= 0.5 && input.actualObservations >= Math.min(3, input.requiredObservations)) {
@@ -238,9 +262,13 @@ export function confidenceForSignal(input: ConfidenceInput): { level: Confidence
       !completeWindow ? "觀察期尚未完整" : null,
       !notDominated ? "單一 ETF 影響偏高" : null,
       !directionIsBroad ? "同方向 ETF 比例不足" : null,
-      scaleRatio < 0.8 ? "部分資料缺少完整規模校正" : null
+      scaleRatio < 0.8 ? "部分資料缺少完整規模校正" : null,
+      hasDirectionConflict ? "張數與權重方向不一致" : null
     ].filter(Boolean);
     return { level: "medium", reason: limitations.length ? limitations.join("；") : "涵蓋率足夠，但仍有部分資料限制。" };
   }
-  return { level: "low", reason: "ETF 涵蓋、規模校正或有效交易日資料不足，僅能作低可信度觀察。" };
+  return {
+    level: "low",
+    reason: `ETF 涵蓋、規模校正或有效交易日資料不足，僅能作低可信度觀察。${hasDirectionConflict ? "另有張數與權重方向不一致。" : ""}`
+  };
 }

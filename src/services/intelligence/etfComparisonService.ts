@@ -12,6 +12,13 @@ import { effectiveTaiwanDates, generatedAt, globalCoverageForDate, taiwanCoverag
 
 export type EtfComparisonType = "tw" | "global";
 
+export function globalDateAlignment(cards: Array<{ code: string; sourceAsOf: string | null; fetchedAt?: string | null }>) {
+  const rows = cards.map((card) => ({ code: card.code, sourceAsOf: card.sourceAsOf, fetchedAt: card.fetchedAt ?? null }));
+  const availableDates = rows.map((row) => row.sourceAsOf).filter((value): value is string => Boolean(value));
+  const commonDate = availableDates.length === cards.length && new Set(availableDates).size === 1 ? availableDates[0] ?? null : null;
+  return { commonDateOnly: false as const, commonDate, rows };
+}
+
 function positionKeyForGlobal(holding: GlobalEtfHolding): string {
   const identity = holding.positionKey || (holding.ticker ? `ticker:${holding.ticker.toUpperCase()}` : `name:${holding.name.toUpperCase()}`);
   return `${identity}|${holding.assetType ?? "Unknown"}`;
@@ -46,7 +53,7 @@ function sectorExposureFromTaiwanHoldings(holdings: EtfDailyHolding[], profiles:
   return [...sectors.entries()].map(([sector, weight]) => ({ sector, weight: round(weight, 4) })).sort((a, b) => b.weight - a.weight);
 }
 
-function adjustmentWindows(changes: EtfHoldingChange[], dates: string[]) {
+export function adjustmentWindows(changes: EtfHoldingChange[], dates: string[]) {
   return ([3, 5, 20] as const).map((window) => {
     const windowDates = new Set(dates.slice(0, window));
     const rows = changes.filter((row) => windowDates.has(row.tradeDate));
@@ -55,8 +62,8 @@ function adjustmentWindows(changes: EtfHoldingChange[], dates: string[]) {
       window,
       cumulativeActiveNetLots: active.length ? round(active.reduce((sum, value) => sum + value, 0)) : null,
       adjustmentIntensity: adjustmentIntensity(rows.map((row) => row.diffWeightPoint)),
-      increaseCount: rows.filter((row) => (row.activeDiffLots ?? 0) > 0).length,
-      decreaseCount: rows.filter((row) => (row.activeDiffLots ?? 0) < 0).length
+      increaseHoldingChangeCount: rows.filter((row) => (row.activeDiffLots ?? 0) > 0).length,
+      decreaseHoldingChangeCount: rows.filter((row) => (row.activeDiffLots ?? 0) < 0).length
     };
   });
 }
@@ -195,8 +202,9 @@ async function compareGlobalEtfs(db: Db, codes: string[], date?: string) {
     generatedAt: generatedAt(), sourceAsOf, type: "global" as const, coverage,
     confidence: confidenceForSignal({ ...coverage, scaleComplete: coverage.available, requiredObservations: 1, actualObservations: snapshots.length ? 1 : 0, dominantShare: null, directionalRatio: null }),
     cards,
+    dateAlignment: globalDateAlignment(cards),
     pairwise: pairwiseRows(pairItems),
-    methodology: { setOverlap: "intersection count 與 Jaccard similarity", weightedOverlap: "Σ min(weightA, weightB)", commonDateOnly: false, missingWeight: "缺少權重的持股只納入集合重疊，不納入權重重疊", exposureIdentity: "Ticker/positionKey 與 assetType 共同識別；Equity、Swap、Cash 不會靜默合併" }
+    methodology: { setOverlap: "intersection count 與 Jaccard similarity", weightedOverlap: "Σ min(weightA, weightB)", commonDateOnly: false, missingWeight: "缺少權重的持股只納入集合重疊，不納入權重重疊", exposureIdentity: "Ticker/positionKey 與 assetType 共同識別；Equity、Swap、Cash 不會靜默合併", dateBasis: "海外 ETF 各自使用最新有效持股快照；資料日不同時標示非共同資料日，並逐檔顯示持股資料日與抓取時間。" }
   };
 }
 
