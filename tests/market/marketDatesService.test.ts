@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
+import { effectiveTaiwanDates } from "../../src/services/intelligence/dataAccess.js";
 import {
   availableMarketDates,
   marketDateOverview,
@@ -61,5 +62,22 @@ describe("market date service", () => {
       { date: "2026-07-21", availableCount: 7, trackedCount: 10, coverageRate: 0.7 },
       { date: "2026-07-20", availableCount: 10, trackedCount: 10, coverageRate: 1 }
     ])).toBe("2026-07-21");
+  });
+
+  it("anchors intelligence windows to the newest sufficiently covered date", async () => {
+    const enabledCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
+    const dateRows = [{ _id: "2026-07-22" }, { _id: "2026-07-21" }, { _id: "2026-07-20" }, { _id: "2026-07-17" }];
+    const summaryRows = [
+      ...enabledCodes.slice(0, 1).map((etfCode) => ({ etfCode, tradeDate: "2026-07-22" })),
+      ...enabledCodes.slice(0, 14).map((etfCode) => ({ etfCode, tradeDate: "2026-07-21" })),
+      ...enabledCodes.slice(0, 25).map((etfCode) => ({ etfCode, tradeDate: "2026-07-20" }))
+    ];
+    const collection = vi.fn((name: string) => name === "etf_holding_changes"
+      ? { aggregate: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(dateRows) }) }
+      : { find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(summaryRows) }) });
+
+    const dates = await effectiveTaiwanDates({ collection } as never, undefined, 3);
+
+    expect(dates).toEqual(["2026-07-20", "2026-07-17"]);
   });
 });
