@@ -25,6 +25,6 @@ export interface EtfComparison extends IntelligenceMeta {
     topHoldings: Array<{ key: string; symbol: string | null; name: string; assetType: string; weight: number | null }>;
   }>;
   pairwise: Array<{ left: string; right: string; intersectionCount: number; unionCount: number; similarity: number | null; weightedOverlap: number | null; common: Array<{ key: string; label: string; leftWeight: number | null; rightWeight: number | null }> }>;
-  dateAlignment?: { commonDateOnly: false; commonDate: string | null; rows: Array<{ code: string; sourceAsOf: string | null; fetchedAt: string | null }> };
+  dateAlignment?: { commonDateOnly: boolean; commonDate: string | null; rows: Array<{ etfCode: string; sourceAsOf: string | null; fetchedAt: string | null }> };
   methodology: { setOverlap: string; weightedOverlap: string; commonDateOnly: boolean; missingWeight: string; exposureIdentity: string; dateBasis?: string };
 }

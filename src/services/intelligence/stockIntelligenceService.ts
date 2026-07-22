@@ -30,8 +30,24 @@ import {
   latestGlobalSourceDate,
   taiwanCoverageForDate
 } from "./dataAccess.js";
+import { globalDateAlignment } from "./globalDateAlignment.js";
 
 export type StockMarket = "tw" | "us";
+export const GLOBAL_WEIGHT_CHANGE_THRESHOLD_PP = 0.0001;
+
+export interface GlobalWeightHistoryPoint {
+  date: string;
+  totalWeightPercent: number | null;
+  etfCount: number;
+  weightChangePoint: number | null;
+  direction: SignalDirection;
+}
+
+interface GlobalWeightHistoryAggregate {
+  date: string;
+  totalWeightPercent: number | null;
+  etfCount: number;
+}
 
 export interface DailyAggregate {
   date: string;
@@ -124,6 +140,123 @@ export async function globalSnapshotsForStock(db: Db, symbol: string, include13f
   return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<GlobalEtfSnapshot>(
     latestSnapshotsForStockPipeline(symbol, include13f)
   ).toArray();
+}
+
+export function globalStockHistoryPipeline(symbol: string, window: number, date?: string) {
+  const sourceAsOf = {
+    $regex: "^\\d{4}-\\d{2}-\\d{2}$",
+    ...(date ? { $lte: date } : {})
+  };
+  return [
+    {
+      $match: {
+        etfCode: { $in: enabledDailyGlobalEtfCodes },
+        strategyType: { $ne: "13f" },
+        sourceStatus: "ok",
+        sourceAsOf
+      }
+    },
+    { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
+    {
+      $group: {
+        _id: { etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" },
+        snapshot: { $first: "$$ROOT" }
+      }
+    },
+    { $replaceRoot: { newRoot: "$snapshot" } },
+    {
+      $project: {
+        _id: 0,
+        etfCode: 1,
+        sourceAsOf: 1,
+        matchingHoldings: {
+          $filter: {
+            input: { $ifNull: ["$holdings", []] },
+            as: "holding",
+            cond: {
+              $eq: [
+                { $toUpper: { $ifNull: ["$$holding.ticker", ""] } },
+                symbol
+              ]
+            }
+          }
+        }
+      }
+    },
+    { $match: { "matchingHoldings.0": { $exists: true } } },
+    { $unwind: "$matchingHoldings" },
+    {
+      $group: {
+        _id: "$sourceAsOf",
+        totalWeightPercent: {
+          $sum: {
+            $cond: [
+              { $isNumber: "$matchingHoldings.weightPercent" },
+              "$matchingHoldings.weightPercent",
+              0
+            ]
+          }
+        },
+        numericWeightCount: {
+          $sum: { $cond: [{ $isNumber: "$matchingHoldings.weightPercent" }, 1, 0] }
+        },
+        etfCodes: { $addToSet: "$etfCode" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        date: "$_id",
+        totalWeightPercent: {
+          $cond: [{ $gt: ["$numericWeightCount", 0] }, "$totalWeightPercent", null]
+        },
+        etfCount: { $size: "$etfCodes" }
+      }
+    },
+    { $sort: { date: -1 } },
+    { $limit: Math.max(1, window) }
+  ];
+}
+
+function directionForGlobalWeightChange(weightChangePoint: number | null): SignalDirection {
+  if (weightChangePoint === null) return "unknown";
+  if (Math.abs(weightChangePoint) <= GLOBAL_WEIGHT_CHANGE_THRESHOLD_PP) return "neutral";
+  return weightChangePoint > 0 ? "increase" : "decrease";
+}
+
+export function buildGlobalWeightHistory(rows: GlobalWeightHistoryAggregate[]) {
+  const normalizedRows = [...rows]
+    .filter((row) => /^\d{4}-\d{2}-\d{2}$/u.test(row.date))
+    .sort((left, right) => right.date.localeCompare(left.date));
+  const points: GlobalWeightHistoryPoint[] = normalizedRows.map((row, index) => {
+    const previous = normalizedRows[index + 1];
+    const weightChangePoint = row.totalWeightPercent !== null && previous?.totalWeightPercent !== null && previous?.totalWeightPercent !== undefined
+      ? round(row.totalWeightPercent - previous.totalWeightPercent, 4)
+      : null;
+    return {
+      date: row.date,
+      totalWeightPercent: row.totalWeightPercent === null ? null : round(row.totalWeightPercent, 4),
+      etfCount: row.etfCount,
+      weightChangePoint,
+      direction: directionForGlobalWeightChange(weightChangePoint)
+    };
+  });
+  const latest = points.find((point) => point.totalWeightPercent !== null)?.totalWeightPercent ?? null;
+  const oldest = [...points].reverse().find((point) => point.totalWeightPercent !== null)?.totalWeightPercent ?? null;
+  const periodWeightChangePoint = latest !== null && oldest !== null && points.filter((point) => point.totalWeightPercent !== null).length >= 2
+    ? round(latest - oldest, 4)
+    : null;
+  return {
+    points,
+    summary: {
+      latestTotalWeightPercent: latest,
+      periodWeightChangePoint,
+      increaseObservationDays: points.filter((point) => point.direction === "increase").length,
+      decreaseObservationDays: points.filter((point) => point.direction === "decrease").length,
+      neutralObservationDays: points.filter((point) => point.direction === "neutral").length,
+      actualObservationCount: points.filter((point) => point.totalWeightPercent !== null).length
+    }
+  };
 }
 
 export function latestStockSearchPipeline(normalizedQuery: string, limit: number) {
@@ -275,6 +408,11 @@ export async function stockOverview(db: Db, market: StockMarket, rawSymbol: stri
     shares: holding.shares ?? null
   })));
   const confidence = confidenceForSignal({ ...coverage, scaleComplete: coverage.available, requiredObservations: 1, actualObservations: snapshots.length ? 1 : 0, dominantShare: null, directionalRatio: null });
+  const dateAlignment = globalDateAlignment(snapshots.map((snapshot) => ({
+    etfCode: snapshot.etfCode,
+    sourceAsOf: snapshot.sourceAsOf,
+    fetchedAt: snapshot.fetchedAt instanceof Date ? snapshot.fetchedAt.toISOString() : String(snapshot.fetchedAt)
+  })));
   return {
     generatedAt: generatedAt(),
     found: snapshots.length > 0 || institutions.length > 0,
@@ -284,7 +422,7 @@ export async function stockOverview(db: Db, market: StockMarket, rawSymbol: stri
     stock: { market, symbol, normalizedSymbol: symbol, name: globalStockName(symbol, [...snapshots, ...institutions]), sector: latestHoldingForTicker(snapshots[0] ?? ({ holdings: [] } as unknown as GlobalEtfSnapshot), symbol)[0]?.sector ?? null, industry: null },
     summary: { dataDate: sourceAsOf, lastUpdated: snapshots[0]?.fetchedAt instanceof Date ? snapshots[0].fetchedAt.toISOString() : snapshots[0]?.fetchedAt ?? null, coveredEtfs: snapshots.length, primarySources: ["海外 ETF 發行商官方持股", "SEC 13F"] },
     today: null,
-    overseasEtfExposure: { timeScale: "依發行商實際更新頻率", rows: exposures },
+    overseasEtfExposure: { timeScale: "依發行商實際更新頻率", dateAlignment, rows: exposures },
     sec13f: {
       timeScale: "季度申報，非即時持倉",
       rows: institutions.flatMap((snapshot) => latestHoldingForTicker(snapshot, symbol).map((holding) => ({
@@ -329,19 +467,27 @@ export async function stockHistory(db: Db, market: StockMarket, rawSymbol: strin
     };
   }
 
-  const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").find(
-    { etfCode: { $in: enabledDailyGlobalEtfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok", holdings: { $elemMatch: { ticker: symbol } }, ...(date ? { sourceAsOf: { $lte: date } } : {}) },
-    { sort: { sourceAsOf: -1, fetchedAt: -1 }, limit: Math.min(400, window * enabledDailyGlobalEtfCodes.length) }
-  ).toArray();
-  const dates = [...new Set(rows.map((row) => row.sourceAsOf))].sort((a, b) => b.localeCompare(a)).slice(0, window);
-  const points = dates.map((sourceDate) => {
-    const snapshots = rows.filter((row) => row.sourceAsOf === sourceDate);
-    const holdings = snapshots.flatMap((snapshot) => latestHoldingForTicker(snapshot, symbol));
-    return { date: sourceDate, totalWeightPercent: round(holdings.reduce((sum, holding) => sum + (holding.weightPercent ?? 0), 0)), etfCount: snapshots.length };
-  });
-  const sourceAsOf = dates[0] ?? await latestGlobalSourceDate(db);
+  const aggregates = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots")
+    .aggregate<GlobalWeightHistoryAggregate>(globalStockHistoryPipeline(symbol, window, date))
+    .toArray();
+  const history = buildGlobalWeightHistory(aggregates);
+  const sourceAsOf = history.points[0]?.date ?? await latestGlobalSourceDate(db);
   const coverage = await globalCoverageForDate(db, sourceAsOf);
-  return { generatedAt: generatedAt(), sourceAsOf, coverage, confidence: confidenceForSignal({ ...coverage, scaleComplete: coverage.available, requiredObservations: window, actualObservations: dates.length, dominantShare: null, directionalRatio: null }), market, symbol, window, timeScale: "海外 ETF 實際持股日，不等同台灣交易日", points };
+  return {
+    generatedAt: generatedAt(),
+    sourceAsOf,
+    coverage,
+    confidence: confidenceForSignal({ ...coverage, scaleComplete: coverage.available, requiredObservations: window, actualObservations: history.summary.actualObservationCount, dominantShare: null, directionalRatio: null }),
+    market,
+    symbol,
+    window,
+    timeScale: "海外 ETF 實際持股資料日，不等同台灣交易日",
+    methodology: {
+      value: "追蹤 ETF 合計公開權重的變化，不是主動淨張數或買賣金額。",
+      directionThresholdPp: GLOBAL_WEIGHT_CHANGE_THRESHOLD_PP
+    },
+    ...history
+  };
 }
 
 export async function stockEtfs(db: Db, market: StockMarket, rawSymbol: string, date?: string) {

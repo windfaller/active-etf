@@ -344,6 +344,7 @@ export function allStaticSeoPaths(): string[] {
     "/institutions",
     "/data-usage/",
     "/stocks",
+    "/search",
     ...prerenderedStocks.map((stock) => `/stocks/${stock.market}/${stock.symbol}`),
     "/compare/etfs",
     "/signals",

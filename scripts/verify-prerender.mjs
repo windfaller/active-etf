@@ -15,6 +15,7 @@ const compare = html("compare/etfs");
 const reversals = html("signals/reversals");
 const style = html("etf/00981A/style");
 const methodology = html("methodology");
+const search = html("search");
 
 includesAll(market, ["<h1>台灣主動式 ETF 市場總覽</h1>", `${"rel=\"canonical\" href=\"https://active-etf.inthewins.com/market\""}`, "BreadcrumbList"]);
 includesAll(etf, ["00981A 主動統一台股增長", "統一投信", "https://active-etf.inthewins.com/etf/00981A"]);
@@ -26,7 +27,8 @@ includesAll(compare, ["ETF 多檔比較工具", "https://active-etf.inthewins.co
 includesAll(reversals, ["方向反轉訊號", "https://active-etf.inthewins.com/signals/reversals"]);
 includesAll(style, ["00981A 主動統一台股增長經理人風格", "https://active-etf.inthewins.com/etf/00981A/style"]);
 includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.inthewins.com/methodology"]);
-for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology]) assert.ok(!body.includes("active-etf.chicoo.co"));
+includesAll(search, ["<meta name=\"robots\" content=\"noindex, nofollow\"", "https://active-etf.inthewins.com/search"]);
+for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology, search]) assert.ok(!body.includes("active-etf.chicoo.co"));
 const deploymentConfig = JSON.parse(readFileSync(resolve(process.cwd(), "dist/staticwebapp.config.json"), "utf8"));
 const routeMap = new Map(deploymentConfig.routes.map((entry) => [entry.route, entry]));
 assert.equal(routeMap.get("/market")?.rewrite, "/market/index.html");
@@ -37,6 +39,7 @@ assert.equal(routeMap.get("/stocks/tw/2330")?.rewrite, "/stocks/tw/2330/index.ht
 assert.equal(routeMap.get("/compare/etfs")?.rewrite, "/compare/etfs/index.html");
 assert.equal(routeMap.get("/signals/reversals")?.rewrite, "/signals/reversals/index.html");
 assert.equal(routeMap.get("/etf/00981A/style")?.rewrite, "/etf/00981A/style/index.html");
+assert.equal(routeMap.get("/search")?.rewrite, "/search/index.html");
 assert.equal(routeMap.has("/etf/UNKNOWN"), false);
 assert.ok(!JSON.stringify(deploymentConfig).includes("index-cTTlnrt5"));
 console.log("Prerender SEO verification passed.");

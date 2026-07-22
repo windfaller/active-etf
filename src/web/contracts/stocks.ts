@@ -18,7 +18,11 @@ export interface StockOverview extends IntelligenceMeta {
     institutionRelation: "aligned" | "divergent" | "insufficient";
     primaryEtfs: Array<{ etfCode: string; activeDiffLots: number | null; diffLots: number; direction: SignalDirection; directionConflict: boolean }>;
   };
-  overseasEtfExposure: null | { timeScale: string; rows: Array<{ etfCode: string; fundName: string; sourceAsOf: string; fetchedAt: string; sourceUrl: string; sourceStatus: string; assetType: string; weightPercent: number | null; shares: number | null }> };
+  overseasEtfExposure: null | {
+    timeScale: string;
+    dateAlignment: { commonDate: string | null; commonDateOnly: boolean; rows: Array<{ etfCode: string; sourceAsOf: string | null; fetchedAt: string | null }> };
+    rows: Array<{ etfCode: string; fundName: string; sourceAsOf: string; fetchedAt: string; sourceUrl: string; sourceStatus: string; assetType: string; weightPercent: number | null; shares: number | null }>;
+  };
   sec13f: null | { timeScale: string; rows: Array<{ institutionCode: string; institutionName: string; periodOfReport: string; filedAt: string | null; capturedAt: string; shares: number | null; marketValue: number | null; weightPercent: number | null; sourceUrl: string }> };
 }
 
@@ -27,16 +31,23 @@ export interface StockHistory extends IntelligenceMeta {
   symbol: string;
   window: number;
   summary?: {
-    cumulativeActiveNetLots: number | null;
-    increaseTradingDays: number;
-    decreaseTradingDays: number;
-    consecutive: { direction: SignalDirection; tradingDays: number; startDate: string | null; latestDate: string | null; cumulativeActiveNetLots: number | null; actualObservationCount: number; missingObservationCount: number };
-    reversal: { detected: boolean; date: string | null; from: SignalDirection; to: SignalDirection; priorTradingDays: number };
-    sameDirectionEtfRatio: number | null;
-    dataCoverageRate: number;
+    cumulativeActiveNetLots?: number | null;
+    increaseTradingDays?: number;
+    decreaseTradingDays?: number;
+    consecutive?: { direction: SignalDirection; tradingDays: number; startDate: string | null; latestDate: string | null; cumulativeActiveNetLots: number | null; actualObservationCount: number; missingObservationCount: number };
+    reversal?: { detected: boolean; date: string | null; from: SignalDirection; to: SignalDirection; priorTradingDays: number };
+    sameDirectionEtfRatio?: number | null;
+    dataCoverageRate?: number;
+    latestTotalWeightPercent?: number | null;
+    periodWeightChangePoint?: number | null;
+    increaseObservationDays?: number;
+    decreaseObservationDays?: number;
+    neutralObservationDays?: number;
+    actualObservationCount?: number;
   };
-  points: Array<{ date: string; activeNetLots?: number | null; surfaceNetLots?: number; direction?: SignalDirection; sameDirectionEtfRatio?: number | null; totalWeightPercent?: number; etfCount?: number }>;
+  points: Array<{ date: string; activeNetLots?: number | null; surfaceNetLots?: number; direction?: SignalDirection; sameDirectionEtfRatio?: number | null; totalWeightPercent?: number | null; etfCount?: number; weightChangePoint?: number | null }>;
   timeScale?: string;
+  methodology?: { value: string; directionThresholdPp: number };
 }
 
 export interface StockEtfs extends IntelligenceMeta {

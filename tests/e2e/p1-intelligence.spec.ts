@@ -3,6 +3,41 @@ import { mockP1Apis } from "./p1-fixtures.js";
 
 test.beforeEach(async ({ page }) => mockP1Apis(page));
 
+test("a long-open tab reloads once on focus when a new app version is deployed", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-07-22T08:00:00.000Z") });
+  await page.addInitScript(() => {
+    if (!window.localStorage.getItem("active-etf:app-version")) window.localStorage.setItem("active-etf:app-version", "version-A");
+  });
+  let deployedVersion = "version-A";
+  let versionRequests = 0;
+  let documentNavigations = 0;
+  page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) documentNavigations += 1; });
+  await page.route("**/app-version.json**", async (route) => {
+    versionRequests += 1;
+    await route.fulfill({
+      status: 200,
+      headers: { "cache-control": "no-store", "content-type": "application/json" },
+      body: JSON.stringify({ version: deployedVersion })
+    });
+  });
+
+  await page.goto("/market?date=2026-07-21&q=memory#impact");
+  await page.clock.runFor(3_000);
+  await expect.poll(() => versionRequests).toBeGreaterThanOrEqual(1);
+  const navigationsBeforeDeploy = documentNavigations;
+
+  deployedVersion = "version-B";
+  await page.clock.fastForward(61_000);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page).toHaveURL(/\/market\?date=2026-07-21&q=memory&appVersion=version-B#impact$/u);
+  await expect.poll(() => documentNavigations).toBe(navigationsBeforeDeploy + 1);
+
+  await page.clock.runFor(65_000);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.clock.runFor(1_000);
+  expect(documentNavigations).toBe(navigationsBeforeDeploy + 1);
+});
+
 test("P1 routes are shareable, preserve time scales, and support browser history", async ({ page }) => {
   await page.goto("/stocks/tw/2330");
   await expect(page.getByRole("heading", { name: "2330 台積電" })).toBeVisible();
@@ -18,6 +53,10 @@ test("P1 routes are shareable, preserve time scales, and support browser history
 
   await page.goto("/stocks/us/MU");
   await expect(page.getByRole("heading", { name: "MU Micron Technology" })).toBeVisible();
+  await expect(page.getByText("最新 ETF 合計權重：8.40%", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("期間權重變化：+0.40 個百分點", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/累積.*張/u)).toHaveCount(0);
+  await expect(page.getByText("共同持股資料日：2026-07-19", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "海外 ETF 曝險" })).toBeVisible();
   await expect(page.locator(".exposure-grid").getByText(/HBMX/u)).toBeVisible();
   await expect(page.locator(".exposure-grid").getByText(/DRAM/u)).toHaveCount(0);

@@ -59,7 +59,7 @@ export async function globalCoverageForDate(db: Db, date: string | null): Promis
 
 export async function latestGlobalSourceDate(db: Db, etfCodes = enabledDailyGlobalEtfCodes): Promise<string | null> {
   const row = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").findOne(
-    { etfCode: { $in: etfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok" },
+    { etfCode: { $in: etfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok", sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" } },
     { sort: { sourceAsOf: -1, fetchedAt: -1 }, projection: { _id: 0, sourceAsOf: 1 } }
   );
   return row?.sourceAsOf ?? null;
