@@ -58,6 +58,22 @@ test("ETF compare starts with useful defaults and shows only complete option row
       .filter((row) => row.top < bottom && row.bottom > bottom);
   });
   expect(clipping).toEqual([]);
+
+  const optionTextLayout = await page.getByRole("button", { name: /00981A/u }).evaluate((button) => {
+    const name = button.querySelector("small");
+    if (!name) return null;
+    const buttonRect = button.getBoundingClientRect();
+    const nameRect = name.getBoundingClientRect();
+    return {
+      lineHeight: Number.parseFloat(getComputedStyle(name).lineHeight),
+      topInset: nameRect.top - buttonRect.top,
+      bottomInset: buttonRect.bottom - nameRect.bottom
+    };
+  });
+  expect(optionTextLayout).not.toBeNull();
+  expect(optionTextLayout?.lineHeight).toBeGreaterThanOrEqual(17);
+  expect(optionTextLayout?.topInset).toBeGreaterThanOrEqual(8);
+  expect(optionTextLayout?.bottomInset).toBeGreaterThanOrEqual(8);
 });
 
 test("selected ETF options keep WCAG AA text contrast in dark mode", async ({ page }) => {
