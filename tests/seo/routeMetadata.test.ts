@@ -30,6 +30,7 @@ describe("build-time route metadata", () => {
     expect(routeMetadataForPath("/compare/etfs")?.robots).toBe("index, follow");
     expect(routeMetadataForPath("/compare/etfs?type=tw&codes=00981A,00982A")?.robots).toBe("noindex, nofollow");
     expect(routeMetadataForPath("/search?q=台積電")?.robots).toBe("noindex, nofollow");
+    expect(allStaticSeoPaths()).toContain("/search");
     expect(routeMetadataForPath("/signals/reversals")?.h1).toContain("反轉");
     expect(routeMetadataForPath("/etf/00981A/style")?.title).toContain("經理人風格");
     expect(routeMetadataForPath("/methodology")?.description).toContain("13F");

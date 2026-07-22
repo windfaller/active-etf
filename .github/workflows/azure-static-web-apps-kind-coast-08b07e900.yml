@@ -48,6 +48,23 @@ jobs:
             --header "x-admin-token: $ADMIN_JOB_TOKEN" \
             "${STATIC_WEB_APP_URL%/}/api/jobs/indexes/ensure"
 
+      - name: Smoke test Azure production origin
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          BASE_URL: ${{ steps.builddeploy.outputs.static_web_app_url }}
+          EXPECTED_VERSION: ${{ github.sha }}
+          INDEXES_ENSURED: "true"
+        run: node scripts/production-smoke.mjs
+
+      - name: Smoke test custom domain and legacy redirect
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          BASE_URL: https://active-etf.inthewins.com
+          EXPECTED_VERSION: ${{ github.sha }}
+          INDEXES_ENSURED: "true"
+          CHECK_LEGACY_REDIRECT: "true"
+        run: node scripts/production-smoke.mjs
+
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest

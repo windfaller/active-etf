@@ -126,20 +126,20 @@ describe("P1 intelligence APIs", () => {
     mocks.compareEtfs.mockResolvedValueOnce({
       type: "global",
       cards: [
-        { code: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
-        { code: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
+        { etfCode: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
+        { etfCode: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
       ],
       dateAlignment: {
         commonDateOnly: false,
         commonDate: null,
         rows: [
-          { code: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
-          { code: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
+          { etfCode: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: "2026-07-21T12:00:00.000Z" },
+          { etfCode: "HBMX", sourceAsOf: "2026-07-19", fetchedAt: "2026-07-20T12:00:00.000Z" }
         ]
       }
     } as never);
     const global = await getEtfComparison(request("type=global&codes=DRAM,HBMX"), context);
-    expect(global.jsonBody).toMatchObject({ dateAlignment: { commonDateOnly: false, commonDate: null, rows: [{ code: "DRAM", sourceAsOf: "2026-07-21" }, { code: "HBMX", sourceAsOf: "2026-07-19" }] } });
+    expect(global.jsonBody).toMatchObject({ dateAlignment: { commonDateOnly: false, commonDate: null, rows: [{ etfCode: "DRAM", sourceAsOf: "2026-07-21" }, { etfCode: "HBMX", sourceAsOf: "2026-07-19" }] } });
   });
 
   it("validates and returns signals, style profiles, and global search", async () => {

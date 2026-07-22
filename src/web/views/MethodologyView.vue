@@ -7,6 +7,7 @@ const sections = [
   { title: "ETF 與三大法人一致／分歧", fact: "法人買賣超來自公開交易日資料。", calculation: "ETF 加碼 + 法人買超、ETF 減碼 + 法人賣超為一致；反向組合為分歧。", limit: "任一側缺資料、neutral 或法人合計為零時標示資料不足。" },
   { title: "持股集合與權重重疊", fact: "集合重疊顯示 intersection count 與 Jaccard similarity；台灣調整廣度欄位是持股變動資料列筆數。", calculation: "Jaccard = 交集 / 聯集；Weighted overlap = Σ min(weightA, weightB)。調整廣度使用 increaseHoldingChangeCount／decreaseHoldingChangeCount。", limit: "缺權重持股只進入集合重疊。海外 positionKey 會和 assetType 合併識別，Equity、Swap、Cash 不靜默合併。" },
   { title: "海外 ETF 反查與比較資料日", fact: "股票反查先為每檔 ETF／機構選出最新有效快照，再檢查該 ticker 是否仍在持股。", calculation: "舊快照曾持有、最新快照已退出的 ticker 不會出現在現況反查。海外比較逐檔顯示 sourceAsOf 與 fetchedAt。", limit: "海外 ETF 更新頻率不同；資料日不一致時標示「非共同資料日」，不可當成同日橫截面比較。" },
+  { title: "海外 ETF 3／5／20 日權重趨勢", fact: "美股趨勢追蹤各 ETF 發行商公開持股中的 ticker 權重，先保留每檔 ETF、每個持股資料日的最新抓取版本。", calculation: "同一資料日加總唯一 ETF 的公開權重；相鄰有效持股資料日差異超過 ±0.0001 個百分點才判定增加或下降。", limit: "這是追蹤 ETF 合計公開權重的變化，不是主動淨張數，也不是買賣金額；各 ETF 資料日可能不同。" },
   { title: "經理人風格指標", fact: "集中度使用前 5、前 10 權重與 HHI；調整廣度使用每日加碼、減碼、新增與退出檔數。", calculation: "調整強度 = Σ |weight change| / 2；持股穩定度 = 期初持股中仍出現在期末的比例。", limit: "百分位樣本少於 5 檔不顯示；數值高低不代表經理人優劣。" },
   { title: "資料可信度", fact: "每個 API 顯示 tracked、available、delayed 與 sourceAsOf。", calculation: "高／中／低依涵蓋率、規模校正完整度、實際觀察期、延遲、單一 ETF 主導程度、同方向比例與方向衝突判定，並附文字原因。", limit: "缺失觀察或張數／權重方向衝突會降級；本站不使用無方法論的神秘分數。" },
   { title: "13F 時間限制與缺失資料", fact: "13F 分別標示持倉截止日、SEC 申報日與系統取得時間。", calculation: "13F 季度持倉變化只在季度尺度比較，不與 ETF 每日持股加總。", limit: "13F 不代表目前即時部位；未知值保留為未知，不以零替代。" }
