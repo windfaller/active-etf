@@ -27,7 +27,11 @@ function getRedisConfig(): RedisConfig | null {
 }
 
 export function isRedisConfigured(): boolean {
-  return getRedisConfig() !== null && Date.now() >= redisUnavailableUntil;
+  return hasRedisConfiguration() && Date.now() >= redisUnavailableUntil;
+}
+
+export function hasRedisConfiguration(): boolean {
+  return getRedisConfig() !== null;
 }
 
 function encodeCommand(parts: string[]): string {
