@@ -52,9 +52,10 @@ const server = createServer(async (request, response) => {
     return;
   }
   const isAsset = pathname.startsWith("/assets/");
+  const isVersionManifest = pathname === "/app-version.json";
   response.writeHead(200, {
     "content-type": contentTypes.get(extname(file)) ?? "application/octet-stream",
-    "cache-control": isAsset ? "public, max-age=31536000, immutable" : "no-cache, must-revalidate"
+    "cache-control": isAsset ? "public, max-age=31536000, immutable" : isVersionManifest ? "no-store" : "no-cache, must-revalidate"
   });
   createReadStream(file).pipe(response);
 });
