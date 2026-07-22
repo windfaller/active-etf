@@ -133,6 +133,15 @@ Azure Static Web Apps managed Functions 只支援 HTTP triggers，因此本專�
 POST /api/jobs/daily-refresh
 ```
 
+正式 API 的 keep-warm 由 `cloudflare/azure-warmup` Worker 每 5 分鐘呼叫 Azure origin：
+
+```txt
+POST /api/health/warmup
+x-warmup-token: <WARMUP_TOKEN>
+```
+
+Azure Static Web Apps App Settings 與 Cloudflare Worker Secret 必須設定相同的 `WARMUP_TOKEN`。該 endpoint 只會初始化 Functions runtime、MongoDB 與 Redis 連線，不會執行資料同步或寫入業務資料。
+
 若 `daily-refresh` 在 SWA/Cloudflare 路徑被 5 分鐘左右的 backend timeout 中斷，請改用拆分式 Logic App：
 
 ```txt

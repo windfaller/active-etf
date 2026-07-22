@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "active-etf-azure-warmup",
+  "account_id": "7038f52088d5b94feb20d4d7287b3496",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-22",
+  "workers_dev": false,
+  "vars": {
+    "WARMUP_URL": "https://kind-coast-08b07e900.7.azurestaticapps.net/api/health/warmup"
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
