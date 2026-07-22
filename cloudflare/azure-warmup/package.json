@@ -1,0 +1,14 @@
+{
+  "name": "active-etf-azure-warmup",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "secret": "wrangler secret put WARMUP_TOKEN",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
