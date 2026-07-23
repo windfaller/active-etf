@@ -137,21 +137,14 @@ function outputFileForRoute(outDir: string, path: string): string {
   return resolve(outDir, relativePath, "index.html");
 }
 
-function writeStaticRouteRewrites(outDir: string): void {
+function writeStaticWebAppConfig(outDir: string): void {
   const configPath = resolve(outDir, "staticwebapp.config.json");
   const config = JSON.parse(readFileSync(configPath, "utf8")) as {
     routes?: Array<Record<string, unknown>>;
     [key: string]: unknown;
   };
-  const prerenderRoutes = allStaticSeoPaths()
-    .filter((path) => path !== "/")
-    .map((path) => ({
-      route: path,
-      rewrite: `${path.replace(/\/$/u, "")}/index.html`
-    }));
   const existingRoutes = (config.routes ?? []).filter((route) => route.route !== "/*");
   config.routes = [
-    ...prerenderRoutes,
     ...existingRoutes,
     {
       route: "/stocks/tw/*",
@@ -161,12 +154,6 @@ function writeStaticRouteRewrites(outDir: string): void {
     {
       route: "/stocks/us/*",
       rewrite: "/stocks/_dynamic/index.html",
-      headers: { "cache-control": "no-cache, must-revalidate" }
-    },
-    {
-      route: "/*",
-      rewrite: "/404/index.html",
-      statusCode: 404,
       headers: { "cache-control": "no-cache, must-revalidate" }
     }
   ];
@@ -222,7 +209,7 @@ function staticSeoPlugin(): Plugin {
         mkdirSync(dirname(dynamicStockFile), { recursive: true });
         writeFileSync(dynamicStockFile, dynamicStockHtml);
       }
-      writeStaticRouteRewrites(outDir);
+      writeStaticWebAppConfig(outDir);
     }
   };
 }

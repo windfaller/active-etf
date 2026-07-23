@@ -63,5 +63,10 @@
       "/*.webp",
       "/*.ico"
     ]
+  },
+  "responseOverrides": {
+    "404": {
+      "rewrite": "/404/index.html"
+    }
   }
 }
