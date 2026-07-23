@@ -1,0 +1,48 @@
+export const ACTIVE_ETF_COMPARE_COMPLETE_EVENT = "active_etf_compare_complete";
+
+type ComparisonMarket = "tw" | "global";
+type AnalyticsEventParams = {
+  comparison_market: ComparisonMarket;
+  etf_count: number;
+  interaction_source: "comparison_results";
+};
+
+export interface AnalyticsTarget {
+  dataLayer?: unknown[];
+  gtag?: (command: "event", eventName: string, params: AnalyticsEventParams) => void;
+}
+
+function browserAnalyticsTarget(): AnalyticsTarget | null {
+  return typeof window === "undefined" ? null : window as AnalyticsTarget;
+}
+
+export function createEtfComparisonTracker(
+  getTarget: () => AnalyticsTarget | null = browserAnalyticsTarget
+): (market: ComparisonMarket, codes: string[]) => boolean {
+  const trackedComparisons = new Set<string>();
+
+  return (market, codes) => {
+    const normalizedCodes = [...new Set(codes.map((code) => code.trim().toUpperCase()).filter(Boolean))].sort();
+    if (normalizedCodes.length < 2 || normalizedCodes.length > 4) return false;
+
+    const target = getTarget();
+    if (!target) return false;
+
+    const comparisonKey = `${market}:${normalizedCodes.join(",")}`;
+    if (trackedComparisons.has(comparisonKey)) return false;
+
+    const dataLayer = target.dataLayer ??= [];
+    const gtag = target.gtag ?? ((command, eventName, params) => {
+      dataLayer.push([command, eventName, params]);
+    });
+    gtag("event", ACTIVE_ETF_COMPARE_COMPLETE_EVENT, {
+      comparison_market: market,
+      etf_count: normalizedCodes.length,
+      interaction_source: "comparison_results"
+    });
+    trackedComparisons.add(comparisonKey);
+    return true;
+  };
+}
+
+export const trackEtfCompareComplete = createEtfComparisonTracker();

@@ -5,6 +5,7 @@ import { configuredEtfs } from "../../config/etfs";
 import { enabledGlobalEtfs } from "../../config/globalEtfs";
 import IntelligenceMetaStrip from "../components/IntelligenceMetaStrip.vue";
 import SourceDisclosure from "../components/SourceDisclosure.vue";
+import { trackEtfCompareComplete } from "../analytics";
 import { useEtfComparison } from "../composables/useEtfComparison";
 import { formatMoney, formatNumber, formatSignedPp, formatWeight, valueTone } from "../utils/format";
 
@@ -41,11 +42,14 @@ function changeType(type: "tw" | "global"): void {
 }
 function apply(): void { if (canCompare.value) emit("navigate", `/compare/etfs?type=${selectedType.value}&codes=${selectedCodes.value.join(',')}`); }
 
-watch(() => [props.type, props.codes.join(","), props.refreshKey], () => {
+watch(() => [props.type, props.codes.join(","), props.refreshKey], async () => {
   const codes = effectiveCodes(props.type, props.codes);
   selectedType.value = props.type;
   selectedCodes.value = codes;
-  if (codes.length >= 2 && codes.length <= 4) void load(props.type, codes);
+  if (codes.length >= 2 && codes.length <= 4) {
+    const result = await load(props.type, codes);
+    if (result && props.codes.length >= 2) trackEtfCompareComplete(props.type, codes);
+  }
 }, { immediate: true });
 onBeforeUnmount(abort);
 </script>
