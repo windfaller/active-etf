@@ -7,7 +7,11 @@ import { optionalDate, styleWindowSchema } from "./intelligenceValidation.js";
 import { badRequest, cachedJsonResponse, jsonResponse, notFound } from "./response.js";
 
 const requestCache = new BoundedRequestCache();
-const requestCacheTtlMilliseconds = 60_000;
+const requestCacheTtlMilliseconds = 300_000;
+
+export function clearStyleProfileRequestCache(): void {
+  requestCache.clear();
+}
 
 export async function getStyleProfile(request: HttpRequest, context: InvocationContext) {
   const code = (request.params.etfCode ?? "").trim().toUpperCase();

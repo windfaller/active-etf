@@ -4,6 +4,7 @@ import type { EtfDailyHolding } from "../../models/EtfDailyHolding.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { StockSectorProfile } from "../../models/StockSectorProfile.js";
 import { round } from "../../utils/number.js";
+import { BoundedRequestCache } from "../cache/boundedRequestCache.js";
 import { adjustmentIntensity, concentrationMetrics, confidenceForSignal, percentileRank } from "./calculations.js";
 import { effectiveTaiwanDates, enabledTaiwanEtfCodes, generatedAt } from "./dataAccess.js";
 
@@ -23,7 +24,11 @@ function tendencyLabels(top10: number | null, averageDailyBreadth: number | null
 
 function dailyBreadth(changes: EtfHoldingChange[]) {
   const byDate = new Map<string, EtfHoldingChange[]>();
-  for (const row of changes) byDate.set(row.tradeDate, [...(byDate.get(row.tradeDate) ?? []), row]);
+  for (const row of changes) {
+    const rows = byDate.get(row.tradeDate);
+    if (rows) rows.push(row);
+    else byDate.set(row.tradeDate, [row]);
+  }
   const days = [...byDate.entries()].map(([date, rows]) => ({
     date,
     adjusted: rows.filter((row) => Math.abs(row.activeDiffLots ?? 0) > 0.01 || Math.abs(row.diffWeightPoint ?? 0) > 0.0001).length,
@@ -34,6 +39,56 @@ function dailyBreadth(changes: EtfHoldingChange[]) {
   })).sort((a, b) => b.date.localeCompare(a.date));
   const average = days.length ? round(days.reduce((sum, row) => sum + row.adjusted, 0) / days.length, 2) : null;
   return { average, days };
+}
+
+interface PeerMetric {
+  etfCode: string;
+  top10: number | null;
+  intensity: number | null;
+}
+
+const peerMetricCaches = new WeakMap<Db, BoundedRequestCache>();
+
+function peerMetricCacheFor(db: Db): BoundedRequestCache {
+  const existing = peerMetricCaches.get(db);
+  if (existing) return existing;
+  const cache = new BoundedRequestCache(8);
+  peerMetricCaches.set(db, cache);
+  return cache;
+}
+
+async function peerMetricsForDates(db: Db, sourceAsOf: string | null, selectedDates: string[]): Promise<PeerMetric[]> {
+  if (!sourceAsOf || !selectedDates.length) return [];
+  const key = `${sourceAsOf}:${selectedDates[0]}:${selectedDates.at(-1)}:${selectedDates.length}`;
+  return peerMetricCacheFor(db).getOrLoad(key, 300_000, async () => {
+    const [allHoldings, allChanges] = await Promise.all([
+      db.collection<EtfDailyHolding>("etf_daily_holdings").find(
+        { etfCode: { $in: enabledTaiwanEtfCodes }, tradeDate: sourceAsOf },
+        { projection: { _id: 0, etfCode: 1, weight: 1 } }
+      ).toArray(),
+      db.collection<EtfHoldingChange>("etf_holding_changes").find(
+        { etfCode: { $in: enabledTaiwanEtfCodes }, tradeDate: { $in: selectedDates } },
+        { projection: { _id: 0, etfCode: 1, diffWeightPoint: 1 } }
+      ).toArray()
+    ]);
+    const holdingsByEtf = new Map<string, Array<number | null>>();
+    const changesByEtf = new Map<string, Array<number | null>>();
+    for (const row of allHoldings) {
+      const values = holdingsByEtf.get(row.etfCode);
+      if (values) values.push(row.weight);
+      else holdingsByEtf.set(row.etfCode, [row.weight]);
+    }
+    for (const row of allChanges) {
+      const values = changesByEtf.get(row.etfCode);
+      if (values) values.push(row.diffWeightPoint);
+      else changesByEtf.set(row.etfCode, [row.diffWeightPoint]);
+    }
+    return enabledTaiwanEtfCodes.map((etfCode) => ({
+      etfCode,
+      top10: concentrationMetrics(holdingsByEtf.get(etfCode) ?? []).top10,
+      intensity: adjustmentIntensity(changesByEtf.get(etfCode) ?? [])
+    })).filter((row) => row.top10 !== null || row.intensity !== null);
+  });
 }
 
 export async function etfStyleProfile(db: Db, code: string, window: 20 | 60 = 20, date?: string) {
@@ -66,13 +121,7 @@ export async function etfStyleProfile(db: Db, code: string, window: 20 | 60 = 20
   const sectorRows = [...sectorChanges.entries()].map(([sector, change]) => ({ sector, change: round(change, 4) })).sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
   const sectorRotationIntensity = adjustmentIntensity(sectorRows.map((row) => row.change));
 
-  const allHoldings = sourceAsOf ? await db.collection<EtfDailyHolding>("etf_daily_holdings").find({ etfCode: { $in: enabledTaiwanEtfCodes }, tradeDate: sourceAsOf }).toArray() : [];
-  const allChanges = selectedDates.length ? await db.collection<EtfHoldingChange>("etf_holding_changes").find({ etfCode: { $in: enabledTaiwanEtfCodes }, tradeDate: { $in: selectedDates } }).toArray() : [];
-  const peerMetrics = enabledTaiwanEtfCodes.map((etfCode) => ({
-    etfCode,
-    top10: concentrationMetrics(allHoldings.filter((row) => row.etfCode === etfCode).map((row) => row.weight)).top10,
-    intensity: adjustmentIntensity(allChanges.filter((row) => row.etfCode === etfCode).map((row) => row.diffWeightPoint))
-  })).filter((row) => row.top10 !== null || row.intensity !== null);
+  const peerMetrics = await peerMetricsForDates(db, sourceAsOf, selectedDates);
   const availableDates = new Set(changes.map((row) => row.tradeDate)).size;
   const scaleCompleteDates = new Set(changes.filter((row) => row.activeDiffLots !== null).map((row) => row.tradeDate)).size;
   const coverage = { tracked: selectedDates.length, available: availableDates, delayed: Math.max(0, selectedDates.length - availableDates) };
