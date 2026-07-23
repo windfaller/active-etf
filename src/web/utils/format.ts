@@ -1,4 +1,4 @@
-import type { NullableNumber } from "../contracts/dashboard";
+import type { NullableNumber } from "../contracts/dashboard.js";
 
 export type ValueTone = "positive" | "negative" | "neutral";
 
