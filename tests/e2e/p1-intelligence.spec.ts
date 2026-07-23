@@ -131,8 +131,9 @@ test("global compare keeps daily ETF data separate from 13F", async ({ page }) =
 test("signals, style, and search interactions are keyboard accessible", async ({ page }) => {
   await page.goto("/signals");
   await expect(page.getByRole("heading", { name: "連續調倉、反轉與方向分歧" })).toBeVisible();
-  await expect(page.getByText("連續 3 日")).toBeVisible();
-  await expect(page.getByText("有效觀察 17/20")).toBeVisible();
+  const consecutiveCard = page.getByTestId("signal-consecutive-2330");
+  await expect(consecutiveCard.getByText("連續 3 日", { exact: true })).toBeVisible();
+  await expect(consecutiveCard.getByText("有效觀察 17/20", { exact: false })).toBeVisible();
   await page.goto("/etf/00981A/style");
   await expect(page.getByRole("heading", { name: "00981A 主動統一台股增長" })).toBeVisible();
   await expect(page.getByText("第 78 百分位")).toBeVisible();
@@ -143,6 +144,38 @@ test("signals, style, and search interactions are keyboard accessible", async ({
   await expect(page.getByRole("button", { name: /2330 台積電/u })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(search).toHaveCount(0);
+});
+
+test("financial direction colors stay consistent across signals, stock, compare, and themes", async ({ page }) => {
+  const light = { positive: "rgb(185, 63, 54)", negative: "rgb(8, 123, 114)" };
+  const dark = { positive: "rgb(255, 159, 149)", negative: "rgb(113, 215, 203)" };
+  const colorOf = (selector: string) => page.locator(selector).evaluate((element) => getComputedStyle(element).color);
+
+  await page.goto("/signals");
+  await expect(page.getByTestId("signal-consecutive-2330")).toBeVisible();
+  await expect(page.getByTestId("signal-consecutive-2317")).toBeVisible();
+  expect(await colorOf('[data-testid="signal-consecutive-2330"] .signal-metric')).toBe(light.positive);
+  expect(await colorOf('[data-testid="signal-consecutive-2317"] .signal-metric')).toBe(light.negative);
+  expect(await colorOf('[data-testid="signal-reversal-2454"] .reversal-values .positive')).toBe(light.positive);
+  expect(await colorOf('[data-testid="signal-reversal-2454"] .reversal-values .negative')).toBe(light.negative);
+  expect(await colorOf('[data-testid="signal-divergence-2303"] .divergence-directions .positive')).toBe(light.positive);
+  expect(await colorOf('[data-testid="signal-divergence-2303"] .divergence-directions .negative')).toBe(light.negative);
+
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  expect(await colorOf('[data-testid="signal-consecutive-2330"] .signal-metric')).toBe(dark.positive);
+  expect(await colorOf('[data-testid="signal-consecutive-2317"] .signal-metric')).toBe(dark.negative);
+
+  await page.goto("/stocks/tw/2330");
+  expect(await colorOf(".institution-grid article:nth-child(1) .positive")).toBe(dark.positive);
+  expect(await colorOf(".institution-grid article:nth-child(3) .negative")).toBe(dark.negative);
+
+  await page.goto("/compare/etfs?type=tw&codes=00981A,00982A");
+  expect(await colorOf(".etf-card:nth-of-type(1) .positive")).toBe(dark.positive);
+  expect(await colorOf(".etf-card:nth-of-type(2) .negative")).toBe(dark.negative);
+  await page.getByRole("button", { name: "調整" }).click();
+  expect(await colorOf(".etf-card:nth-of-type(1) .positive")).toBe(dark.positive);
+  expect(await colorOf(".etf-card:nth-of-type(2) .negative")).toBe(dark.negative);
 });
 
 test("search discards a cancelled stale response", async ({ page }) => {

@@ -1,5 +1,18 @@
 import type { NullableNumber } from "../contracts/dashboard";
 
+export type ValueTone = "positive" | "negative" | "neutral";
+
+export function valueTone(value: NullableNumber | undefined): ValueTone {
+  if (value === null || value === undefined || Number.isNaN(value) || value === 0) return "neutral";
+  return value > 0 ? "positive" : "negative";
+}
+
+export function directionTone(direction: string | null | undefined): ValueTone {
+  if (direction === "increase") return "positive";
+  if (direction === "decrease") return "negative";
+  return "neutral";
+}
+
 export function formatNumber(value: NullableNumber | undefined, digits = 0): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "-";
   return new Intl.NumberFormat("zh-TW", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);

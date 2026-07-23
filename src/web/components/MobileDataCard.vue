@@ -22,16 +22,18 @@ withDefaults(defineProps<{ label: string; tone?: "increase" | "decrease" | "neut
 </template>
 
 <style scoped>
-.mobile-data-card { overflow:hidden; border:1px solid #dfe6e9; border-left:4px solid #7b8791; border-radius:12px; background:#fff; }
-.mobile-data-card.increase { border-left-color:#c84238; }
-.mobile-data-card.decrease { border-left-color:#07847d; }
+.mobile-data-card { overflow:hidden; border:1px solid var(--theme-border); border-left:4px solid var(--theme-neutral); border-radius:12px; background:var(--theme-surface); }
+.mobile-data-card.increase { border-left-color:var(--theme-positive); }
+.mobile-data-card.decrease { border-left-color:var(--theme-negative); }
 summary { display:grid; gap:7px; min-height:74px; padding:13px 14px; cursor:pointer; list-style:none; }
 .mobile-data-card-static { display:grid; gap:0; min-height:74px; padding:0; }
 .mobile-card-static-content { display:grid; gap:7px; padding:13px 14px; }
 summary::-webkit-details-marker { display:none; }
 summary:focus-visible { outline:3px solid rgba(52,89,134,.28); outline-offset:-3px; }
-.mobile-card-title { color:#25313c; font-size:15px; font-weight:820; }
-.mobile-card-summary { color:#43515e; font-size:13px; line-height:1.55; }
+.mobile-card-title { color:var(--theme-text-strong); font-size:15px; font-weight:820; }
+.mobile-data-card.increase .mobile-card-title { color:var(--theme-positive); }
+.mobile-data-card.decrease .mobile-card-title { color:var(--theme-negative); }
+.mobile-card-summary { color:var(--theme-text); font-size:13px; line-height:1.55; }
 .mobile-card-toggle { justify-self:end; min-height:24px; color:#4a6178; font-size:12px; font-weight:750; }
 .mobile-card-toggle b { display:inline-block; margin-left:4px; transition:transform .15s ease; }
 details[open] .mobile-card-toggle b { transform:rotate(180deg); }
