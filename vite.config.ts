@@ -143,8 +143,16 @@ function writeStaticWebAppConfig(outDir: string): void {
     routes?: Array<Record<string, unknown>>;
     [key: string]: unknown;
   };
+  const indexedStockRoutes = allStaticSeoPaths()
+    .filter((path) => /^\/stocks\/(?:tw|us)\//u.test(path))
+    .map((path) => ({
+      route: path,
+      rewrite: `${path}/index.html`,
+      headers: { "cache-control": "no-cache, must-revalidate" }
+    }));
   const existingRoutes = (config.routes ?? []).filter((route) => route.route !== "/*");
   config.routes = [
+    ...indexedStockRoutes,
     ...existingRoutes,
     {
       route: "/stocks/tw/*",
