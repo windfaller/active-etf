@@ -26,6 +26,7 @@ P1 延續「主動 ETF 機構調倉情報」定位，將可觀察事實、系統
 | `GET /api/signals` | kind、window、limit 驗證 |
 | `GET /api/etf/:code/style` | 只允許已啟用台灣 ETF 與 20／60 日 |
 | `GET /api/search` | 至少 2 字、限定 types 與 limit |
+| `GET /api/health` | MongoDB readiness；不回傳連線資訊，成功與失敗皆禁止快取 |
 
 成功 response 使用 `Cache-Control` 與 `stale-while-revalidate`。查詢只使用標準化代碼與 escape 後的有限 regex，不接受任意 MongoDB 運算子。
 
@@ -48,7 +49,7 @@ P1 延續「主動 ETF 機構調倉情報」定位，將可觀察事實、系統
 ### 美股現況反查與海外比較
 
 - overview、ETF 明細、13F／機構與搜尋都先依 ETF／機構選出 `sourceStatus=ok` 且資料日為 `YYYY-MM-DD` 的最新有效快照，再篩選 ticker。若舊快照曾持有、最新快照已退出，就不會回退到舊快照把它列為現況持股；非標準資料日也不參與排序。
-- 歷史端點仍可呈現歷史持有事實；這與現況反查分開。
+- 美股歷史端點以「發行商持股資料變動點」呈現，不把資料日稱為交易日，也不把權重百分點標成張數。相同 ETF／資料日若有多次抓取，只採最後一次；變動以前後有效快照的 ticker 權重差計算，包含退出持股，且排除非 `YYYY-MM-DD` 日期。
 - 海外 ETF 比較不是強制共同資料日。每張卡與 `dateAlignment.rows` 都提供 `sourceAsOf`、`fetchedAt`；資料日相同時顯示共同資料日，不同時顯示「非共同資料日」及逐檔日期，避免誤認為同日橫截面。
 
 ## MongoDB 與部署
@@ -62,6 +63,8 @@ P1 沒有新增 collection、欄位 migration、materialized snapshot 或 backfi
 - `global_etf_snapshots: { "holdings.ticker": 1, sourceAsOf: -1, etfCode: 1 }`
 
 索引透過既有、可重跑的 `ensureIndexes` 建立；部署後需確認 `syncEtfMaster` 已在啟用 timer 的環境執行一次。沒有無界限 backfill 或 deploy-time 資料寫入。
+
+部署 workflow 在索引確認後，會透過 Azure 原生 Static Web Apps URL 執行 `npm run test:production`，檢查 health、P1 API schema／美股歷史語意、預渲染頁、404 與 sitemap。瀏覽器除了初次載入，也會在重新聚焦、恢復網路、回到可見狀態與每五分鐘檢查 `app-version.json`；只有執行中的 bundle 版本落後時才清除舊快取並單次重新載入。
 
 ## 效能基準（2026-07-21，本地 production preview + 實際開發資料庫）
 

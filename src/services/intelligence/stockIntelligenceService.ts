@@ -52,6 +52,18 @@ export interface DailyAggregate {
   directionConflictCount: number;
 }
 
+export interface GlobalStockHistoryPoint {
+  date: string;
+  weightChangePercentPoints: number;
+  direction: SignalDirection;
+  updatedEtfCount: number;
+  increaseEtfCount: number;
+  decreaseEtfCount: number;
+  neutralEtfCount: number;
+}
+
+const isoSourceDatePattern = /^\d{4}-\d{2}-\d{2}$/u;
+
 function normalizeSymbol(market: StockMarket, symbol: string): string {
   return market === "us" ? symbol.trim().toUpperCase() : symbol.trim();
 }
@@ -124,6 +136,126 @@ export async function globalSnapshotsForStock(db: Db, symbol: string, include13f
   return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<GlobalEtfSnapshot>(
     latestSnapshotsForStockPipeline(symbol, include13f)
   ).toArray();
+}
+
+export function globalStockHistoryPipeline(symbol: string, window: 3 | 5 | 20, date?: string) {
+  const maximumRows = Math.min(2_000, (window + 2) * enabledDailyGlobalEtfCodes.length);
+  return [
+    {
+      $match: {
+        etfCode: { $in: enabledDailyGlobalEtfCodes },
+        strategyType: { $ne: "13f" },
+        sourceStatus: "ok",
+        sourceAsOf: {
+          $regex: "^\\d{4}-\\d{2}-\\d{2}$",
+          ...(date ? { $lte: date } : {})
+        }
+      }
+    },
+    { $sort: { etfCode: 1, sourceAsOf: -1, fetchedAt: -1 } },
+    { $group: { _id: { etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" }, snapshot: { $first: "$$ROOT" } } },
+    { $replaceRoot: { newRoot: "$snapshot" } },
+    { $sort: { sourceAsOf: -1, fetchedAt: -1, etfCode: 1 } },
+    { $limit: maximumRows },
+    {
+      $project: {
+        etfCode: 1,
+        fundName: 1,
+        issuer: 1,
+        sourceAsOf: 1,
+        fetchedAt: 1,
+        sourceUrl: 1,
+        sourceStatus: 1,
+        productGroup: 1,
+        market: 1,
+        strategyType: 1,
+        rowCount: 1,
+        rawRowCount: 1,
+        signature: 1,
+        snapshotId: 1,
+        holdings: {
+          $filter: {
+            input: "$holdings",
+            as: "holding",
+            cond: {
+              $eq: [
+                { $toUpper: { $ifNull: ["$$holding.ticker", ""] } },
+                symbol
+              ]
+            }
+          }
+        }
+      }
+    }
+  ];
+}
+
+function fetchedAtMilliseconds(snapshot: GlobalEtfSnapshot): number {
+  const value = snapshot.fetchedAt instanceof Date ? snapshot.fetchedAt.getTime() : new Date(snapshot.fetchedAt).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function stockWeight(snapshot: GlobalEtfSnapshot, symbol: string): number {
+  return round(snapshot.holdings
+    .filter((holding) => holding.ticker?.trim().toUpperCase() === symbol)
+    .reduce((sum, holding) => sum + (holding.weightPercent ?? 0), 0), 6);
+}
+
+export function globalStockHistoryPoints(
+  rawSymbol: string,
+  snapshots: GlobalEtfSnapshot[],
+  window: 3 | 5 | 20
+): GlobalStockHistoryPoint[] {
+  const symbol = rawSymbol.trim().toUpperCase();
+  const latestByEtfAndDate = new Map<string, GlobalEtfSnapshot>();
+  for (const snapshot of snapshots) {
+    if (!isoSourceDatePattern.test(snapshot.sourceAsOf)) continue;
+    const key = `${snapshot.etfCode}|${snapshot.sourceAsOf}`;
+    const existing = latestByEtfAndDate.get(key);
+    if (!existing || fetchedAtMilliseconds(snapshot) > fetchedAtMilliseconds(existing)) {
+      latestByEtfAndDate.set(key, snapshot);
+    }
+  }
+
+  const byEtf = new Map<string, GlobalEtfSnapshot[]>();
+  for (const snapshot of latestByEtfAndDate.values()) {
+    byEtf.set(snapshot.etfCode, [...(byEtf.get(snapshot.etfCode) ?? []), snapshot]);
+  }
+
+  const events = new Map<string, Array<{ direction: SignalDirection; weightChangePercentPoints: number }>>();
+  for (const rows of byEtf.values()) {
+    const ordered = [...rows].sort((left, right) => left.sourceAsOf.localeCompare(right.sourceAsOf));
+    for (let index = 1; index < ordered.length; index += 1) {
+      const previous = ordered[index - 1];
+      const current = ordered[index];
+      if (!previous || !current) continue;
+      const previousWeight = stockWeight(previous, symbol);
+      const currentWeight = stockWeight(current, symbol);
+      if (previousWeight === 0 && currentWeight === 0) continue;
+      const weightChangePercentPoints = round(currentWeight - previousWeight, 6);
+      const direction = directionForChange({ activeDiffLots: null, diffWeightPoint: weightChangePercentPoints });
+      events.set(current.sourceAsOf, [
+        ...(events.get(current.sourceAsOf) ?? []),
+        { direction, weightChangePercentPoints }
+      ]);
+    }
+  }
+
+  return [...events.entries()]
+    .map(([date, rows]) => {
+      const weightChangePercentPoints = round(rows.reduce((sum, row) => sum + row.weightChangePercentPoints, 0), 6);
+      return {
+        date,
+        weightChangePercentPoints,
+        direction: directionForChange({ activeDiffLots: null, diffWeightPoint: weightChangePercentPoints }),
+        updatedEtfCount: rows.length,
+        increaseEtfCount: rows.filter((row) => row.direction === "increase").length,
+        decreaseEtfCount: rows.filter((row) => row.direction === "decrease").length,
+        neutralEtfCount: rows.filter((row) => row.direction === "neutral").length
+      };
+    })
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .slice(0, window);
 }
 
 export function latestStockSearchPipeline(normalizedQuery: string, limit: number) {
@@ -329,19 +461,45 @@ export async function stockHistory(db: Db, market: StockMarket, rawSymbol: strin
     };
   }
 
-  const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").find(
-    { etfCode: { $in: enabledDailyGlobalEtfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok", holdings: { $elemMatch: { ticker: symbol } }, ...(date ? { sourceAsOf: { $lte: date } } : {}) },
-    { sort: { sourceAsOf: -1, fetchedAt: -1 }, limit: Math.min(400, window * enabledDailyGlobalEtfCodes.length) }
-  ).toArray();
-  const dates = [...new Set(rows.map((row) => row.sourceAsOf))].sort((a, b) => b.localeCompare(a)).slice(0, window);
-  const points = dates.map((sourceDate) => {
-    const snapshots = rows.filter((row) => row.sourceAsOf === sourceDate);
-    const holdings = snapshots.flatMap((snapshot) => latestHoldingForTicker(snapshot, symbol));
-    return { date: sourceDate, totalWeightPercent: round(holdings.reduce((sum, holding) => sum + (holding.weightPercent ?? 0), 0)), etfCount: snapshots.length };
-  });
-  const sourceAsOf = dates[0] ?? await latestGlobalSourceDate(db);
+  const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots")
+    .aggregate<GlobalEtfSnapshot>(globalStockHistoryPipeline(symbol, window, date))
+    .toArray();
+  const points = globalStockHistoryPoints(symbol, rows, window);
+  const latestHoldingDate = rows
+    .filter((snapshot) => stockWeight(snapshot, symbol) > 0)
+    .map((snapshot) => snapshot.sourceAsOf)
+    .sort((left, right) => right.localeCompare(left))[0];
+  const sourceAsOf = points[0]?.date ?? latestHoldingDate ?? await latestGlobalSourceDate(db);
   const coverage = await globalCoverageForDate(db, sourceAsOf);
-  return { generatedAt: generatedAt(), sourceAsOf, coverage, confidence: confidenceForSignal({ ...coverage, scaleComplete: coverage.available, requiredObservations: window, actualObservations: dates.length, dominantShare: null, directionalRatio: null }), market, symbol, window, timeScale: "海外 ETF 實際持股日，不等同台灣交易日", points };
+  const cumulativeWeightChangePercentPoints = points.length
+    ? round(points.reduce((sum, point) => sum + point.weightChangePercentPoints, 0), 6)
+    : null;
+  return {
+    generatedAt: generatedAt(),
+    sourceAsOf,
+    coverage,
+    confidence: confidenceForSignal({
+      ...coverage,
+      scaleComplete: coverage.available,
+      requiredObservations: window,
+      actualObservations: points.length,
+      dominantShare: null,
+      directionalRatio: null
+    }),
+    market,
+    symbol,
+    window,
+    timeScale: "海外 ETF 發行商持股資料變動點，不等同交易日或成交張數",
+    globalSummary: {
+      cumulativeWeightChangePercentPoints,
+      increaseChangePoints: points.filter((point) => point.direction === "increase").length,
+      decreaseChangePoints: points.filter((point) => point.direction === "decrease").length,
+      latestDirection: points[0]?.direction ?? "unknown",
+      actualChangePointCount: points.length,
+      requestedChangePointCount: window
+    },
+    points
+  };
 }
 
 export async function stockEtfs(db: Db, market: StockMarket, rawSymbol: string, date?: string) {

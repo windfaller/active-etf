@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import App from "./App.vue";
-import { reloadWhenAppVersionChanges } from "./cacheVersion";
+import { startAppVersionMonitor } from "./cacheVersion";
 import { initializeColorMode } from "./composables/useColorMode";
 import "./styles.css";
 
@@ -11,6 +11,6 @@ createApp(App).mount("#app");
 const idleWindow = window as Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
 };
-const checkVersion = () => void reloadWhenAppVersionChanges();
+const checkVersion = () => void startAppVersionMonitor();
 if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(checkVersion, { timeout: 2500 });
 else window.setTimeout(checkVersion, 800);

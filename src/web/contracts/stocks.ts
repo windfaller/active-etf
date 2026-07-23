@@ -35,7 +35,26 @@ export interface StockHistory extends IntelligenceMeta {
     sameDirectionEtfRatio: number | null;
     dataCoverageRate: number;
   };
-  points: Array<{ date: string; activeNetLots?: number | null; surfaceNetLots?: number; direction?: SignalDirection; sameDirectionEtfRatio?: number | null; totalWeightPercent?: number; etfCount?: number }>;
+  globalSummary?: {
+    cumulativeWeightChangePercentPoints: number | null;
+    increaseChangePoints: number;
+    decreaseChangePoints: number;
+    latestDirection: SignalDirection;
+    actualChangePointCount: number;
+    requestedChangePointCount: number;
+  };
+  points: Array<{
+    date: string;
+    activeNetLots?: number | null;
+    surfaceNetLots?: number;
+    direction?: SignalDirection;
+    sameDirectionEtfRatio?: number | null;
+    weightChangePercentPoints?: number;
+    updatedEtfCount?: number;
+    increaseEtfCount?: number;
+    decreaseEtfCount?: number;
+    neutralEtfCount?: number;
+  }>;
   timeScale?: string;
 }
 
