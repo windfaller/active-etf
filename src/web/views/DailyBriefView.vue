@@ -109,10 +109,10 @@ function directionClass(value: number | null | undefined): "direction-positive" 
     </section>
 
     <section class="advanced-entry" aria-label="進階入口">
-      <button type="button" @click="emit('navigate', '/market')"><Layers :size="20" /><span><b>完整台灣市場總覽</b><small>個股影響、產業與法人明細</small></span><ArrowRight :size="17" /></button>
-      <button type="button" @click="emit('navigate', '/etf/00981A')"><Search :size="20" /><span><b>選擇台灣單檔 ETF</b><small>持股、調倉與折溢價</small></span><ArrowRight :size="17" /></button>
-      <button type="button" @click="emit('navigate', '/global-etfs')"><Globe2 :size="20" /><span><b>海外 ETF</b><small>官方持股與持股權重變化</small></span><ArrowRight :size="17" /></button>
-      <button type="button" @click="emit('navigate', '/institutions')"><Building2 :size="20" /><span><b>機構 13F</b><small>季度持倉與延遲說明</small></span><ArrowRight :size="17" /></button>
+      <a href="/market" @click.prevent="emit('navigate', '/market')"><Layers :size="20" /><span><b>完整台灣市場總覽</b><small>個股影響、產業與法人明細</small></span><ArrowRight :size="17" /></a>
+      <a href="/etf/00981A" @click.prevent="emit('navigate', '/etf/00981A')"><Search :size="20" /><span><b>選擇台灣單檔 ETF</b><small>持股、調倉與折溢價</small></span><ArrowRight :size="17" /></a>
+      <a href="/global-etfs" @click.prevent="emit('navigate', '/global-etfs')"><Globe2 :size="20" /><span><b>海外 ETF</b><small>官方持股與持股權重變化</small></span><ArrowRight :size="17" /></a>
+      <a href="/institutions" @click.prevent="emit('navigate', '/institutions')"><Building2 :size="20" /><span><b>機構 13F</b><small>季度持倉與延遲說明</small></span><ArrowRight :size="17" /></a>
     </section>
   </section>
 </template>
@@ -150,4 +150,5 @@ function directionClass(value: number | null | undefined): "direction-positive" 
 .advanced-entry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }.advanced-entry button{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;cursor:pointer}.advanced-entry button:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry button:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry span{display:grid;gap:4px}.advanced-entry small{color:#65727c;line-height:1.4}
 @media (max-width:960px){.brief-hero{grid-template-columns:1fr}.hero-radar{position:absolute;right:-60px;bottom:-80px;opacity:.65}.insight-grid,.sector-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.advanced-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.consensus-columns{grid-template-columns:1fr}}
 @media (max-width:760px){.daily-brief-view{gap:12px}.brief-hero{min-height:360px;padding:28px 20px;border-radius:14px}.brief-hero h1{font-size:38px}.brief-hero p{font-size:16px}.brief-section{padding:18px 14px}.brief-heading{display:grid}.brief-heading>p{text-align:left}.insight-grid,.sector-direction-grid,.advanced-entry{grid-template-columns:1fr}.brief-insight{min-height:0}.consensus-row{grid-template-columns:1fr 1fr 18px}.consensus-row>span:nth-child(3){grid-column:1 / 3}.advanced-entry button{min-height:78px}}
+.advanced-entry a{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;text-decoration:none}.advanced-entry a:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry a:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry a span{display:grid;gap:4px}.advanced-entry a small{color:#65727c;line-height:1.4}@media(max-width:760px){.advanced-entry a{min-height:78px}}
 </style>

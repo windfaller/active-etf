@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HttpRequest } from "@azure/functions";
-import { getRobotsTxt, getSitemapXml } from "../../src/api/getSeoFiles.js";
+import { getRobotsTxt, getSitemapXml, sitemapLastModifiedPaths } from "../../src/api/getSeoFiles.js";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { enabledGlobalEtfs } from "../../src/config/globalEtfs.js";
 import { siteBaseUrlFromHost, siteBaseUrlFromHostCandidates } from "../../src/services/seo/siteUrls.js";
@@ -56,7 +56,29 @@ describe("SEO sitemap files", () => {
   });
 
   it("builds robots and sitemap with the canonical origin", () => {
-    expect(buildSitemapXml("https://active-etf.inthewins.com")).not.toContain("chicoo.co");
+    const sitemap = buildSitemapXml("https://active-etf.inthewins.com");
+    expect(sitemap).not.toContain("chicoo.co");
+    expect(sitemap).not.toContain("<lastmod>");
     expect(buildRobotsTxt("https://active-etf.inthewins.com")).toContain("Sitemap: https://active-etf.inthewins.com/sitemap.xml");
+  });
+
+  it("uses real per-source dates and ignores invalid lastmod values", () => {
+    const paths = sitemapLastModifiedPaths(
+      new Map([["00981A", "2026-07-20"]]),
+      new Map([["DRAM", "2026-07-23"], ["ARK13F", "2026-03-31"]]),
+      { recommendedTaiwanDate: "2026-07-20", usMuDate: "2026-07-23" }
+    );
+    const sitemap = buildSitemapXml("https://active-etf.inthewins.com", {
+      ...paths,
+      "/methodology": "not-a-date"
+    });
+    expect(paths["/etf/00981A"]).toBe("2026-07-20");
+    expect(paths["/global-etfs/DRAM"]).toBe("2026-07-23");
+    expect(paths["/institutions/ARK13F"]).toBe("2026-03-31");
+    expect(paths["/signals"]).toBe("2026-07-20");
+    expect(paths["/stocks/us/MU"]).toBe("2026-07-23");
+    expect(sitemap).toContain("<lastmod>2026-07-20</lastmod>");
+    expect(sitemap).toContain("<lastmod>2026-07-23</lastmod>");
+    expect(sitemap).not.toContain("<lastmod>not-a-date</lastmod>");
   });
 });

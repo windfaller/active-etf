@@ -63,3 +63,34 @@ test("built static preview serves and hydrates every P0 direct route", async ({ 
     await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible();
   }
 });
+
+test("primary navigation is crawlable and preserves SPA navigation", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/");
+  const taiwanLink = page.getByRole("navigation", { name: "主要導覽" }).getByRole("link", { name: "台灣 ETF", exact: true });
+  await expect(taiwanLink).toHaveAttribute("href", "/market");
+  await taiwanLink.click();
+  await expect(page).toHaveURL(/\/market$/u);
+  await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
+});
+
+test("unknown routes are real noindex 404s while dynamic stock deep links remain available", async ({ page }) => {
+  for (const path of ["/does-not-exist", "/etf/NOTREAL"]) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    expect(await response?.text(), path).toContain('<meta name="robots" content="noindex, nofollow"');
+    await expect(page.getByRole("heading", { name: "找不到 ETF 或資料頁面" })).toBeVisible();
+  }
+
+  const stockResponse = await page.goto("/stocks/us/NVDA");
+  expect(stockResponse?.status()).toBe(200);
+  expect(await stockResponse?.text()).toContain('<meta name="robots" content="noindex, nofollow"');
+});
+
+test("crawlable mobile navigation has no horizontal page overflow", async ({ page }) => {
+  await mockApis(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/market");
+  await expect(page.getByRole("navigation", { name: "行動版主要導覽" }).getByRole("link", { name: "台灣", exact: true })).toHaveAttribute("href", "/market");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

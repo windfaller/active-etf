@@ -4,12 +4,18 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
   allStaticSeoPaths,
+  notFoundMetadata,
   routeMetadataForPath,
   routeStructuredData,
   SITE_ORIGIN,
   SOCIAL_IMAGE_URL,
   type RouteMetadata
 } from "./src/web/seo/routeMetadata";
+import {
+  loadPrerenderSnapshot,
+  prerenderContentForPath,
+  prerenderDateForPath
+} from "./src/web/seo/prerenderSnapshot";
 
 const appVersion = process.env.GITHUB_SHA ?? process.env.BUILD_VERSION ?? String(Date.now());
 
@@ -42,7 +48,7 @@ function escapeHtml(value: string): string {
     .replace(/'/gu, "&#039;");
 }
 
-function seoHead(metadata: RouteMetadata, dateModified: string): string {
+function seoHead(metadata: RouteMetadata, dateModified?: string): string {
   const canonical = `${SITE_ORIGIN}${metadata.path}`;
   const jsonLd = JSON.stringify(routeStructuredData(metadata, dateModified)).replace(/</gu, "\\u003c");
   return [
@@ -99,7 +105,7 @@ function routeLinks(metadata: RouteMetadata): Array<{ path: string; label: strin
   ].filter((item) => item.path !== metadata.path);
 }
 
-function staticSeoShell(metadata: RouteMetadata): string {
+function staticSeoShell(metadata: RouteMetadata, liveContent = ""): string {
   const breadcrumbs = metadata.breadcrumbs
     .map((item) => `<a href="${item.path}">${escapeHtml(item.name)}</a>`)
     .join("<span aria-hidden=\"true\">/</span>");
@@ -116,6 +122,7 @@ function staticSeoShell(metadata: RouteMetadata): string {
     `        <p class="seo-eyebrow">${escapeHtml(metadata.eyebrow)}</p>`,
     `        <h1>${escapeHtml(metadata.h1)}</h1>`,
     `        <p>${escapeHtml(metadata.intro)}</p>`,
+    liveContent,
     usageCopy,
     `        <ul>${links}</ul>`,
     '        <p class="seo-disclosure">本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>',
@@ -143,29 +150,78 @@ function writeStaticRouteRewrites(outDir: string): void {
       rewrite: `${path.replace(/\/$/u, "")}/index.html`,
       headers: { "cache-control": "no-cache, must-revalidate" }
     }));
-  config.routes = [...prerenderRoutes, ...(config.routes ?? [])];
+  const existingRoutes = (config.routes ?? []).filter((route) => route.route !== "/*");
+  config.routes = [
+    ...prerenderRoutes,
+    ...existingRoutes,
+    {
+      route: "/stocks/tw/*",
+      rewrite: "/stocks/_dynamic/index.html",
+      headers: { "cache-control": "no-cache, must-revalidate" }
+    },
+    {
+      route: "/stocks/us/*",
+      rewrite: "/stocks/_dynamic/index.html",
+      headers: { "cache-control": "no-cache, must-revalidate" }
+    },
+    {
+      route: "/*",
+      rewrite: "/404/index.html",
+      statusCode: 404,
+      headers: { "cache-control": "no-cache, must-revalidate" }
+    }
+  ];
+  delete config.navigationFallback;
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 function staticSeoPlugin(): Plugin {
   return {
     name: "static-route-seo",
-    closeBundle() {
+    async closeBundle() {
       const outDir = resolve(process.cwd(), "dist");
       const baseHtml = readFileSync(resolve(outDir, "index.html"), "utf8");
-      const dateModified = process.env.BUILD_DATE ?? new Date().toISOString();
+      const snapshot = await loadPrerenderSnapshot();
       for (const path of allStaticSeoPaths()) {
         const metadata = routeMetadataForPath(path);
         if (!metadata) continue;
+        const dateModified = prerenderDateForPath(snapshot, path);
         let html = baseHtml
           .replace(/<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/u, seoHead(metadata, dateModified))
-          .replace(/<!-- SEO_BODY_START -->[\s\S]*?<!-- SEO_BODY_END -->/u, staticSeoShell(metadata));
+          .replace(
+            /<!-- SEO_BODY_START -->[\s\S]*?<!-- SEO_BODY_END -->/u,
+            staticSeoShell(metadata, prerenderContentForPath(snapshot, path))
+          );
         if (metadata.pageType === "reference") {
           html = html.replace(/\s*<script type="module"[^>]*src="[^"]+"><\/script>/u, "");
         }
         const outputFile = outputFileForRoute(outDir, path);
         mkdirSync(dirname(outputFile), { recursive: true });
         writeFileSync(outputFile, html);
+      }
+      const notFound = notFoundMetadata("/404");
+      const notFoundFile = outputFileForRoute(outDir, "/404");
+      const notFoundHtml = baseHtml
+        .replace(/<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/u, seoHead(notFound))
+        .replace(/<!-- SEO_BODY_START -->[\s\S]*?<!-- SEO_BODY_END -->/u, staticSeoShell(notFound));
+      mkdirSync(dirname(notFoundFile), { recursive: true });
+      writeFileSync(notFoundFile, notFoundHtml);
+      const stocksMetadata = routeMetadataForPath("/stocks");
+      if (stocksMetadata) {
+        const dynamicStockMetadata = {
+          ...stocksMetadata,
+          title: "股票 ETF 持股與調倉｜ETF 持倉雷達",
+          description: "股票頁會在確認代號與資料來源後顯示 ETF 持股、調倉與各自資料日期。",
+          h1: "股票 ETF 持股與調倉",
+          intro: "正在確認股票代號與可用資料；未預先產生的動態股票頁不建立搜尋索引。",
+          robots: "noindex, nofollow" as const
+        };
+        const dynamicStockFile = outputFileForRoute(outDir, "/stocks/_dynamic");
+        const dynamicStockHtml = baseHtml
+          .replace(/<!-- SEO_HEAD_START -->[\s\S]*?<!-- SEO_HEAD_END -->/u, seoHead(dynamicStockMetadata))
+          .replace(/<!-- SEO_BODY_START -->[\s\S]*?<!-- SEO_BODY_END -->/u, staticSeoShell(dynamicStockMetadata));
+        mkdirSync(dirname(dynamicStockFile), { recursive: true });
+        writeFileSync(dynamicStockFile, dynamicStockHtml);
       }
       writeStaticRouteRewrites(outDir);
     }

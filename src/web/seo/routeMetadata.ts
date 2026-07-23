@@ -112,7 +112,7 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
     const known = prerenderedStocks.find((row) => row.market === market && row.symbol === symbol);
     const name = known?.name ?? symbol;
     const marketLabel = known?.marketLabel ?? (market === "tw" ? "台灣" : "美國");
-    return metadataBase(
+    const metadata = metadataBase(
       `/stocks/${market}/${symbol}`,
       `${name} ${symbol}｜${marketLabel}股票 ETF 持股與調倉`,
       `查看 ${name}（${symbol}）的 ETF 持股與調倉、資料日期、3／5／20 交易日趨勢及資料可信度。`,
@@ -122,6 +122,7 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
       "stock",
       [homeBreadcrumb(), { name: "股票情報", path: "/stocks" }, { name: symbol, path: `/stocks/${market}/${symbol}` }]
     );
+    return known ? metadata : { ...metadata, robots: "noindex, nofollow" };
   }
 
   if (path === "/compare/etfs") {
@@ -344,6 +345,7 @@ export function allStaticSeoPaths(): string[] {
     "/institutions",
     "/data-usage/",
     "/stocks",
+    "/search",
     ...prerenderedStocks.map((stock) => `/stocks/${stock.market}/${stock.symbol}`),
     "/compare/etfs",
     "/signals",
@@ -371,7 +373,7 @@ function isCanonicalDatasetLandingPage(metadata: RouteMetadata): boolean {
   return false;
 }
 
-export function routeStructuredData(metadata: RouteMetadata, dateModified: string): unknown[] {
+export function routeStructuredData(metadata: RouteMetadata, dateModified?: string): unknown[] {
   const canonical = `${SITE_ORIGIN}${metadata.path}`;
   const organization = {
     "@type": "Organization",
@@ -396,7 +398,7 @@ export function routeStructuredData(metadata: RouteMetadata, dateModified: strin
     url: canonical,
     description: metadata.description,
     inLanguage: "zh-Hant-TW",
-    dateModified,
+    ...(dateModified ? { dateModified } : {}),
     publisher: organization,
     ...(metadata.sourceUrl ? { isBasedOn: metadata.sourceUrl } : {})
   };
@@ -410,7 +412,7 @@ export function routeStructuredData(metadata: RouteMetadata, dateModified: strin
     url: canonical,
     description: `${metadata.description} ${metadata.intro}`,
     inLanguage: "zh-Hant-TW",
-    dateModified,
+    ...(dateModified ? { dateModified } : {}),
     creator: organization,
     isBasedOn: metadata.sourceUrl
       ? [metadata.sourceUrl]

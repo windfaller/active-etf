@@ -16,6 +16,9 @@ const compare = html("compare/etfs");
 const reversals = html("signals/reversals");
 const style = html("etf/00981A/style");
 const methodology = html("methodology");
+const search = html("search");
+const notFound = html("404");
+const dynamicStock = html("stocks/_dynamic");
 
 includesAll(market, ["<h1>台灣主動式 ETF 市場總覽</h1>", `${"rel=\"canonical\" href=\"https://active-etf.inthewins.com/market\""}`, "BreadcrumbList"]);
 includesAll(etf, ["00981A 主動統一台股增長", "統一投信", "https://active-etf.inthewins.com/etf/00981A"]);
@@ -27,7 +30,10 @@ includesAll(compare, ["ETF 多檔比較工具", "https://active-etf.inthewins.co
 includesAll(reversals, ["方向反轉訊號", "https://active-etf.inthewins.com/signals/reversals"]);
 includesAll(style, ["00981A 主動統一台股增長經理人風格", "https://active-etf.inthewins.com/etf/00981A/style"]);
 includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.inthewins.com/methodology"]);
-for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology]) assert.ok(!body.includes("active-etf.chicoo.co"));
+includesAll(search, ["<meta name=\"robots\" content=\"noindex, nofollow\"", "https://active-etf.inthewins.com/search"]);
+includesAll(notFound, ["<h1>找不到頁面</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
+includesAll(dynamicStock, ["<h1>股票 ETF 持股與調倉</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
+for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology, search]) assert.ok(!body.includes("active-etf.chicoo.co"));
 for (const [route, body] of [["/", home], ["/market", market], ["/compare/etfs", compare], ["/signals/reversals", reversals], ["/methodology", methodology]]) {
   assert.ok(!body.includes('"@type":"Dataset"'), `${route} must not be marked as a Dataset`);
 }
@@ -51,5 +57,13 @@ assert.equal(routeMap.get("/compare/etfs")?.rewrite, "/compare/etfs/index.html")
 assert.equal(routeMap.get("/signals/reversals")?.rewrite, "/signals/reversals/index.html");
 assert.equal(routeMap.get("/etf/00981A/style")?.rewrite, "/etf/00981A/style/index.html");
 assert.equal(routeMap.has("/etf/UNKNOWN"), false);
+const catchAll = deploymentConfig.routes.at(-1);
+assert.equal(routeMap.get("/stocks/tw/*")?.rewrite, "/stocks/_dynamic/index.html");
+assert.equal(routeMap.get("/stocks/us/*")?.rewrite, "/stocks/_dynamic/index.html");
+assert.equal(catchAll?.route, "/*");
+assert.equal(catchAll?.rewrite, "/404/index.html");
+assert.equal(catchAll?.statusCode, 404);
+assert.equal(deploymentConfig.navigationFallback, undefined);
+assert.ok(market.includes("class=\"seo-live-data\"") || !market.includes("dateModified"), "Market prerender must use live data or omit dateModified");
 assert.ok(!JSON.stringify(deploymentConfig).includes("index-cTTlnrt5"));
 console.log("Prerender SEO verification passed.");

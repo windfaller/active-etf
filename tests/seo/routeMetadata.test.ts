@@ -38,6 +38,8 @@ describe("build-time route metadata", () => {
   it("never canonicalizes an unknown stock to a different stock", () => {
     expect(routeMetadataForPath("/stocks/tw/9999")?.path).toBe("/stocks/tw/9999");
     expect(routeMetadataForPath("/stocks/us/ZZZZ")?.path).toBe("/stocks/us/ZZZZ");
+    expect(routeMetadataForPath("/stocks/tw/9999")?.robots).toBe("noindex, nofollow");
+    expect(routeMetadataForPath("/stocks/us/ZZZZ")?.robots).toBe("noindex, nofollow");
   });
 
   it("limits Dataset markup to canonical data landing pages", () => {

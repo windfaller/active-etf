@@ -45,10 +45,15 @@ const server = createServer(async (request, response) => {
     }
     return;
   }
-  const file = safeFile(pathname);
+  const file = safeFile(pathname) ?? (/^\/stocks\/(?:tw|us)\/[^/]+$/u.test(pathname) ? resolve(root, "stocks", "_dynamic", "index.html") : undefined);
   if (!file) {
-    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    response.end("Not found");
+    const notFoundFile = resolve(root, "404", "index.html");
+    response.writeHead(404, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-cache, must-revalidate"
+    });
+    if (existsSync(notFoundFile)) createReadStream(notFoundFile).pipe(response);
+    else response.end("Not found");
     return;
   }
   const isAsset = pathname.startsWith("/assets/");

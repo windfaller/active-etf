@@ -252,7 +252,7 @@ test("homepage does not request the full global report and browser history follo
   await page.waitForTimeout(500);
   expect(globalReportRequests).toHaveLength(0);
   expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/market/bootstrap"]);
-  await page.getByRole("button", { name: "海外 ETF", exact: true }).click();
+  await page.getByRole("link", { name: "海外 ETF", exact: true }).click();
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();
   await page.goBack();
@@ -281,12 +281,12 @@ test("market and single-ETF dates stay independent across navigation and history
   await expect(marketDate).toHaveValue("2026-07-20");
   await expect(page.getByText("2026-07-21 已有 4 / 10 檔更新")).toBeVisible();
 
-  await page.getByRole("button", { name: /選擇台灣單檔 ETF/u }).click();
+  await page.getByRole("link", { name: /選擇台灣單檔 ETF/u }).click();
   await expect(page).toHaveURL(/\/etf\/00981A$/u);
   const etfDate = page.getByLabel("單檔 ETF 資料日期");
   await expect(etfDate).toHaveValue("2026-07-20");
 
-  await page.getByRole("button", { name: "返回台灣 ETF 市場總覽" }).click();
+  await page.getByRole("link", { name: "返回台灣 ETF 市場總覽" }).click();
   await expect(page).toHaveURL(/\/market$/u);
   await expect(page.getByLabel("台灣市場資料日期")).toHaveValue("2026-07-20");
 
@@ -337,9 +337,9 @@ test("institution cards avoid empty expansion, provide parent navigation, and pe
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
   await expect(page.getByRole("button", { name: "切換至淺色模式" })).toBeVisible();
 
-  const backButton = page.getByRole("button", { name: "返回機構 13F 清單" });
-  await expect(backButton).toHaveCount(1);
-  await backButton.click();
+  const backLink = page.getByRole("link", { name: "返回機構 13F 清單" });
+  await expect(backLink).toHaveCount(1);
+  await backLink.click();
   await expect(page).toHaveURL(/\/institutions$/u);
   await expect(page.getByRole("heading", { name: "機構 13F 季度持倉" })).toBeVisible();
 });

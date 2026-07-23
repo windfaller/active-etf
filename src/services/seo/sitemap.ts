@@ -1,13 +1,15 @@
 import { configuredEtfs } from "../../config/etfs.js";
 import { enabledGlobalEtfs } from "../../config/globalEtfs.js";
 
-interface SitemapEntry {
+export interface SitemapEntry {
   path: string;
   changefreq: "daily" | "weekly" | "monthly";
   priority: string;
+  lastmod?: string;
 }
 
-const lastmod = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
+export type SitemapLastModifiedByPath = Record<string, string | undefined>;
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/u;
 
 function escapeXml(value: string): string {
   return value
@@ -18,7 +20,7 @@ function escapeXml(value: string): string {
     .replace(/'/gu, "&apos;");
 }
 
-export function sitemapEntries(): SitemapEntry[] {
+export function sitemapEntries(lastModifiedByPath: SitemapLastModifiedByPath = {}): SitemapEntry[] {
   const entries: SitemapEntry[] = [
     { path: "/", changefreq: "daily", priority: "1.0" },
     { path: "/market", changefreq: "daily", priority: "0.9" },
@@ -58,18 +60,21 @@ export function sitemapEntries(): SitemapEntry[] {
     .filter((etf) => etf.strategyType === "13f")
     .forEach((etf) => entries.push({ path: `/institutions/${etf.etfCode}`, changefreq: "weekly", priority: "0.6" }));
 
-  return entries;
+  return entries.map((entry) => {
+    const lastmod = lastModifiedByPath[entry.path];
+    return lastmod && isoDatePattern.test(lastmod) ? { ...entry, lastmod } : entry;
+  });
 }
 
-export function buildSitemapXml(baseUrl: string): string {
+export function buildSitemapXml(baseUrl: string, lastModifiedByPath: SitemapLastModifiedByPath = {}): string {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/u, "");
-  const urls = sitemapEntries()
+  const urls = sitemapEntries(lastModifiedByPath)
     .map((entry) => {
       const loc = `${normalizedBaseUrl}${entry.path}`;
       return [
         "  <url>",
         `    <loc>${escapeXml(loc)}</loc>`,
-        `    <lastmod>${lastmod}</lastmod>`,
+        ...(entry.lastmod ? [`    <lastmod>${entry.lastmod}</lastmod>`] : []),
         `    <changefreq>${entry.changefreq}</changefreq>`,
         `    <priority>${entry.priority}</priority>`,
         "  </url>"

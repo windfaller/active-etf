@@ -9,7 +9,7 @@ test("P1 routes are shareable, preserve time scales, and support browser history
   await expect(page.getByText("3／5／20 個有效交易日趨勢")).toBeVisible();
   await expect(page.getByText("方向指標分歧").first()).toBeVisible();
   await expect(page.getByText("有效觀察 17/20").first()).toBeVisible();
-  await page.getByRole("button", { name: "比較" }).click();
+  await page.getByRole("link", { name: "比較" }).click();
   await expect(page).toHaveURL(/\/compare\/etfs$/u);
   await page.goBack();
   await expect(page).toHaveURL(/\/stocks\/tw\/2330$/u);
@@ -141,7 +141,7 @@ test("signals, style, and search interactions are keyboard accessible", async ({
   const search = page.getByPlaceholder(/輸入股票名稱/u);
   await expect(search).toBeFocused();
   await search.fill("台積電");
-  await expect(page.getByRole("button", { name: /2330 台積電/u })).toBeVisible();
+  await expect(page.getByRole("link", { name: /2330 台積電/u })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(search).toHaveCount(0);
 });
@@ -193,7 +193,7 @@ test("search discards a cancelled stale response", async ({ page }) => {
   await search.fill("台積");
   await page.waitForTimeout(320);
   await search.fill("台積電");
-  await expect(page.getByRole("button", { name: /2330 台積電/u })).toBeVisible();
+  await expect(page.getByRole("link", { name: /2330 台積電/u })).toBeVisible();
   await page.waitForTimeout(900);
   await expect(page.getByText("過期結果")).toHaveCount(0);
 });
