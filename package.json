@@ -11,6 +11,7 @@
     "test:seo": "npm run web:build && node scripts/verify-prerender.mjs",
     "test:e2e": "playwright test",
     "test:e2e:preview": "playwright test --config=playwright.preview.config.ts",
+    "test:production": "node scripts/production-smoke.mjs",
     "test:watch": "vitest",
     "web:dev": "vite --host 127.0.0.1",
     "web:build": "vue-tsc -p tsconfig.web.json && vite build",

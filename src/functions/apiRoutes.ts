@@ -11,6 +11,7 @@ import "../api/getMarketDates.js";
 import "../api/getMarketStockImpact.js";
 import "../api/getDashboard.js";
 import "../api/getRuntimeConfig.js";
+import "../api/getHealth.js";
 import "../api/getStocks.js";
 import "../api/getEtfComparison.js";
 import "../api/getSignals.js";

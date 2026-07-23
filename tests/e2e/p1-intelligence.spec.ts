@@ -3,6 +3,22 @@ import { mockP1Apis } from "./p1-fixtures.js";
 
 test.beforeEach(async ({ page }) => mockP1Apis(page));
 
+test("a long-open tab reloads once on focus when a new app version is deployed", async ({ page }) => {
+  const currentVersionResponse = await page.request.get("/app-version.json");
+  const currentVersion = (await currentVersionResponse.json() as { version: string }).version;
+  let deployedVersion = currentVersion;
+  await page.route("**/app-version.json**", (route) => route.fulfill({ json: { version: deployedVersion } }));
+
+  await page.goto("/signals");
+  await expect(page.getByRole("heading", { name: "連續調倉、反轉與方向分歧" })).toBeVisible();
+  await page.waitForTimeout(1100);
+
+  deployedVersion = "next-production-version";
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page).toHaveURL(/appVersion=next-production-version/u);
+  await expect(page.getByRole("heading", { name: "連續調倉、反轉與方向分歧" })).toBeVisible();
+});
+
 test("P1 routes are shareable, preserve time scales, and support browser history", async ({ page }) => {
   await page.goto("/stocks/tw/2330");
   await expect(page.getByRole("heading", { name: "2330 台積電" })).toBeVisible();
@@ -18,6 +34,12 @@ test("P1 routes are shareable, preserve time scales, and support browser history
 
   await page.goto("/stocks/us/MU");
   await expect(page.getByRole("heading", { name: "MU Micron Technology" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "3／5／20 個持股資料變動點" })).toBeVisible();
+  await expect(page.getByText(/不是交易日、成交張數或即時買賣/u)).toBeVisible();
+  const globalHistorySummary = page.locator(".research-note").filter({ hasText: "最近 3 個持股資料變動點" });
+  await expect(globalHistorySummary).toContainText("累積 -0.80 pp");
+  await expect(globalHistorySummary).toContainText("上調 1 點、下調 2 點");
+  await expect(page.getByText(/累積 .* 張/u)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "海外 ETF 曝險" })).toBeVisible();
   await expect(page.locator(".exposure-grid").getByText(/HBMX/u)).toBeVisible();
   await expect(page.locator(".exposure-grid").getByText(/DRAM/u)).toHaveCount(0);

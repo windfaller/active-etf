@@ -48,6 +48,14 @@ jobs:
             --header "x-admin-token: $ADMIN_JOB_TOKEN" \
             "${STATIC_WEB_APP_URL%/}/api/jobs/indexes/ensure"
 
+      - name: Verify P1 production routes and semantics
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          PRODUCTION_BASE_URL: ${{ steps.builddeploy.outputs.static_web_app_url }}
+        run: |
+          test -n "$PRODUCTION_BASE_URL"
+          npm run test:production
+
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest

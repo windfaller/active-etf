@@ -1,7 +1,14 @@
 import type { Db } from "mongodb";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GlobalEtfSnapshot } from "../../src/models/GlobalEtf.js";
-import { globalSnapshotsForStock, latestSnapshotsForStockPipeline, latestStockSearchPipeline } from "../../src/services/intelligence/stockIntelligenceService.js";
+import { latestGlobalSourceDate } from "../../src/services/intelligence/dataAccess.js";
+import {
+  globalSnapshotsForStock,
+  globalStockHistoryPipeline,
+  globalStockHistoryPoints,
+  latestSnapshotsForStockPipeline,
+  latestStockSearchPipeline
+} from "../../src/services/intelligence/stockIntelligenceService.js";
 
 function snapshot(etfCode: string, sourceAsOf: string, tickers: string[], strategyType: "index" | "active" | "13f" = "index"): GlobalEtfSnapshot {
   const fetchedAt = new Date(`${sourceAsOf}T12:00:00.000Z`);
@@ -26,6 +33,20 @@ function snapshot(etfCode: string, sourceAsOf: string, tickers: string[], strate
       strategyType, positionKey: `ticker:${ticker}`, ticker, name: ticker
     }))
   };
+}
+
+function weightedSnapshot(
+  etfCode: string,
+  sourceAsOf: string,
+  weightPercent: number | null,
+  fetchedAt = `${sourceAsOf}T12:00:00.000Z`
+): GlobalEtfSnapshot {
+  const result = snapshot(etfCode, sourceAsOf, weightPercent === null ? [] : ["MU"], "active");
+  result.fetchedAt = new Date(fetchedAt);
+  result.snapshotId = `${etfCode}-${sourceAsOf}-${fetchedAt}`;
+  result.signature = result.snapshotId;
+  if (weightPercent !== null && result.holdings[0]) result.holdings[0].weightPercent = weightPercent;
+  return result;
 }
 
 function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
@@ -110,5 +131,54 @@ describe("latest global stock snapshot selection", () => {
       snapshot("BRK13F", "2026-06-30", ["MU"], "13f")
     ]), "MU", true);
     expect(rows.map((row) => row.etfCode)).toEqual(["BRK13F"]);
+  });
+
+  it("builds US history from ISO-dated, latest-per-day ETF snapshots", () => {
+    const pipeline = globalStockHistoryPipeline("MU", 20);
+    const initialMatch = pipeline[0]?.$match as Record<string, any>;
+    const group = pipeline.find((stage) => "$group" in stage)?.$group as Record<string, any>;
+    expect(initialMatch.sourceAsOf.$regex).toBe("^\\d{4}-\\d{2}-\\d{2}$");
+    expect(group._id).toEqual({ etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" });
+  });
+
+  it("deduplicates captures and reports weight change points including exits", () => {
+    const points = globalStockHistoryPoints("MU", [
+      weightedSnapshot("DRAM", "2026-07-20", 7.5, "2026-07-20T08:00:00.000Z"),
+      weightedSnapshot("DRAM", "2026-07-20", 8, "2026-07-20T12:00:00.000Z"),
+      weightedSnapshot("DRAM", "2026-07-21", 8.4),
+      weightedSnapshot("HBMX", "2026-07-19", 2),
+      weightedSnapshot("HBMX", "2026-07-21", null),
+      weightedSnapshot("BAI", "Jun 23, 20", 4, "2026-07-21T12:00:00.000Z")
+    ], 20);
+
+    expect(points).toEqual([
+      {
+        date: "2026-07-21",
+        weightChangePercentPoints: -1.6,
+        direction: "decrease",
+        updatedEtfCount: 2,
+        increaseEtfCount: 1,
+        decreaseEtfCount: 1,
+        neutralEtfCount: 0
+      }
+    ]);
+  });
+
+  it("does not invent a direction without a prior comparable snapshot", () => {
+    expect(globalStockHistoryPoints("MU", [
+      weightedSnapshot("DRAM", "2026-07-21", 8.4)
+    ], 20)).toEqual([]);
+  });
+
+  it("never selects a malformed date as the latest global source date", async () => {
+    const findOne = vi.fn(async () => ({ sourceAsOf: "2026-07-21" }));
+    const db = { collection: () => ({ findOne }) } as unknown as Db;
+
+    await latestGlobalSourceDate(db);
+
+    expect(findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" } }),
+      expect.any(Object)
+    );
   });
 });
