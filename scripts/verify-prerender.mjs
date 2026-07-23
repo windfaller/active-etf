@@ -46,7 +46,13 @@ for (const [route, body] of [["/etf/00981A", etf], ["/etf/00981A/changes", chang
   assert.ok(descriptionLength >= 50 && descriptionLength <= 5_000, `${route} Dataset description must contain 50-5000 characters`);
   assert.ok(!Object.hasOwn(dataset, "license"), `${route} must not publish an unverified license`);
 }
-const deploymentConfig = JSON.parse(readFileSync(resolve(process.cwd(), "dist/staticwebapp.config.json"), "utf8"));
+const deploymentConfigPath = resolve(process.cwd(), "dist/staticwebapp.config.json");
+const deploymentConfigRaw = readFileSync(deploymentConfigPath, "utf8");
+assert.ok(
+  Buffer.byteLength(deploymentConfigRaw, "utf8") <= 20 * 1024,
+  "staticwebapp.config.json must stay within the Azure Static Web Apps 20 KB limit"
+);
+const deploymentConfig = JSON.parse(deploymentConfigRaw);
 const routeMap = new Map(deploymentConfig.routes.map((entry) => [entry.route, entry]));
 assert.equal(routeMap.get("/market")?.rewrite, "/market/index.html");
 assert.equal(routeMap.get("/etf/00981A")?.rewrite, "/etf/00981A/index.html");

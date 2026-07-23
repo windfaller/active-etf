@@ -147,8 +147,7 @@ function writeStaticRouteRewrites(outDir: string): void {
     .filter((path) => path !== "/")
     .map((path) => ({
       route: path,
-      rewrite: `${path.replace(/\/$/u, "")}/index.html`,
-      headers: { "cache-control": "no-cache, must-revalidate" }
+      rewrite: `${path.replace(/\/$/u, "")}/index.html`
     }));
   const existingRoutes = (config.routes ?? []).filter((route) => route.route !== "/*");
   config.routes = [
@@ -172,7 +171,7 @@ function writeStaticRouteRewrites(outDir: string): void {
     }
   ];
   delete config.navigationFallback;
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  writeFileSync(configPath, `${JSON.stringify(config)}\n`);
 }
 
 function staticSeoPlugin(): Plugin {
