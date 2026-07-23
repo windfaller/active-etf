@@ -26,6 +26,11 @@ function institutionLabel(row: StockImpact): string {
   if (shares === null || shares === undefined) return "法人無資料";
   return `法人${directionLabel(shares, "買超", "賣超")} ${formatLots(shares / 1000)} 張`;
 }
+
+function directionClass(value: number | null | undefined): "direction-positive" | "direction-negative" | "direction-neutral" {
+  if (value === null || value === undefined || value === 0) return "direction-neutral";
+  return value > 0 ? "direction-positive" : "direction-negative";
+}
 </script>
 
 <template>
@@ -70,8 +75,8 @@ function institutionLabel(row: StockImpact): string {
           <h3><TrendingUp :size="18" /> 共同加碼 <small>{{ brief.additions.length }} 檔</small></h3>
           <button v-for="row in brief.additions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
             <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
-            <span><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small>{{ institutionLabel(row) }}</small></span>
+            <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
+            <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
             <ArrowRight :size="16" />
           </button>
           <p v-if="!brief.additions.length" class="list-empty">今日尚無足夠樣本形成共同加碼結論。</p>
@@ -80,8 +85,8 @@ function institutionLabel(row: StockImpact): string {
           <h3><TrendingDown :size="18" /> 共同減碼 <small>{{ brief.reductions.length }} 檔</small></h3>
           <button v-for="row in brief.reductions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
             <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b>主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
-            <span><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small>{{ institutionLabel(row) }}</small></span>
+            <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
+            <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
             <ArrowRight :size="16" />
           </button>
           <p v-if="!brief.reductions.length" class="list-empty">今日尚無足夠樣本形成共同減碼結論。</p>
@@ -97,7 +102,7 @@ function institutionLabel(row: StockImpact): string {
       <div class="sector-direction-grid">
         <MobileDataCard v-for="row in brief.sectors" :key="row.sector" :label="row.sector" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
           <template #title>{{ row.sector }}</template>
-          <template #summary>主動 {{ formatLots(row.totalActiveDiffLots) }} 張｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票<br />三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</template>
+          <template #summary><span class="sector-direction-metric" :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</span><span>｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票</span><br /><span class="sector-direction-metric" :class="directionClass(row.totalInstitutionalNetLots)">三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</span></template>
           <p>主要標的：{{ row.topStocks.map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
         </MobileDataCard>
       </div>
@@ -136,10 +141,12 @@ function institutionLabel(row: StockImpact): string {
 .brief-insight > span { color:#90a0ad; font-size:12px; font-weight:850; }.brief-insight h3{margin:16px 0 10px;color:#26343f;font-size:18px;line-height:1.4}.brief-insight p{margin:0;color:#61707c;line-height:1.7}
 .consensus-columns { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .consensus-panel { overflow:hidden; border:1px solid #e0e7ea; border-radius:12px; }.consensus-panel h3{display:flex;align-items:center;gap:8px;margin:0;padding:15px 17px;background:#f8fafb;color:#26343f}.consensus-panel h3 small{margin-left:auto;color:#65727c;font-size:12px}
-.consensus-panel.increase h3{border-top:3px solid #cf493e}.consensus-panel.decrease h3{border-top:3px solid #07847d}
+.consensus-panel.increase h3{border-top:3px solid #cf493e;color:var(--theme-positive)!important}.consensus-panel.decrease h3{border-top:3px solid #07847d;color:var(--theme-negative)!important}.consensus-panel h3 small{color:var(--theme-text-muted)!important}
 .consensus-row { display:grid; grid-template-columns:minmax(120px,1fr) minmax(160px,1.2fr) minmax(150px,1fr) 20px; align-items:center; gap:12px; width:100%; min-height:70px; padding:10px 16px; border:0; border-top:1px solid #edf1f3; background:#fff; color:#33414c; text-align:left; cursor:pointer; }.consensus-row:hover{background:#f7fafb}.consensus-row:focus-visible{outline:3px solid rgba(52,89,134,.26);outline-offset:-3px}.consensus-row span{display:grid;gap:3px}.consensus-row small{color:#76838e}.consensus-row .stock b{font-size:15px}.consensus-row > svg{color:#75838f}
+.direction-positive,.consensus-row small.direction-positive{color:var(--theme-positive)!important;font-weight:800}.direction-negative,.consensus-row small.direction-negative{color:var(--theme-negative)!important;font-weight:800}.direction-neutral{color:var(--theme-text-muted)!important}.sector-direction-metric{display:inline;font-weight:800}
 .list-empty,.brief-empty { margin:0; padding:24px; color:#6a7782; text-align:center; }
 .sector-direction-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.sector-direction-grid :deep(.mobile-data-card.increase .mobile-card-title){color:var(--theme-positive)}.sector-direction-grid :deep(.mobile-data-card.decrease .mobile-card-title){color:var(--theme-negative)}
 .advanced-entry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }.advanced-entry button{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;cursor:pointer}.advanced-entry button:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry button:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry span{display:grid;gap:4px}.advanced-entry small{color:#65727c;line-height:1.4}
 @media (max-width:960px){.brief-hero{grid-template-columns:1fr}.hero-radar{position:absolute;right:-60px;bottom:-80px;opacity:.65}.insight-grid,.sector-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.advanced-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.consensus-columns{grid-template-columns:1fr}}
 @media (max-width:760px){.daily-brief-view{gap:12px}.brief-hero{min-height:360px;padding:28px 20px;border-radius:14px}.brief-hero h1{font-size:38px}.brief-hero p{font-size:16px}.brief-section{padding:18px 14px}.brief-heading{display:grid}.brief-heading>p{text-align:left}.insight-grid,.sector-direction-grid,.advanced-entry{grid-template-columns:1fr}.brief-insight{min-height:0}.consensus-row{grid-template-columns:1fr 1fr 18px}.consensus-row>span:nth-child(3){grid-column:1 / 3}.advanced-entry button{min-height:78px}}

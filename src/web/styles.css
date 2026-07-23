@@ -6,6 +6,8 @@
   --theme-text: #20252b;
   --theme-text-strong: #25313c;
   --theme-text-muted: #64727c;
+  --theme-positive: #b93f36;
+  --theme-negative: #087b72;
   color: #20252b;
   background: #f4f6f7;
   font-family: Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -21,6 +23,8 @@
   --theme-text: #dce5eb;
   --theme-text-strong: #f1f5f7;
   --theme-text-muted: #a8b6c0;
+  --theme-positive: #ff9f95;
+  --theme-negative: #71d7cb;
   color: var(--theme-text);
   background: var(--theme-bg);
 }

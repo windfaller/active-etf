@@ -161,6 +161,47 @@ test("market impact cards keep distinct tone surfaces in dark mode", async ({ pa
   expect(darkStyles[1].background).not.toBe(lightStyles[1].background);
 });
 
+test("homepage action and sector metrics keep Taiwan direction colors in light and dark modes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApis(page);
+  await page.goto("/");
+
+  const addition = page.locator(".consensus-panel.increase .consensus-row").first();
+  const reduction = page.locator(".consensus-panel.decrease .consensus-row").first();
+  const increasingSector = page.locator(".sector-direction-grid .mobile-data-card.increase").first();
+
+  await expect(addition.locator("b.direction-positive").first()).toContainText("主動 +3,250 張");
+  await expect(addition.locator("small.direction-negative")).toContainText("法人賣超 -1,120 張");
+  await expect(reduction.locator("b.direction-negative").first()).toContainText("主動 -1,300 張");
+  await expect(increasingSector.locator(".sector-direction-metric.direction-positive")).toContainText("主動 +3,800 張");
+  await expect(increasingSector.locator(".sector-direction-metric.direction-negative")).toContainText("三大法人 -920 張");
+
+  const colors = async () => ({
+    positive: await addition.locator("b.direction-positive").first().evaluate((element) => getComputedStyle(element).color),
+    negative: await reduction.locator("b.direction-negative").first().evaluate((element) => getComputedStyle(element).color),
+    institutionNegative: await addition.locator("small.direction-negative").evaluate((element) => getComputedStyle(element).color),
+    sectorPositive: await increasingSector.locator(".sector-direction-metric.direction-positive").evaluate((element) => getComputedStyle(element).color),
+    sectorNegative: await increasingSector.locator(".sector-direction-metric.direction-negative").evaluate((element) => getComputedStyle(element).color)
+  });
+  expect(await colors()).toEqual({
+    positive: "rgb(185, 63, 54)",
+    negative: "rgb(8, 123, 114)",
+    institutionNegative: "rgb(8, 123, 114)",
+    sectorPositive: "rgb(185, 63, 54)",
+    sectorNegative: "rgb(8, 123, 114)"
+  });
+
+  await page.getByRole("button", { name: "切換至深色模式" }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  expect(await colors()).toEqual({
+    positive: "rgb(255, 159, 149)",
+    negative: "rgb(113, 215, 203)",
+    institutionNegative: "rgb(113, 215, 203)",
+    sectorPositive: "rgb(255, 159, 149)",
+    sectorNegative: "rgb(113, 215, 203)"
+  });
+});
+
 test("desktop market table keeps dark surfaces and readable text", async ({ page }) => {
   await page.setViewportSize({ width:1440, height:900 });
   await mockApis(page);

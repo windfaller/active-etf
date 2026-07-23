@@ -362,6 +362,15 @@ export function allStaticSeoPaths(): string[] {
   ];
 }
 
+function isCanonicalDatasetLandingPage(metadata: RouteMetadata): boolean {
+  if (metadata.pageType === "taiwan-etf" || metadata.pageType === "global-etf") return true;
+  if (metadata.pageType === "institution") return metadata.path !== "/institutions";
+  if (metadata.pageType === "stock") {
+    return prerenderedStocks.some((stock) => metadata.path === `/stocks/${stock.market}/${stock.symbol}`);
+  }
+  return false;
+}
+
 export function routeStructuredData(metadata: RouteMetadata, dateModified: string): unknown[] {
   const canonical = `${SITE_ORIGIN}${metadata.path}`;
   const organization = {
@@ -392,14 +401,14 @@ export function routeStructuredData(metadata: RouteMetadata, dateModified: strin
     ...(metadata.sourceUrl ? { isBasedOn: metadata.sourceUrl } : {})
   };
 
-  if (metadata.pageType === "reference" || metadata.pageType === "not-found") return [webPage, breadcrumb];
+  if (!isCanonicalDatasetLandingPage(metadata)) return [webPage, breadcrumb];
 
   const dataset = {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: metadata.h1,
     url: canonical,
-    description: metadata.description,
+    description: `${metadata.description} ${metadata.intro}`,
     inLanguage: "zh-Hant-TW",
     dateModified,
     creator: organization,
