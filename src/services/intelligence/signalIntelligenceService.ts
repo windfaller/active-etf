@@ -22,7 +22,11 @@ export async function intelligenceSignals(
     $or: [{ activeDiffLots: { $ne: null } }, { diffWeightPoint: { $ne: null } }]
   }).limit(150_000).toArray() : [];
   const byStock = new Map<string, EtfHoldingChange[]>();
-  for (const row of changes) byStock.set(row.stockId, [...(byStock.get(row.stockId) ?? []), row]);
+  for (const row of changes) {
+    const rows = byStock.get(row.stockId);
+    if (rows) rows.push(row);
+    else byStock.set(row.stockId, [row]);
+  }
   const stockIds = [...byStock.keys()];
   const institutionalRows = stockIds.length && dates.length
     ? await db.collection<StockInstitutionalFlow>("stock_institutional_flows").find({ stockId: { $in: stockIds }, tradeDate: { $in: dates.slice(0, 2) } }).toArray()

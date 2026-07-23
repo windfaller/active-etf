@@ -4,6 +4,7 @@ import { enabledGlobalEtfs } from "../../config/globalEtfs.js";
 import type { EtfDailySummary } from "../../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
+import { BoundedRequestCache } from "../cache/boundedRequestCache.js";
 import { availableMarketDates, marketDateOverview } from "../market/marketDatesService.js";
 
 export const enabledTaiwanEtfCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
@@ -16,17 +17,30 @@ export interface IntelligenceCoverage {
   delayed: number;
 }
 
-export async function effectiveTaiwanDates(db: Db, date: string | undefined, limit: number): Promise<string[]> {
-  const queryLimit = Math.max(limit * 2, 40);
-  if (date) {
-    const dates = await availableMarketDates(db, queryLimit);
-    return dates.filter((candidate) => candidate <= date).slice(0, limit);
-  }
+const effectiveDateCaches = new WeakMap<Db, BoundedRequestCache>();
 
-  const overview = await marketDateOverview(db, queryLimit);
-  const anchorDate = overview.recommendedDate ?? overview.dates[0];
-  const eligible = anchorDate ? overview.dates.filter((candidate) => candidate <= anchorDate) : [];
-  return eligible.slice(0, limit);
+function effectiveDateCacheFor(db: Db): BoundedRequestCache {
+  const existing = effectiveDateCaches.get(db);
+  if (existing) return existing;
+  const cache = new BoundedRequestCache(16);
+  effectiveDateCaches.set(db, cache);
+  return cache;
+}
+
+export async function effectiveTaiwanDates(db: Db, date: string | undefined, limit: number): Promise<string[]> {
+  const key = `${date ?? "latest"}:${limit}`;
+  return effectiveDateCacheFor(db).getOrLoad(key, 60_000, async () => {
+    const queryLimit = Math.max(limit * 2, 40);
+    if (date) {
+      const dates = await availableMarketDates(db, queryLimit);
+      return dates.filter((candidate) => candidate <= date).slice(0, limit);
+    }
+
+    const overview = await marketDateOverview(db, queryLimit);
+    const anchorDate = overview.recommendedDate ?? overview.dates[0];
+    const eligible = anchorDate ? overview.dates.filter((candidate) => candidate <= anchorDate) : [];
+    return eligible.slice(0, limit);
+  });
 }
 
 export async function taiwanCoverageForDate(db: Db, date: string | null): Promise<IntelligenceCoverage> {

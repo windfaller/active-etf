@@ -27,11 +27,11 @@ vi.mock("../../src/services/intelligence/signalIntelligenceService.js", () => ({
 vi.mock("../../src/services/intelligence/styleProfileService.js", () => ({ etfStyleProfile: mocks.etfStyleProfile }));
 vi.mock("../../src/services/intelligence/searchService.js", () => ({ globalSearch: mocks.globalSearch }));
 
-import { getEtfComparison } from "../../src/api/getEtfComparison.js";
+import { clearEtfComparisonRequestCache, getEtfComparison } from "../../src/api/getEtfComparison.js";
 import { getSearch } from "../../src/api/getSearch.js";
-import { getSignals } from "../../src/api/getSignals.js";
+import { clearSignalsRequestCache, getSignals } from "../../src/api/getSignals.js";
 import { getStockEtfs, getStockHistory, getStockInstitutions, getStockOverview, getStocksSearch } from "../../src/api/getStocks.js";
-import { getStyleProfile } from "../../src/api/getStyleProfile.js";
+import { clearStyleProfileRequestCache, getStyleProfile } from "../../src/api/getStyleProfile.js";
 
 function request(query = "", params: Record<string, string> = {}): HttpRequest {
   return { query: new URLSearchParams(query), params } as unknown as HttpRequest;
@@ -40,7 +40,12 @@ function request(query = "", params: Record<string, string> = {}): HttpRequest {
 const context = { error: vi.fn() } as unknown as InvocationContext;
 
 describe("P1 intelligence APIs", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearEtfComparisonRequestCache();
+    clearSignalsRequestCache();
+    clearStyleProfileRequestCache();
+  });
 
   it("searches stocks with bounded validated inputs", async () => {
     const response = await getStocksSearch(request("q=台積電&market=tw&limit=8"), context);
@@ -163,6 +168,37 @@ describe("P1 intelligence APIs", () => {
     expect(first.status).toBe(200);
     expect(second.jsonBody).toEqual(first.jsonBody);
     expect(mocks.intelligenceSignals).toHaveBeenCalledTimes(1);
+    expect(mocks.getDb).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses one full signals calculation across kinds and limits", async () => {
+    mocks.intelligenceSignals.mockResolvedValueOnce({
+      kind: "all",
+      consecutive: [{ stock: { symbol: "2330" } }, { stock: { symbol: "2317" } }],
+      reversals: [{ stock: { symbol: "2454" } }],
+      divergences: [{ stock: { symbol: "2303" } }]
+    } as never);
+    const base = "window=20&date=2026-07-18";
+
+    const consecutive = await getSignals(request(`kind=consecutive&limit=1&${base}`), context);
+    const reversals = await getSignals(request(`kind=reversals&limit=20&${base}`), context);
+
+    expect(consecutive.jsonBody).toMatchObject({ kind: "consecutive", consecutive: [{ stock: { symbol: "2330" } }], reversals: [], divergences: [] });
+    expect(reversals.jsonBody).toMatchObject({ kind: "reversals", consecutive: [], reversals: [{ stock: { symbol: "2454" } }], divergences: [] });
+    expect(mocks.intelligenceSignals).toHaveBeenCalledTimes(1);
+    expect(mocks.intelligenceSignals).toHaveBeenCalledWith(expect.anything(), "all", 20, 50, "2026-07-18");
+  });
+
+  it("deduplicates concurrent identical ETF comparisons", async () => {
+    mocks.compareEtfs.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { type: "tw", cards: [] };
+    });
+    const query = "type=tw&codes=00981A,00982A&date=2026-07-17";
+
+    await Promise.all([getEtfComparison(request(query), context), getEtfComparison(request(query), context)]);
+
+    expect(mocks.compareEtfs).toHaveBeenCalledTimes(1);
     expect(mocks.getDb).toHaveBeenCalledTimes(1);
   });
 

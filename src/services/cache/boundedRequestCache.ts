@@ -8,6 +8,10 @@ export class BoundedRequestCache {
 
   constructor(private readonly maxEntries = 64) {}
 
+  clear(): void {
+    this.entries.clear();
+  }
+
   getOrLoad<T>(key: string, ttlMilliseconds: number, loader: () => Promise<T>): Promise<T> {
     const now = Date.now();
     const existing = this.entries.get(key);

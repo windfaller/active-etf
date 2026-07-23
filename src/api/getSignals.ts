@@ -6,7 +6,11 @@ import { limitSchema, optionalDate, signalKindSchema, windowSchema } from "./int
 import { badRequest, cachedJsonResponse, jsonResponse } from "./response.js";
 
 const requestCache = new BoundedRequestCache();
-const requestCacheTtlMilliseconds = 60_000;
+const requestCacheTtlMilliseconds = 180_000;
+
+export function clearSignalsRequestCache(): void {
+  requestCache.clear();
+}
 
 export async function getSignals(request: HttpRequest, context: InvocationContext) {
   const kind = signalKindSchema.safeParse(request.query.get("kind") ?? "all");
@@ -18,10 +22,17 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
   if (!limit.success) return badRequest("limit must be between 1 and 50");
   if (date.error) return badRequest(date.error);
   try {
-    const key = [kind.data, window.data, limit.data, date.value ?? "latest"].join(":");
-    const result = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
-      intelligenceSignals(await getDb(), kind.data, window.data, limit.data, date.value)
+    const key = [window.data, date.value ?? "latest"].join(":");
+    const fullResult = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
+      intelligenceSignals(await getDb(), "all", window.data, 50, date.value)
     );
+    const result = {
+      ...fullResult,
+      kind: kind.data,
+      consecutive: kind.data === "all" || kind.data === "consecutive" ? fullResult.consecutive.slice(0, limit.data) : [],
+      reversals: kind.data === "all" || kind.data === "reversals" ? fullResult.reversals.slice(0, limit.data) : [],
+      divergences: kind.data === "all" || kind.data === "divergence" ? fullResult.divergences.slice(0, limit.data) : []
+    };
     return cachedJsonResponse(result, 180);
   } catch (error) {
     context.error("signals failed", error);
