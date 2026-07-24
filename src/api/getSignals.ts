@@ -2,11 +2,12 @@ import { app, type HttpRequest, type InvocationContext } from "@azure/functions"
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { intelligenceSignals } from "../services/intelligence/signalIntelligenceService.js";
 import { limitSchema, optionalDate, signalKindSchema, windowSchema } from "./intelligenceValidation.js";
-import { badRequest, cachedJsonResponse, jsonResponse, withServerTiming } from "./response.js";
+import { badRequest, edgeCachedJsonResponse, jsonResponse, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 180_000;
+const sharedCacheTtlSeconds = 600;
 
 export function clearSignalsRequestCache(): void {
   requestCache.clear();
@@ -23,8 +24,15 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
   if (date.error) return badRequest(date.error);
   try {
     const key = [window.data, date.value ?? "latest"].join(":");
-    const timed = await getTimedCached(requestCache, key, requestCacheTtlMilliseconds, (db) =>
-      intelligenceSignals(db, "all", window.data, 50, date.value)
+    const timed = await getTimedCached(
+      requestCache,
+      key,
+      requestCacheTtlMilliseconds,
+      (db) => intelligenceSignals(db, "all", window.data, 50, date.value),
+      {
+        sharedCacheKey: ["api", "signals", "v1", window.data, date.value ?? "latest"],
+        sharedCacheTtlSeconds
+      }
     );
     const fullResult = timed.value;
     const result = {
@@ -34,7 +42,7 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
       reversals: kind.data === "all" || kind.data === "reversals" ? fullResult.reversals.slice(0, limit.data) : [],
       divergences: kind.data === "all" || kind.data === "divergence" ? fullResult.divergences.slice(0, limit.data) : []
     };
-    return withServerTiming(cachedJsonResponse(result, 180), timed.metrics);
+    return withServerTiming(edgeCachedJsonResponse(result, 30, 600), timed.metrics);
   } catch (error) {
     context.error("signals failed", error);
     return jsonResponse({ error: "signals are temporarily unavailable" }, 500);

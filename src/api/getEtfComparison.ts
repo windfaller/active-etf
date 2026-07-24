@@ -4,11 +4,12 @@ import { findGlobalEtfConfig } from "../config/globalEtfs.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { compareEtfs } from "../services/intelligence/etfComparisonService.js";
 import { comparisonTypeSchema, optionalDate } from "./intelligenceValidation.js";
-import { badRequest, cachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { badRequest, edgeCachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 300_000;
+const sharedCacheTtlSeconds = 600;
 
 export function clearEtfComparisonRequestCache(): void {
   requestCache.clear();
@@ -33,10 +34,17 @@ export async function getEtfComparison(request: HttpRequest, context: Invocation
   }
   try {
     const key = [type.data, codes.join(","), date.value ?? "latest"].join(":");
-    const timed = await getTimedCached(requestCache, key, requestCacheTtlMilliseconds, (db) =>
-      compareEtfs(db, type.data, codes, date.value)
+    const timed = await getTimedCached(
+      requestCache,
+      key,
+      requestCacheTtlMilliseconds,
+      (db) => compareEtfs(db, type.data, codes, date.value),
+      {
+        sharedCacheKey: ["api", "compare", "v1", type.data, codes.join(","), date.value ?? "latest"],
+        sharedCacheTtlSeconds
+      }
     );
-    return withServerTiming(cachedJsonResponse(timed.value, 300), timed.metrics);
+    return withServerTiming(edgeCachedJsonResponse(timed.value, 30, 600), timed.metrics);
   } catch (error) {
     context.error("ETF comparison failed", error);
     return jsonResponse({ error: "ETF comparison is temporarily unavailable" }, 500);

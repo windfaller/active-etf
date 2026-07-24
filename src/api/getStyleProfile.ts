@@ -3,11 +3,12 @@ import { configuredEtfs } from "../config/etfs.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
 import { optionalDate, styleWindowSchema } from "./intelligenceValidation.js";
-import { badRequest, cachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { badRequest, edgeCachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 300_000;
+const sharedCacheTtlSeconds = 600;
 
 export function clearStyleProfileRequestCache(): void {
   requestCache.clear();
@@ -23,10 +24,17 @@ export async function getStyleProfile(request: HttpRequest, context: InvocationC
   if (date.error) return badRequest(date.error);
   try {
     const key = [code, window.data, date.value ?? "latest"].join(":");
-    const timed = await getTimedCached(requestCache, key, requestCacheTtlMilliseconds, (db) =>
-      etfStyleProfile(db, code, window.data, date.value)
+    const timed = await getTimedCached(
+      requestCache,
+      key,
+      requestCacheTtlMilliseconds,
+      (db) => etfStyleProfile(db, code, window.data, date.value),
+      {
+        sharedCacheKey: ["api", "style", "v1", code, window.data, date.value ?? "latest"],
+        sharedCacheTtlSeconds
+      }
     );
-    return withServerTiming(cachedJsonResponse(timed.value, 300), timed.metrics);
+    return withServerTiming(edgeCachedJsonResponse(timed.value, 30, 600), timed.metrics);
   } catch (error) {
     context.error("style profile failed", error);
     return jsonResponse({ error: "style profile is temporarily unavailable" }, 500);

@@ -5,6 +5,8 @@ const namespace = "active-etf:v3";
 const commonDateLimits = [10, 30, 60, 90, 120, 180, 365];
 const commonSummaryHistoryLimits = [30, 60, 90, 120, 180];
 
+export type DailyDataCacheStatus = "hit" | "miss" | "bypass" | "error";
+
 function ttlSeconds(): number {
   return Number(process.env.REDIS_DAILY_CACHE_TTL_SECONDS ?? 86400);
 }
@@ -16,26 +18,33 @@ function buildCacheKey(parts: Array<string | number>): string {
 export async function getOrSetDailyCache<T>(
   parts: Array<string | number>,
   loader: () => Promise<T>,
-  ttl = ttlSeconds()
+  ttl = ttlSeconds(),
+  onStatus?: (status: DailyDataCacheStatus) => void
 ): Promise<T> {
   const key = buildCacheKey(parts);
 
   if (!isRedisConfigured()) {
+    onStatus?.("bypass");
     return loader();
   }
 
+  let readFailed = false;
   try {
     const cached = await redisGet(key);
     if (cached) {
+      onStatus?.("hit");
       return JSON.parse(cached) as T;
     }
   } catch (error) {
+    readFailed = true;
+    onStatus?.("error");
     logger.warn("Redis cache read skipped", {
       key,
       error: error instanceof Error ? error.message : String(error)
     });
   }
 
+  if (!readFailed) onStatus?.("miss");
   const value = await loader();
 
   try {
