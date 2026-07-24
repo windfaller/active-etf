@@ -13,7 +13,6 @@ import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGI
 
 type RouteComponentLoader = () => Promise<unknown>;
 
-const loadAdSlot = () => import("../components/ads/AdSlot");
 const loadForvixMarketEmbed = () => import("./components/ForvixMarketEmbed.vue");
 const loadGlobalSearchDialog = () => import("./components/search/GlobalSearchDialog.vue");
 const loadDailyBriefView = () => import("./views/DailyBriefView.vue");
@@ -31,7 +30,6 @@ const loadSearchResultsView = () => import("./views/SearchResultsView.vue");
 const loadMethodologyView = () => import("./views/MethodologyView.vue");
 const loadNotFoundView = () => import("./views/NotFoundView.vue");
 
-const AdSlot = defineAsyncComponent(loadAdSlot);
 const ForvixMarketEmbed = defineAsyncComponent(loadForvixMarketEmbed);
 const GlobalSearchDialog = defineAsyncComponent(loadGlobalSearchDialog);
 const DailyBriefView = defineAsyncComponent(loadDailyBriefView);
@@ -552,7 +550,6 @@ onBeforeUnmount(() => {
     <MethodologyView v-else-if="route.view === 'methodology'" />
     <NotFoundView v-else :path="route.path" @navigate="navigate" />
 
-    <AdSlot v-if="route.view !== 'daily' && route.view !== 'notFound'" slot="article-inline" mode="compact" compact :page="route.path" :etf-code="route.etfCode ?? route.globalCode" :tags="globalReport?.adContext.tags ?? ['active-etf','institutional-flow']" />
     <ForvixMarketEmbed v-if="shouldShowForvixEmbed" />
 
     <footer class="p0-footer">

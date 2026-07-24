@@ -34,6 +34,7 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
     if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReportFixture });
+    if (url.includes("/config")) return route.fulfill({ headers, json:{ads:{enabled:true,trackingEnabled:false}} });
     if (url.includes("/market/bootstrap")) return route.fulfill({ headers, json:{
       dates:["2026-07-21","2026-07-20"],
       recommendedDate:"2026-07-20",
@@ -63,6 +64,23 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     return route.fulfill({ headers, status:404, json:{} });
   });
 }
+
+test("sponsor creative appears only inside the expanded global search", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/");
+  const sponsor = page.locator('[data-ad-id="forvix-fed-july-decision"]');
+  await expect(sponsor).toHaveCount(0);
+
+  await page.getByRole("button", { name: "開啟全站搜尋" }).click();
+  const dialog = page.getByRole("dialog", { name: "全站搜尋" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("合作內容")).toBeVisible();
+  await expect(dialog.locator('[data-ad-id="forvix-fed-july-decision"]')).toBeVisible();
+  await expect(dialog.locator('img[src="/assets/ads/forvix-fed-july-decision-v1.webp"]')).toBeVisible();
+
+  await dialog.getByRole("button", { name: "關閉搜尋" }).click();
+  await expect(sponsor).toHaveCount(0);
+});
 
 test("Forvix market embed stays at content end on every requested product route", async ({ page }) => {
   await mockApis(page);
