@@ -4,6 +4,29 @@ import { resolve } from "node:path";
 
 function html(path) { return readFileSync(resolve(process.cwd(), "dist", path, "index.html"), "utf8"); }
 function includesAll(body, values) { for (const value of values) assert.ok(body.includes(value), `Expected HTML to contain: ${value}`); }
+const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "dist/.vite/manifest.json"), "utf8"));
+function routeStylesheets(entry) {
+  const files = new Set(entry.css ?? []);
+  const visited = new Set();
+  function visit(key) {
+    if (key === "index.html" || visited.has(key)) return;
+    visited.add(key);
+    const dependency = manifest[key];
+    if (!dependency) return;
+    for (const file of dependency.css ?? []) files.add(file);
+    for (const importKey of dependency.imports ?? []) visit(importKey);
+  }
+  for (const importKey of entry.imports ?? []) visit(importKey);
+  return files;
+}
+function assertModulePreload(body, source) {
+  const entry = Object.values(manifest).find((item) => item.src === source);
+  assert.ok(entry, `Expected manifest entry for ${source}`);
+  assert.ok(body.includes(`rel="modulepreload" crossorigin href="/${entry.file}"`), `Expected modulepreload for ${source}`);
+  for (const file of routeStylesheets(entry)) {
+    assert.ok(body.includes(`rel="stylesheet" crossorigin href="/${file}"`), `Expected route stylesheet for ${source}`);
+  }
+}
 
 const home = html("");
 const market = html("market");
@@ -33,6 +56,14 @@ includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.
 includesAll(search, ["<meta name=\"robots\" content=\"noindex, nofollow\"", "https://active-etf.inthewins.com/search"]);
 includesAll(notFound, ["<h1>找不到頁面</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
 includesAll(dynamicStock, ["<h1>股票 ETF 持股與調倉</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
+assertModulePreload(home, "src/web/views/DailyBriefView.vue");
+assertModulePreload(market, "src/web/views/TaiwanMarketView.vue");
+assertModulePreload(compare, "src/web/views/EtfCompareView.vue");
+assertModulePreload(reversals, "src/web/views/SignalsView.vue");
+assertModulePreload(style, "src/web/views/EtfStyleView.vue");
+assertModulePreload(stockTw, "src/web/views/StockDetailView.vue");
+assertModulePreload(methodology, "src/web/views/MethodologyView.vue");
+assertModulePreload(search, "src/web/views/SearchResultsView.vue");
 for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology, search]) assert.ok(!body.includes("active-etf.chicoo.co"));
 for (const [route, body] of [["/", home], ["/market", market], ["/compare/etfs", compare], ["/signals/reversals", reversals], ["/methodology", methodology]]) {
   assert.ok(!body.includes('"@type":"Dataset"'), `${route} must not be marked as a Dataset`);

@@ -137,6 +137,60 @@ function outputFileForRoute(outDir: string, path: string): string {
   return resolve(outDir, relativePath, "index.html");
 }
 
+interface ViteManifestEntry {
+  file: string;
+  src?: string;
+  css?: string[];
+  imports?: string[];
+}
+
+type ViteManifest = Record<string, ViteManifestEntry>;
+
+function routeStylesheets(entry: ViteManifestEntry, manifest: ViteManifest): string[] {
+  const files = new Set(entry.css ?? []);
+  const visited = new Set<string>();
+  const visit = (key: string) => {
+    if (key === "index.html" || visited.has(key)) return;
+    visited.add(key);
+    const dependency = manifest[key];
+    if (!dependency) return;
+    for (const file of dependency.css ?? []) files.add(file);
+    for (const importKey of dependency.imports ?? []) visit(importKey);
+  };
+  for (const importKey of entry.imports ?? []) visit(importKey);
+  return [...files];
+}
+
+function modulePreloadSourceForPath(path: string): string | null {
+  if (path === "/") return "src/web/views/DailyBriefView.vue";
+  if (path === "/market") return "src/web/views/TaiwanMarketView.vue";
+  if (path === "/global-etfs") return "src/web/views/GlobalMarketView.vue";
+  if (/^\/global-etfs\/[^/]+$/u.test(path)) return "src/web/views/GlobalEtfView.vue";
+  if (path === "/institutions" || /^\/institutions\/[^/]+$/u.test(path)) return "src/web/views/InstitutionView.vue";
+  if (path === "/stocks") return "src/web/views/StocksIndexView.vue";
+  if (/^\/stocks\/(?:tw|us)\/[^/]+$/u.test(path)) return "src/web/views/StockDetailView.vue";
+  if (path === "/compare/etfs") return "src/web/views/EtfCompareView.vue";
+  if (path === "/signals" || path.startsWith("/signals/")) return "src/web/views/SignalsView.vue";
+  if (/^\/etf\/[^/]+\/style$/u.test(path)) return "src/web/views/EtfStyleView.vue";
+  if (/^\/etf\/[^/]+(?:\/(?:changes|premium-history))?$/u.test(path)) return "src/web/views/TaiwanEtfView.vue";
+  if (path === "/search") return "src/web/views/SearchResultsView.vue";
+  if (path === "/methodology") return "src/web/views/MethodologyView.vue";
+  return null;
+}
+
+function injectRouteModulePreload(html: string, metadata: RouteMetadata, manifest: ViteManifest): string {
+  if (metadata.pageType === "reference") return html;
+  const source = modulePreloadSourceForPath(metadata.path);
+  if (!source) return html;
+  const entry = Object.values(manifest).find((item) => item.src === source);
+  if (!entry) throw new Error(`Missing Vite manifest entry for ${source}`);
+  const tags = [
+    `    <link rel="modulepreload" crossorigin href="/${entry.file}" />`,
+    ...routeStylesheets(entry, manifest).map((file) => `    <link rel="stylesheet" crossorigin href="/${file}" />`)
+  ];
+  return html.replace("  </head>", `${tags.join("\n")}\n  </head>`);
+}
+
 function writeStaticWebAppConfig(outDir: string): void {
   const configPath = resolve(outDir, "staticwebapp.config.json");
   const config = JSON.parse(readFileSync(configPath, "utf8")) as {
@@ -175,6 +229,7 @@ function staticSeoPlugin(): Plugin {
     async closeBundle() {
       const outDir = resolve(process.cwd(), "dist");
       const baseHtml = readFileSync(resolve(outDir, "index.html"), "utf8");
+      const manifest = JSON.parse(readFileSync(resolve(outDir, ".vite/manifest.json"), "utf8")) as ViteManifest;
       const snapshot = await loadPrerenderSnapshot();
       for (const path of allStaticSeoPaths()) {
         const metadata = routeMetadataForPath(path);
@@ -186,6 +241,7 @@ function staticSeoPlugin(): Plugin {
             /<!-- SEO_BODY_START -->[\s\S]*?<!-- SEO_BODY_END -->/u,
             staticSeoShell(metadata, prerenderContentForPath(snapshot, path))
           );
+        html = injectRouteModulePreload(html, metadata, manifest);
         if (metadata.pageType === "reference") {
           html = html.replace(/\s*<script type="module"[^>]*src="[^"]+"><\/script>/u, "");
         }
@@ -239,6 +295,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    emptyOutDir: true
+    emptyOutDir: true,
+    manifest: true
   }
 });

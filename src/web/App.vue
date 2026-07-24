@@ -3,7 +3,6 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import { ArrowLeft, Calendar, Globe2, Home, Layers, ListChecks, Moon, RefreshCw, Search, Sun } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
 import { enabledGlobalEtfs } from "../config/globalEtfs";
-import AdSlot from "../components/ads/AdSlot";
 import type { DashboardResponse, EtfCoverageResponse } from "./contracts/dashboard";
 import { emptyChanges } from "./contracts/dashboard";
 import type { GlobalEtfOption, GlobalEtfUniverseResponse, GlobalReport } from "./contracts/global";
@@ -11,23 +10,75 @@ import type { AppRoute } from "./contracts/navigation";
 import { useColorMode } from "./composables/useColorMode";
 import { getJson } from "./apiClient";
 import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGIN } from "./seo/routeMetadata";
-import DailyBriefView from "./views/DailyBriefView.vue";
-import GlobalEtfView from "./views/GlobalEtfView.vue";
-import GlobalMarketView from "./views/GlobalMarketView.vue";
-import InstitutionView from "./views/InstitutionView.vue";
-import NotFoundView from "./views/NotFoundView.vue";
-import TaiwanEtfView from "./views/TaiwanEtfView.vue";
-import TaiwanMarketView from "./views/TaiwanMarketView.vue";
-import ForvixMarketEmbed from "./components/ForvixMarketEmbed.vue";
 
-const StocksIndexView = defineAsyncComponent(() => import("./views/StocksIndexView.vue"));
-const StockDetailView = defineAsyncComponent(() => import("./views/StockDetailView.vue"));
-const EtfCompareView = defineAsyncComponent(() => import("./views/EtfCompareView.vue"));
-const SignalsView = defineAsyncComponent(() => import("./views/SignalsView.vue"));
-const EtfStyleView = defineAsyncComponent(() => import("./views/EtfStyleView.vue"));
-const SearchResultsView = defineAsyncComponent(() => import("./views/SearchResultsView.vue"));
-const MethodologyView = defineAsyncComponent(() => import("./views/MethodologyView.vue"));
-const GlobalSearchDialog = defineAsyncComponent(() => import("./components/search/GlobalSearchDialog.vue"));
+type RouteComponentLoader = () => Promise<unknown>;
+
+const loadAdSlot = () => import("../components/ads/AdSlot");
+const loadForvixMarketEmbed = () => import("./components/ForvixMarketEmbed.vue");
+const loadGlobalSearchDialog = () => import("./components/search/GlobalSearchDialog.vue");
+const loadDailyBriefView = () => import("./views/DailyBriefView.vue");
+const loadTaiwanMarketView = () => import("./views/TaiwanMarketView.vue");
+const loadTaiwanEtfView = () => import("./views/TaiwanEtfView.vue");
+const loadGlobalMarketView = () => import("./views/GlobalMarketView.vue");
+const loadGlobalEtfView = () => import("./views/GlobalEtfView.vue");
+const loadInstitutionView = () => import("./views/InstitutionView.vue");
+const loadStocksIndexView = () => import("./views/StocksIndexView.vue");
+const loadStockDetailView = () => import("./views/StockDetailView.vue");
+const loadEtfCompareView = () => import("./views/EtfCompareView.vue");
+const loadSignalsView = () => import("./views/SignalsView.vue");
+const loadEtfStyleView = () => import("./views/EtfStyleView.vue");
+const loadSearchResultsView = () => import("./views/SearchResultsView.vue");
+const loadMethodologyView = () => import("./views/MethodologyView.vue");
+const loadNotFoundView = () => import("./views/NotFoundView.vue");
+
+const AdSlot = defineAsyncComponent(loadAdSlot);
+const ForvixMarketEmbed = defineAsyncComponent(loadForvixMarketEmbed);
+const GlobalSearchDialog = defineAsyncComponent(loadGlobalSearchDialog);
+const DailyBriefView = defineAsyncComponent(loadDailyBriefView);
+const TaiwanMarketView = defineAsyncComponent(loadTaiwanMarketView);
+const TaiwanEtfView = defineAsyncComponent(loadTaiwanEtfView);
+const GlobalMarketView = defineAsyncComponent(loadGlobalMarketView);
+const GlobalEtfView = defineAsyncComponent(loadGlobalEtfView);
+const InstitutionView = defineAsyncComponent(loadInstitutionView);
+const StocksIndexView = defineAsyncComponent(loadStocksIndexView);
+const StockDetailView = defineAsyncComponent(loadStockDetailView);
+const EtfCompareView = defineAsyncComponent(loadEtfCompareView);
+const SignalsView = defineAsyncComponent(loadSignalsView);
+const EtfStyleView = defineAsyncComponent(loadEtfStyleView);
+const SearchResultsView = defineAsyncComponent(loadSearchResultsView);
+const MethodologyView = defineAsyncComponent(loadMethodologyView);
+const NotFoundView = defineAsyncComponent(loadNotFoundView);
+
+const prefetchedRouteLoaders = new Set<RouteComponentLoader>();
+
+function routeComponentLoader(pathname: string): RouteComponentLoader | null {
+  const path = cleanPath(new URL(pathname, window.location.origin).pathname);
+  if (path === "/") return loadDailyBriefView;
+  if (path === "/market") return loadTaiwanMarketView;
+  if (path === "/global-etfs") return loadGlobalMarketView;
+  if (/^\/global-etfs\/[^/]+$/u.test(path)) return loadGlobalEtfView;
+  if (path === "/institutions" || /^\/institutions\/[^/]+$/u.test(path)) return loadInstitutionView;
+  if (path === "/stocks") return loadStocksIndexView;
+  if (/^\/stocks\/(?:tw|us)\/[^/]+$/u.test(path)) return loadStockDetailView;
+  if (path === "/compare/etfs") return loadEtfCompareView;
+  if (path === "/signals" || path.startsWith("/signals/")) return loadSignalsView;
+  if (/^\/etf\/[^/]+\/style$/u.test(path)) return loadEtfStyleView;
+  if (/^\/etf\/[^/]+(?:\/(?:changes|premium-history))?$/u.test(path)) return loadTaiwanEtfView;
+  if (path === "/search") return loadSearchResultsView;
+  if (path === "/methodology") return loadMethodologyView;
+  return null;
+}
+
+function prefetchRouteComponent(path: string): void {
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+  if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+  const loader = routeComponentLoader(path);
+  if (!loader || prefetchedRouteLoaders.has(loader)) return;
+  prefetchedRouteLoaders.add(loader);
+  void loader().catch(() => prefetchedRouteLoaders.delete(loader));
+}
 
 interface TelegramInfo { configured: boolean; username: string | null; subscribeUrl: string | null }
 interface MarketDateCoverage { date: string; availableCount: number; trackedCount: number; coverageRate: number }
@@ -418,14 +469,27 @@ function onGlobalShortcut(event: KeyboardEvent): void {
 
 function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute(); }
 
+function scheduleLowPriorityLoads(): void {
+  const prefetch = () => {
+    void loadTelegramInfo();
+    for (const path of ["/signals", "/compare/etfs", "/stocks"]) prefetchRouteComponent(path);
+  };
+  const afterLoad = () => {
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+    };
+    if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(prefetch, { timeout: 4000 });
+    else window.setTimeout(prefetch, 1500);
+  };
+  if (document.readyState === "complete") afterLoad();
+  else window.addEventListener("load", afterLoad, { once: true });
+}
+
 onMounted(() => {
   applyRouteFromLocation();
   window.addEventListener("popstate", onPopState);
   window.addEventListener("keydown", onGlobalShortcut);
-  void loadForCurrentRoute();
-  const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void) => number };
-  if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(() => void loadTelegramInfo());
-  else window.setTimeout(() => void loadTelegramInfo(), 1200);
+  void loadForCurrentRoute().then(scheduleLowPriorityLoads, scheduleLowPriorityLoads);
 });
 
 onBeforeUnmount(() => {
@@ -438,21 +502,21 @@ onBeforeUnmount(() => {
 <template>
   <main class="app-shell p0-shell">
     <header class="p0-topbar">
-      <a class="brand-link" href="/" @click.prevent="navigate('/')">
+      <a class="brand-link" href="/" @pointerenter="prefetchRouteComponent('/')" @focus="prefetchRouteComponent('/')" @click.prevent="navigate('/')">
         <span class="brand-mark"><img src="/assets/logo-mark.svg" alt="" aria-hidden="true" /></span>
         <span><b>ETF 持倉雷達</b><small>Active ETF Intelligence</small></span>
       </a>
       <nav class="desktop-primary-nav" aria-label="主要導覽">
-        <a href="/" :class="{ active: route.view === 'daily' }" @click.prevent="navigate('/')">今日情報</a>
-        <a href="/market" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @click.prevent="navigate('/market')">台灣 ETF</a>
-        <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' }" @click.prevent="navigate('/global-etfs')">海外 ETF</a>
-        <a href="/institutions" :class="{ active: route.view === 'institutions' || route.view === 'institution' }" @click.prevent="navigate('/institutions')">機構 13F</a>
-        <a href="/stocks" :class="{ active: route.view === 'stocks' || route.view === 'stock' }" @click.prevent="navigate('/stocks')">股票</a>
-        <a href="/compare/etfs" :class="{ active: route.view === 'compareEtfs' }" @click.prevent="navigate('/compare/etfs')">比較</a>
-        <a href="/signals" :class="{ active: route.view === 'signals' }" @click.prevent="navigate('/signals')">訊號</a>
+        <a href="/" :class="{ active: route.view === 'daily' }" @pointerenter="prefetchRouteComponent('/')" @focus="prefetchRouteComponent('/')" @click.prevent="navigate('/')">今日情報</a>
+        <a href="/market" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @pointerenter="prefetchRouteComponent('/market')" @focus="prefetchRouteComponent('/market')" @click.prevent="navigate('/market')">台灣 ETF</a>
+        <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' }" @pointerenter="prefetchRouteComponent('/global-etfs')" @focus="prefetchRouteComponent('/global-etfs')" @click.prevent="navigate('/global-etfs')">海外 ETF</a>
+        <a href="/institutions" :class="{ active: route.view === 'institutions' || route.view === 'institution' }" @pointerenter="prefetchRouteComponent('/institutions')" @focus="prefetchRouteComponent('/institutions')" @click.prevent="navigate('/institutions')">機構 13F</a>
+        <a href="/stocks" :class="{ active: route.view === 'stocks' || route.view === 'stock' }" @pointerenter="prefetchRouteComponent('/stocks')" @focus="prefetchRouteComponent('/stocks')" @click.prevent="navigate('/stocks')">股票</a>
+        <a href="/compare/etfs" :class="{ active: route.view === 'compareEtfs' }" @pointerenter="prefetchRouteComponent('/compare/etfs')" @focus="prefetchRouteComponent('/compare/etfs')" @click.prevent="navigate('/compare/etfs')">比較</a>
+        <a href="/signals" :class="{ active: route.view === 'signals' }" @pointerenter="prefetchRouteComponent('/signals')" @focus="prefetchRouteComponent('/signals')" @click.prevent="navigate('/signals')">訊號</a>
       </nav>
       <div class="top-actions">
-        <button class="global-search-button" type="button" aria-label="開啟全站搜尋" title="全站搜尋（Cmd/Ctrl + K）" @click="isMobileSearchOpen = true"><Search :size="16" /><span>搜尋</span><kbd>⌘K</kbd></button>
+        <button class="global-search-button" type="button" aria-label="開啟全站搜尋" title="全站搜尋（Cmd/Ctrl + K）" @pointerenter="prefetchRouteComponent('/search')" @focus="prefetchRouteComponent('/search')" @click="isMobileSearchOpen = true"><Search :size="16" /><span>搜尋</span><kbd>⌘K</kbd></button>
         <a class="telegram-link" :href="telegramUrl" target="_blank" rel="noreferrer" :aria-disabled="telegramInfo && !telegramInfo.configured">Telegram</a>
         <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ marketDateLabel(date) }}</option></select></label>
         <label v-else-if="isTaiwanEtfArea" class="date-control"><Calendar :size="15" /><select v-model="selectedEtfDate" aria-label="單檔 ETF 資料日期" @change="loadSelectedEtfDashboard()"><option v-if="!selectedEtfAvailableDates.length" value="">載入中</option><option v-for="date in selectedEtfAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
@@ -462,9 +526,9 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <nav v-if="route.view === 'market' || route.view === 'taiwanEtf'" class="area-subnav" aria-label="台灣 ETF 導覽"><a href="/market" :class="{ active: route.view === 'market' }" @click.prevent="navigate('/market')"><Layers :size="16" />市場總覽</a><a :href="`/etf/${selectedEtfCode}`" :class="{ active: route.view === 'taiwanEtf' }" @click.prevent="navigate(`/etf/${selectedEtfCode}`)"><ListChecks :size="16" />單檔 ETF</a></nav>
-    <nav v-if="route.view === 'globalMarket' || route.view === 'globalEtf'" class="area-subnav" aria-label="海外 ETF 導覽"><a href="/global-etfs" :class="{ active: route.view === 'globalMarket' }" @click.prevent="navigate('/global-etfs')"><Globe2 :size="16" />市場總覽</a><a :href="`/global-etfs/${selectedGlobalCode}`" :class="{ active: route.view === 'globalEtf' }" @click.prevent="navigate(`/global-etfs/${selectedGlobalCode}`)"><ListChecks :size="16" />單檔 ETF</a></nav>
-    <nav v-if="parentNavigation" class="context-back-nav" aria-label="上一層導覽"><a :href="parentNavigation.path" @click.prevent="navigate(parentNavigation.path)"><ArrowLeft :size="17" />{{ parentNavigation.label }}</a></nav>
+    <nav v-if="route.view === 'market' || route.view === 'taiwanEtf'" class="area-subnav" aria-label="台灣 ETF 導覽"><a href="/market" :class="{ active: route.view === 'market' }" @pointerenter="prefetchRouteComponent('/market')" @focus="prefetchRouteComponent('/market')" @click.prevent="navigate('/market')"><Layers :size="16" />市場總覽</a><a :href="`/etf/${selectedEtfCode}`" :class="{ active: route.view === 'taiwanEtf' }" @pointerenter="prefetchRouteComponent(`/etf/${selectedEtfCode}`)" @focus="prefetchRouteComponent(`/etf/${selectedEtfCode}`)" @click.prevent="navigate(`/etf/${selectedEtfCode}`)"><ListChecks :size="16" />單檔 ETF</a></nav>
+    <nav v-if="route.view === 'globalMarket' || route.view === 'globalEtf'" class="area-subnav" aria-label="海外 ETF 導覽"><a href="/global-etfs" :class="{ active: route.view === 'globalMarket' }" @pointerenter="prefetchRouteComponent('/global-etfs')" @focus="prefetchRouteComponent('/global-etfs')" @click.prevent="navigate('/global-etfs')"><Globe2 :size="16" />市場總覽</a><a :href="`/global-etfs/${selectedGlobalCode}`" :class="{ active: route.view === 'globalEtf' }" @pointerenter="prefetchRouteComponent(`/global-etfs/${selectedGlobalCode}`)" @focus="prefetchRouteComponent(`/global-etfs/${selectedGlobalCode}`)" @click.prevent="navigate(`/global-etfs/${selectedGlobalCode}`)"><ListChecks :size="16" />單檔 ETF</a></nav>
+    <nav v-if="parentNavigation" class="context-back-nav" aria-label="上一層導覽"><a :href="parentNavigation.path" @pointerenter="prefetchRouteComponent(parentNavigation.path)" @focus="prefetchRouteComponent(parentNavigation.path)" @click.prevent="navigate(parentNavigation.path)"><ArrowLeft :size="17" />{{ parentNavigation.label }}</a></nav>
 
     <section v-if="isTaiwanMarketArea && newerPartialMarketDate" class="newer-date-notice" aria-label="較新資料日揭露進度">
       <div><b>較新資料持續揭露中</b><span>{{ newerPartialMarketDate.date }} 已有 {{ newerPartialMarketDate.availableCount }} / {{ newerPartialMarketDate.trackedCount }} 檔更新；目前預設顯示涵蓋較完整的 {{ marketDate }}。</span></div>
@@ -493,14 +557,14 @@ onBeforeUnmount(() => {
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>
-      <span><a href="/methodology">方法論</a><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a></span>
+      <span><a href="/methodology" @pointerenter="prefetchRouteComponent('/methodology')" @focus="prefetchRouteComponent('/methodology')">方法論</a><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a></span>
     </footer>
 
     <nav class="mobile-primary-nav" aria-label="行動版主要導覽">
-      <a href="/" :class="{ active: route.view === 'daily' }" @click.prevent="navigate('/')"><Home :size="20" /><span>今日</span></a>
-      <a href="/market" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @click.prevent="navigate('/market')"><Layers :size="20" /><span>台灣</span></a>
-      <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' || route.view === 'institutions' || route.view === 'institution' }" @click.prevent="navigate('/global-etfs')"><Globe2 :size="20" /><span>海外</span></a>
-      <button type="button" :class="{ active: isMobileSearchOpen || route.view === 'stocks' || route.view === 'stock' || route.view === 'search' || route.view === 'compareEtfs' || route.view === 'signals' }" @click="isMobileSearchOpen = true"><Search :size="20" /><span>搜尋</span></button>
+      <a href="/" :class="{ active: route.view === 'daily' }" @pointerdown="prefetchRouteComponent('/')" @click.prevent="navigate('/')"><Home :size="20" /><span>今日</span></a>
+      <a href="/market" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @pointerdown="prefetchRouteComponent('/market')" @click.prevent="navigate('/market')"><Layers :size="20" /><span>台灣</span></a>
+      <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' || route.view === 'institutions' || route.view === 'institution' }" @pointerdown="prefetchRouteComponent('/global-etfs')" @click.prevent="navigate('/global-etfs')"><Globe2 :size="20" /><span>海外</span></a>
+      <button type="button" :class="{ active: isMobileSearchOpen || route.view === 'stocks' || route.view === 'stock' || route.view === 'search' || route.view === 'compareEtfs' || route.view === 'signals' }" @pointerdown="prefetchRouteComponent('/search')" @click="isMobileSearchOpen = true"><Search :size="20" /><span>搜尋</span></button>
     </nav>
 
     <div v-if="isMobileSearchOpen" class="global-search-overlay" role="dialog" aria-modal="true" aria-label="全站搜尋" @click.self="isMobileSearchOpen = false">
