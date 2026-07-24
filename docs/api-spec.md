@@ -10,7 +10,9 @@ Returns public runtime feature flags for the frontend. `ads.enabled` is controll
 
 `POST /api/health/warmup`
 
-Initializes the Azure Functions runtime and verifies MongoDB and, when configured, Redis connectivity without changing application data. Include `x-warmup-token`; the value must match `WARMUP_TOKEN`. Production is scheduled by `cloudflare/azure-warmup/wrangler.jsonc` every five minutes and calls the Azure Static Web Apps origin directly.
+Initializes the Azure Functions runtime and verifies MongoDB and, when configured, Redis connectivity without changing application data. Include `x-warmup-token`; the value must match `WARMUP_TOKEN`. Production is scheduled by `cloudflare/azure-warmup/wrangler.jsonc` every five minutes and calls the Azure Static Web Apps origin directly. The same scheduled invocation requests the public UI's exact market bootstrap, signals, comparison, and style URLs through the canonical Cloudflare hostname so the Azure runtime and request caches stay warm.
+
+Market bootstrap, market dates, and market dashboard responses emit browser and shared-cache directives separately (`max-age` and `s-maxage`). Performance-sensitive market, signals, comparison, and style responses also expose bounded `Server-Timing` metrics for total request time, application cache status, MongoDB connection time, and compute time where applicable.
 
 ## Get Holdings
 

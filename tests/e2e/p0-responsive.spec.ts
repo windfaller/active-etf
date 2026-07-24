@@ -81,9 +81,13 @@ test("Forvix market embed stays at content end on every requested product route"
     const embed = page.locator("#forvix-market-watch-embed");
     await expect(embed).toHaveCount(1);
     await expect(embed).toHaveAttribute("data-forvix-placement", "content-end");
+    if (await embed.locator("iframe").count() === 0) await embed.scrollIntoViewIfNeeded();
     await expect(embed.locator("iframe")).toHaveAttribute("src", /https:\/\/www\.forvix\.app\/market-watch\/embed\/106981\?lang=zh-TW&targetOrigin=/u);
     expect(await embed.evaluate((node) => node.nextElementSibling?.classList.contains("p0-footer"))).toBe(true);
   }
+
+  await page.goto("/signals");
+  await expect(page.locator("#forvix-market-watch-embed")).toHaveCount(0);
 });
 
 const viewports = [

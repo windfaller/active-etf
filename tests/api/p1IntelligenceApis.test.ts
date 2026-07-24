@@ -148,7 +148,9 @@ describe("P1 intelligence APIs", () => {
   });
 
   it("validates and returns signals, style profiles, and global search", async () => {
-    expect((await getSignals(request("kind=reversals&window=5&limit=20"), context)).status).toBe(200);
+    const signals = await getSignals(request("kind=reversals&window=5&limit=20"), context);
+    expect(signals.status).toBe(200);
+    expect(new Headers(signals.headers).get("Server-Timing")).toContain("app-cache;desc=\"miss\"");
     expect((await getSignals(request("kind=reversals&window=90"), context)).status).toBe(400);
     expect((await getStyleProfile(request("window=20", { etfCode: "00981A" }), context)).status).toBe(200);
     expect((await getStyleProfile(request("window=20", { etfCode: "99999X" }), context)).status).toBe(404);

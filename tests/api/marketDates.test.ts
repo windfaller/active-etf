@@ -43,6 +43,10 @@ describe("GET /api/market/dates", () => {
         { date: "2026-07-20", availableCount: 22 }
       ]
     });
+    expect(new Headers(response.headers).get("Cache-Control")).toBe(
+      "public, max-age=30, s-maxage=180, stale-while-revalidate=360"
+    );
+    expect(new Headers(response.headers).get("Server-Timing")).toContain("market-dates;dur=");
     expect(mocks.collection).toHaveBeenCalledWith("etf_holding_changes");
     expect(mocks.collection).toHaveBeenCalledWith("etf_daily_summary");
   });
@@ -65,6 +69,10 @@ describe("GET /api/market/dates", () => {
         coverage: { availableCount: 22 }
       }
     });
+    expect(new Headers(response.headers).get("Cache-Control")).toBe(
+      "public, max-age=30, s-maxage=180, stale-while-revalidate=360"
+    );
+    expect(new Headers(response.headers).get("Server-Timing")).toContain("market-dashboard;dur=");
   });
 
   it("preserves an explicitly selected available date while refreshing bootstrap data", async () => {

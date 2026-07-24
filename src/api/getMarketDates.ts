@@ -4,9 +4,10 @@ import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { marketDashboardForDate } from "../services/market/marketDashboardService.js";
 import { marketDateOverview, safeMarketDateLimit } from "../services/market/marketDatesService.js";
 import { assertTradeDate } from "../utils/date.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { badRequest, edgeCachedJsonResponse, withServerTiming } from "./response.js";
 
 export async function getMarketDates(request: HttpRequest, _context: InvocationContext) {
+  const startedAt = Date.now();
   const limitParam = request.query.get("limit");
   const parsedLimit = Number(limitParam ?? 180);
   if (Number.isNaN(parsedLimit)) return badRequest("numeric limit is required");
@@ -16,7 +17,10 @@ export async function getMarketDates(request: HttpRequest, _context: InvocationC
     marketDateOverview(await getDb(), limit)
   );
 
-  return jsonResponse(body);
+  return withServerTiming(edgeCachedJsonResponse(body), [
+    { name: "total", duration: Date.now() - startedAt },
+    { name: "market-dates", duration: Date.now() - startedAt }
+  ]);
 }
 
 async function cachedMarketDateOverview(limit: number) {
@@ -28,26 +32,40 @@ async function cachedMarketDashboard(date: string) {
 }
 
 export async function getMarketDashboard(request: HttpRequest, _context: InvocationContext) {
+  const startedAt = Date.now();
   const dateParam = request.query.get("date");
   if (!dateParam) return badRequest("date is required");
   const date = assertTradeDate(dateParam);
-  return jsonResponse(await cachedMarketDashboard(date));
+  const dashboard = await cachedMarketDashboard(date);
+  return withServerTiming(edgeCachedJsonResponse(dashboard), [
+    { name: "total", duration: Date.now() - startedAt },
+    { name: "market-dashboard", duration: Date.now() - startedAt }
+  ]);
 }
 
 export async function getMarketBootstrap(request: HttpRequest, _context: InvocationContext) {
+  const startedAt = Date.now();
   const parsedLimit = Number(request.query.get("limit") ?? 180);
   if (Number.isNaN(parsedLimit)) return badRequest("numeric limit is required");
+  const datesStartedAt = Date.now();
   const overview = await cachedMarketDateOverview(safeMarketDateLimit(parsedLimit));
+  const datesDuration = Date.now() - datesStartedAt;
   const requestedDateParam = request.query.get("date");
   const requestedDate = requestedDateParam ? assertTradeDate(requestedDateParam) : null;
   const selectedDate = requestedDate && overview.dates.includes(requestedDate)
     ? requestedDate
     : overview.recommendedDate ?? overview.dates[0] ?? null;
-  return jsonResponse({
+  const dashboardStartedAt = Date.now();
+  const dashboard = selectedDate ? await cachedMarketDashboard(selectedDate) : null;
+  return withServerTiming(edgeCachedJsonResponse({
     ...overview,
     selectedDate,
-    dashboard: selectedDate ? await cachedMarketDashboard(selectedDate) : null
-  });
+    dashboard
+  }), [
+    { name: "total", duration: Date.now() - startedAt },
+    { name: "market-dates", duration: datesDuration },
+    { name: "market-dashboard", duration: Date.now() - dashboardStartedAt }
+  ]);
 }
 
 app.http("getMarketDates", {

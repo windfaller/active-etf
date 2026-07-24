@@ -3,10 +3,12 @@
   "name": "active-etf-azure-warmup",
   "account_id": "7038f52088d5b94feb20d4d7287b3496",
   "main": "src/index.js",
-  "compatibility_date": "2026-07-22",
+  "compatibility_date": "2026-07-24",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "vars": {
     "WARMUP_URL": "https://kind-coast-08b07e900.7.azurestaticapps.net/api/health/warmup",
+    "ACTIVE_ETF_PUBLIC_BASE_URL": "https://active-etf.inthewins.com",
     "FORVIX_STAGING_HEALTH_URL": "https://kind-mud-0db008c00.7.azurestaticapps.net/api/health",
     "FORVIX_PRODUCTION_HEALTH_URL": "https://gray-hill-008bea600.7.azurestaticapps.net/api/health"
   },

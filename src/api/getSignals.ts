@@ -1,9 +1,9 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
-import { getDb } from "../db/mongo.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { intelligenceSignals } from "../services/intelligence/signalIntelligenceService.js";
 import { limitSchema, optionalDate, signalKindSchema, windowSchema } from "./intelligenceValidation.js";
-import { badRequest, cachedJsonResponse, jsonResponse } from "./response.js";
+import { badRequest, cachedJsonResponse, jsonResponse, withServerTiming } from "./response.js";
+import { getTimedCached } from "./timedRequestCache.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 180_000;
@@ -23,9 +23,10 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
   if (date.error) return badRequest(date.error);
   try {
     const key = [window.data, date.value ?? "latest"].join(":");
-    const fullResult = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
-      intelligenceSignals(await getDb(), "all", window.data, 50, date.value)
+    const timed = await getTimedCached(requestCache, key, requestCacheTtlMilliseconds, (db) =>
+      intelligenceSignals(db, "all", window.data, 50, date.value)
     );
+    const fullResult = timed.value;
     const result = {
       ...fullResult,
       kind: kind.data,
@@ -33,7 +34,7 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
       reversals: kind.data === "all" || kind.data === "reversals" ? fullResult.reversals.slice(0, limit.data) : [],
       divergences: kind.data === "all" || kind.data === "divergence" ? fullResult.divergences.slice(0, limit.data) : []
     };
-    return cachedJsonResponse(result, 180);
+    return withServerTiming(cachedJsonResponse(result, 180), timed.metrics);
   } catch (error) {
     context.error("signals failed", error);
     return jsonResponse({ error: "signals are temporarily unavailable" }, 500);

@@ -9,6 +9,7 @@ import { emptyChanges } from "./contracts/dashboard";
 import type { GlobalEtfOption, GlobalEtfUniverseResponse, GlobalReport } from "./contracts/global";
 import type { AppRoute } from "./contracts/navigation";
 import { useColorMode } from "./composables/useColorMode";
+import { getJson } from "./apiClient";
 import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGIN } from "./seo/routeMetadata";
 import DailyBriefView from "./views/DailyBriefView.vue";
 import GlobalEtfView from "./views/GlobalEtfView.vue";
@@ -41,7 +42,6 @@ interface MarketBootstrapResponse extends MarketDatesResponse {
   dashboard: MarketDashboardResponse | null;
 }
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://127.0.0.1:7072" : "");
 const etfOptions = configuredEtfs.filter((etf) => etf.enabled).map((etf) => ({
   etfCode: etf.etfCode,
   name: etf.name,
@@ -85,6 +85,7 @@ const isMobileSearchOpen = ref(false);
 const p1RefreshKey = ref(0);
 const { isDarkMode, toggleColorMode } = useColorMode();
 const marketDateCoverageThreshold = 0.7;
+const initialMarketDateLimit = 60;
 
 const dashboard = computed(() => route.value.view === "taiwanEtf" ? selectedEtfDashboard.value : marketDashboard.value);
 const selectedEtfCoverage = computed(() => selectedEtfDashboard.value.coverage.etfs.find((etf) => etf.etfCode === selectedEtfCode.value) ?? null);
@@ -95,6 +96,9 @@ const isTaiwanMarketArea = computed(() => route.value.view === "daily" || route.
 const isTaiwanEtfArea = computed(() => route.value.view === "taiwanEtf");
 const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view));
 const isP1Area = computed(() => ["stocks", "stock", "compareEtfs", "signals", "etfStyle", "search", "methodology"].includes(route.value.view));
+const shouldShowForvixEmbed = computed(() =>
+  ["daily", "market", "taiwanEtf", "globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view)
+);
 const telegramUrl = computed(() => telegramInfo.value?.subscribeUrl ?? "https://telegram.org/");
 const newerPartialMarketDate = computed(() => {
   const latest = marketDateCoverage.value[0];
@@ -200,12 +204,6 @@ function updateDocumentMetadata(): void {
   if (structured) structured.textContent = JSON.stringify(routeStructuredData(metadata, new Date().toISOString()));
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, { signal });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return await response.json() as T;
-}
-
 let selectedEtfDateAbort: AbortController | null = null;
 let dashboardAbort: AbortController | null = null;
 let dashboardRequestId = 0;
@@ -225,7 +223,7 @@ async function loadMarketBootstrap(): Promise<boolean> {
   isTaiwanLoading.value = true;
   taiwanError.value = "";
   try {
-    const bootstrapParams = new URLSearchParams({ limit: "180" });
+    const bootstrapParams = new URLSearchParams({ limit: String(initialMarketDateLimit) });
     if (marketDate.value) bootstrapParams.set("date", marketDate.value);
     const result = await getJson<MarketBootstrapResponse>(`/api/market/bootstrap?${bootstrapParams.toString()}`, dashboardAbort.signal);
     if (requestId !== dashboardRequestId || !isTaiwanMarketArea.value) return false;
@@ -491,7 +489,7 @@ onBeforeUnmount(() => {
     <NotFoundView v-else :path="route.path" @navigate="navigate" />
 
     <AdSlot v-if="route.view !== 'daily' && route.view !== 'notFound'" slot="article-inline" mode="compact" compact :page="route.path" :etf-code="route.etfCode ?? route.globalCode" :tags="globalReport?.adContext.tags ?? ['active-etf','institutional-flow']" />
-    <ForvixMarketEmbed v-if="route.view !== 'notFound'" />
+    <ForvixMarketEmbed v-if="shouldShowForvixEmbed" />
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>

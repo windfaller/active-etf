@@ -19,4 +19,19 @@ describe("BoundedRequestCache", () => {
     await expect(cache.getOrLoad("failure", 60_000, async () => "recovered")).resolves.toBe("recovered");
     expect(failingLoader).toHaveBeenCalledTimes(1);
   });
+
+  it("reports misses, coalesced requests, and resolved hits", async () => {
+    const cache = new BoundedRequestCache();
+    const statuses: string[] = [];
+    let resolveLoader!: (value: string) => void;
+    const loader = () => new Promise<string>((resolve) => { resolveLoader = resolve; });
+
+    const first = cache.getOrLoad("key", 60_000, loader, (status) => statuses.push(status));
+    const second = cache.getOrLoad("key", 60_000, loader, (status) => statuses.push(status));
+    resolveLoader("ready");
+    await Promise.all([first, second]);
+    await cache.getOrLoad("key", 60_000, loader, (status) => statuses.push(status));
+
+    expect(statuses).toEqual(["miss", "coalesced", "hit"]);
+  });
 });

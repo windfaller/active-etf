@@ -1,11 +1,11 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
 import { findGlobalEtfConfig } from "../config/globalEtfs.js";
-import { getDb } from "../db/mongo.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { compareEtfs } from "../services/intelligence/etfComparisonService.js";
 import { comparisonTypeSchema, optionalDate } from "./intelligenceValidation.js";
-import { badRequest, cachedJsonResponse, jsonResponse, notFound } from "./response.js";
+import { badRequest, cachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { getTimedCached } from "./timedRequestCache.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 300_000;
@@ -33,10 +33,10 @@ export async function getEtfComparison(request: HttpRequest, context: Invocation
   }
   try {
     const key = [type.data, codes.join(","), date.value ?? "latest"].join(":");
-    const result = await requestCache.getOrLoad(key, requestCacheTtlMilliseconds, async () =>
-      compareEtfs(await getDb(), type.data, codes, date.value)
+    const timed = await getTimedCached(requestCache, key, requestCacheTtlMilliseconds, (db) =>
+      compareEtfs(db, type.data, codes, date.value)
     );
-    return cachedJsonResponse(result, 300);
+    return withServerTiming(cachedJsonResponse(timed.value, 300), timed.metrics);
   } catch (error) {
     context.error("ETF comparison failed", error);
     return jsonResponse({ error: "ETF comparison is temporarily unavailable" }, 500);

@@ -3,6 +3,8 @@ interface CacheEntry {
   promise: Promise<unknown>;
 }
 
+export type RequestCacheStatus = "hit" | "miss" | "coalesced";
+
 export class BoundedRequestCache {
   private readonly entries = new Map<string, CacheEntry>();
 
@@ -12,14 +14,21 @@ export class BoundedRequestCache {
     this.entries.clear();
   }
 
-  getOrLoad<T>(key: string, ttlMilliseconds: number, loader: () => Promise<T>): Promise<T> {
+  getOrLoad<T>(
+    key: string,
+    ttlMilliseconds: number,
+    loader: () => Promise<T>,
+    onStatus?: (status: RequestCacheStatus) => void
+  ): Promise<T> {
     const now = Date.now();
     const existing = this.entries.get(key);
     if (existing && (existing.expiresAt === null || existing.expiresAt > now)) {
+      onStatus?.(existing.expiresAt === null ? "coalesced" : "hit");
       return existing.promise as Promise<T>;
     }
     if (existing) this.entries.delete(key);
 
+    onStatus?.("miss");
     this.pruneExpired(now);
     this.evictResolvedEntryAtCapacity();
 

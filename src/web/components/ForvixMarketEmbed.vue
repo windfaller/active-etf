@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 const eventId = "106981";
 const forvixOrigin = "https://www.forvix.app";
 const parentOrigin = typeof window === "undefined" ? "https://active-etf.inthewins.com" : window.location.origin;
+const host = ref<HTMLElement | null>(null);
+const shouldLoad = ref(false);
+let observer: IntersectionObserver | null = null;
+let fallbackTimer: number | null = null;
 
 const embedUrl = computed(() => {
   const params = new URLSearchParams({
@@ -22,11 +26,36 @@ const fullPageUrl = computed(() => {
   });
   return `${forvixOrigin}/market-watch/${eventId}?${params.toString()}`;
 });
+
+function loadEmbed(): void {
+  shouldLoad.value = true;
+  observer?.disconnect();
+  observer = null;
+  if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+  fallbackTimer = null;
+}
+
+onMounted(() => {
+  if ("IntersectionObserver" in window && host.value) {
+    observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadEmbed();
+    }, { rootMargin: "500px 0px" });
+    observer.observe(host.value);
+    return;
+  }
+  fallbackTimer = window.setTimeout(loadEmbed, 2500);
+});
+
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+});
 </script>
 
 <template>
   <aside
     id="forvix-market-watch-embed"
+    ref="host"
     class="forvix-market-embed"
     aria-label="FORVIX 市場事件延伸閱讀"
     data-forvix-placement="content-end"
@@ -36,6 +65,7 @@ const fullPageUrl = computed(() => {
       <a :href="fullPageUrl" target="_blank" rel="noopener sponsored">開啟完整頁面 ↗</a>
     </header>
     <iframe
+      v-if="shouldLoad"
       :src="embedUrl"
       title="FORVIX 市場事件延伸閱讀"
       loading="lazy"
@@ -43,6 +73,7 @@ const fullPageUrl = computed(() => {
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
       scrolling="yes"
     />
+    <div v-else class="embed-placeholder" aria-hidden="true">延伸閱讀將在捲動至此處時載入</div>
   </aside>
 </template>
 
@@ -87,6 +118,16 @@ const fullPageUrl = computed(() => {
   height: 560px;
   border: 0;
   background: #020617;
+}
+
+.embed-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  padding: 24px;
+  background: var(--theme-surface-muted);
+  color: var(--theme-text-muted);
+  font-size: 12px;
 }
 
 :global([data-theme="dark"]) .forvix-market-embed header a {

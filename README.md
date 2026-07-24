@@ -140,7 +140,7 @@ POST /api/health/warmup
 x-warmup-token: <WARMUP_TOKEN>
 ```
 
-Azure Static Web Apps App Settings 與 Cloudflare Worker Secret 必須設定相同的 `WARMUP_TOKEN`。該 endpoint 只會初始化 Functions runtime、MongoDB 與 Redis 連線，不會執行資料同步或寫入業務資料。同一個 Worker 也會平行呼叫 Forvix staging 與 production 的 `/api/health?source=cloudflare-warmup&ts=<timestamp>`，每個目標皆有獨立 timeout 與結果日誌。
+Azure Static Web Apps App Settings 與 Cloudflare Worker Secret 必須設定相同的 `WARMUP_TOKEN`。該 endpoint 只會初始化 Functions runtime、MongoDB 與 Redis 連線，不會執行資料同步或寫入業務資料。同一個 Worker 也會平行呼叫首頁 bootstrap、預設 signals／compare／style 查詢，以及 Forvix staging 和 production 的 `/api/health?source=cloudflare-warmup&ts=<timestamp>`。公開 UI API 使用 `ACTIVE_ETF_PUBLIC_BASE_URL`，每個目標皆有獨立 timeout、bounded response drain 與結果日誌。
 
 若 `daily-refresh` 在 SWA/Cloudflare 路徑被 5 分鐘左右的 backend timeout 中斷，請改用拆分式 Logic App：
 
