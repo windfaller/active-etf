@@ -1,4 +1,5 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
+import { enabledGlobalEtfs } from "../config/globalEtfs.js";
 import { getDb } from "../db/mongo.js";
 import { syncAllGlobalEtfHoldings, syncGlobalEtfHoldings } from "../services/globalEtf/globalEtfService.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
@@ -8,6 +9,16 @@ function validateAdminToken(request: HttpRequest) {
   if (!expected) return serverError("ADMIN_JOB_TOKEN is required");
   if (request.headers.get("x-admin-token") !== expected) return unauthorized();
   return null;
+}
+
+export async function getGlobalEtfSyncTargets(request: HttpRequest, _context: InvocationContext) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+
+  const etfCodes = enabledGlobalEtfs
+    .filter((etf) => etf.enabled && etf.sourceStatus === "verified")
+    .map((etf) => etf.etfCode);
+  return jsonResponse({ etfCodes, count: etfCodes.length });
 }
 
 export async function postAllGlobalEtfsSyncHoldings(request: HttpRequest, _context: InvocationContext) {
@@ -27,6 +38,13 @@ export async function postGlobalEtfSyncHoldings(request: HttpRequest, _context: 
   const result = await syncGlobalEtfHoldings(db, etfCode);
   return jsonResponse({ ok: true, job: "globalEtfSyncHoldings", result });
 }
+
+app.http("getGlobalEtfSyncTargets", {
+  methods: ["GET"],
+  route: "jobs/global-etfs/sync-targets",
+  authLevel: "anonymous",
+  handler: getGlobalEtfSyncTargets
+});
 
 app.http("postAllGlobalEtfsSyncHoldings", {
   methods: ["POST"],

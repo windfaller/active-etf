@@ -13,9 +13,35 @@ jobs:
       - name: Trigger production global ETF sync
         env:
           ADMIN_JOB_TOKEN: ${{ secrets.ADMIN_JOB_TOKEN }}
+          API_BASE_URL: https://kind-coast-08b07e900.7.azurestaticapps.net
         run: |
           test -n "$ADMIN_JOB_TOKEN"
-          curl --fail-with-body --show-error --silent \
-            -X POST \
+          targets_json="$(curl --fail-with-body --show-error --silent \
             -H "x-admin-token: $ADMIN_JOB_TOKEN" \
-            https://kind-coast-08b07e900.7.azurestaticapps.net/api/jobs/global-etfs/sync-holdings
+            "$API_BASE_URL/api/jobs/global-etfs/sync-targets")"
+          mapfile -t etf_codes < <(jq -er '.etfCodes[]' <<< "$targets_json")
+          test "${#etf_codes[@]}" -gt 0
+
+          failed_codes=()
+          for etf_code in "${etf_codes[@]}"; do
+            echo "::group::Sync $etf_code"
+            if ! curl --fail-with-body --show-error --silent \
+              --retry 2 \
+              --retry-delay 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 50 \
+              -X POST \
+              -H "x-admin-token: $ADMIN_JOB_TOKEN" \
+              "$API_BASE_URL/api/jobs/global-etf/$etf_code/sync-holdings"; then
+              failed_codes+=("$etf_code")
+              echo "::error title=Global ETF sync failed::$etf_code failed after retries"
+            fi
+            echo
+            echo "::endgroup::"
+          done
+
+          if ((${#failed_codes[@]})); then
+            echo "Failed ETF syncs: ${failed_codes[*]}" >&2
+            exit 1
+          fi
