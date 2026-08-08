@@ -23,6 +23,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 元大投信 `yuanta` | `00990A` | Verified and enabled | Official Yuanta Nuxt app calls `ETFAPI` `PCF/Daily` through the `etfapi.yuantaetfs.com` bridge; complete stock weights and PCF summary were verified. Production daily refresh is enabled. |
 | 復華投信 `fh` | `00991A` | Verified and enabled | Official Fuh Hwa JSON endpoints `/api/assets` and `/api/ETFPcf` were captured from `etf_detail.js` / `util_footer.js`; complete holdings, NAV, AUM, total units, allocation rows and PCF unit delta were verified. Production daily refresh is enabled. |
 | 第一金投信 `first` | `00994A`, `00408A` | Verified and enabled | Official FundDetail page calls ASP.NET WebAPI endpoints `Get_hd` and `Get_BuySellA`; holdings, NAV, AUM, total units and allocation rows were verified. Production daily refresh is enabled. |
+| 永豐投信 `sinopac` | `00410A` | Verified and enabled | Official SinoPac ETF PCF form returns stable server-rendered holdings and summary tables; internal fund code is `E5`. Production daily refresh is enabled. |
 
 ## Verified Endpoints
 
@@ -253,6 +254,25 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Data.Detail` cash/other allocation rows
 - Important date rule: the request date is the announcement/search date, while the holdings snapshot date is `NAV_DATE`/`淨值日期`. Historical sync searches forward and validates the returned NAV date before saving.
 - Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after CTBC holdings/NAV sync.
+
+### SinoPac ETF PCF form
+
+- Product page: `https://sitc.sinopac.com/newweb/sitcFund/page.do?stock_id=E5`
+- PCF page: `https://sitc.sinopac.com/SinopacEtfs/Etfs/Pcf/00410A`
+- Method: `POST`
+- Body: `fundId=00410A&hDate=YYYY-MM-DD&op=1`
+- Confirmed ETF code: `00410A`; official internal fund code `E5`.
+- Response type: server-rendered HTML. The same form supports an official historical XLSX download with `op=2`, but current-date downloads are intentionally blocked by the site, so production parsing uses the stable PCF tables.
+- Verified live response for query date `2026-08-10`: holdings and summary trade date `2026-08-07`, 29 stock rows, NAV `10.62`, fund size `1,729,928,119`, total units `162,860,000` and unit delta `-17,000,000`.
+- Field mapping:
+  - `資料日期` -> trade date
+  - `基金淨資產價值` -> fund size
+  - `基金在外流通單位數` -> total units
+  - `基金每單位淨值` -> NAV
+  - `與前日已發行單位差異數` -> net creation units
+  - desktop `股票` table -> stock code, name, shares and weight
+- Important date rule: `hDate` is the PCF announcement/search date; the returned `資料日期` is the actual holdings/NAV trade date. Historical sync searches forward by business day until the requested trade date is returned.
+- Limitation: market closing price is populated by the shared TWSE closing-price sync after SinoPac NAV sync.
 
 ## Provider Enablement Checklist
 

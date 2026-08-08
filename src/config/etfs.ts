@@ -500,6 +500,22 @@ export const configuredEtfs: EtfMaster[] = [
     },
     createdAt: now,
     updatedAt: now
+  },
+  {
+    etfCode: "00410A",
+    fundCode: "E5",
+    name: "主動永豐科技趨勢",
+    issuer: "永豐投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "sinopac",
+      infoUrl: "https://sitc.sinopac.com/newweb/sitcFund/page.do?stock_id=E5",
+      pcfUrl: "https://sitc.sinopac.com/SinopacEtfs/Etfs/Pcf/00410A"
+    },
+    createdAt: now,
+    updatedAt: now
   }
 ];
 

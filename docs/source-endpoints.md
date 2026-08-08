@@ -397,6 +397,54 @@ Need cookie: yes for direct non-browser calls. First POST returns 307 with `__nx
 
 Need csrf token: no observed CSRF token.
 
+## 永豐 holdings and summary
+
+Product page:
+`https://sitc.sinopac.com/newweb/sitcFund/page.do?stock_id=E5`
+
+PCF URL:
+`https://sitc.sinopac.com/SinopacEtfs/Etfs/Pcf/00410A`
+
+Method: POST
+
+Headers:
+
+```txt
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Content-Type: application/x-www-form-urlencoded
+Referer: https://sitc.sinopac.com/SinopacEtfs/Etfs/Pcf/00410A
+User-Agent: browser user-agent
+```
+
+Payload:
+
+```txt
+fundId=00410A&hDate=2026-08-10&op=1
+```
+
+Status: verified official source for `00410A` holdings and PCF summary. The official product page maps ETF code `00410A` to internal fund code `E5`. The PCF form also returns an XLSX download for historical dates when `op=2`; the production provider uses the server-rendered tables so the current announcement remains available.
+
+Date behavior: the requested `hDate` is the PCF announcement date. Query date `2026-08-10` returned `資料日期 2026/08/07`; the provider stores `2026-08-07` as `tradeDate` and searches forward for historical snapshots.
+
+Field mapping:
+
+```txt
+資料日期 -> etf_daily_summary.tradeDate
+基金淨資產價值 -> etf_daily_summary.fundSize
+基金在外流通單位數 -> etf_daily_summary.totalUnits
+基金每單位淨值 -> etf_daily_summary.nav
+與前日已發行單位差異數 -> etf_daily_summary.netCreationUnits
+sum(股票 table weight) -> etf_daily_summary.stockRatio
+股票 table 證券代碼 -> etf_daily_holdings.stockId
+股票 table 證券名稱 -> etf_daily_holdings.stockName
+股票 table 股數 -> etf_daily_holdings.shares
+股票 table 佔基金淨資產之權重 -> etf_daily_holdings.weight
+```
+
+Need cookie: no observed cookie requirement for the verified form POST.
+
+Need csrf token: no observed CSRF token.
+
 Notes:
 
 - Playwright capture file: `output/playwright/source-discovery/xhr-200-284bd03c72b68dd6.json`.

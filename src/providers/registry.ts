@@ -10,6 +10,7 @@ import { jpmorganProvider } from "./jpmorgan/provider.js";
 import { kgiProvider } from "./kgi/provider.js";
 import { megaProvider } from "./mega/provider.js";
 import { nomuraProvider } from "./nomura/provider.js";
+import { sinopacProvider } from "./sinopac/provider.js";
 import { taishinProvider } from "./taishin/provider.js";
 import type { EtfInfo, EtfProvider, ProviderId } from "./types.js";
 import { uniPresidentProvider } from "./uniPresident/provider.js";
@@ -31,7 +32,8 @@ export const providerRegistry = new Map<ProviderId, EtfProvider>(
     megaProvider,
     fubonProvider,
     kgiProvider,
-    allianceBernsteinProvider
+    allianceBernsteinProvider,
+    sinopacProvider
   ].map((provider) => [provider.providerId, provider])
 );
 

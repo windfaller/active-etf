@@ -36,6 +36,7 @@ type ProviderDailySource = Extract<
   | "first"
   | "cathay"
   | "fh"
+  | "sinopac"
 >;
 
 function providerSource(providerId: ProviderId): ProviderDailySource {
@@ -53,6 +54,7 @@ function providerSource(providerId: ProviderId): ProviderDailySource {
   if (providerId === "first") return "first";
   if (providerId === "cathay") return "cathay";
   if (providerId === "fh") return "fh";
+  if (providerId === "sinopac") return "sinopac";
   throw new Error(`Provider source is not mapped for raw snapshots: ${providerId}`);
 }
 

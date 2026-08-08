@@ -21,6 +21,7 @@ export const rawSnapshotSchema = z.object({
     "first",
     "cathay",
     "fh",
+    "sinopac",
     "global_etf",
     "twse_etfortune",
     "twse_market",

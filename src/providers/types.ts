@@ -15,7 +15,8 @@ export type ProviderId =
   | "mega"
   | "fubon"
   | "kgi"
-  | "allianceBernstein";
+  | "allianceBernstein"
+  | "sinopac";
 
 export type ProviderImplementationStatus = "verified" | "pending_reverse_engineering";
 

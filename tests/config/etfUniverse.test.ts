@@ -6,6 +6,7 @@ import { ctbcEtfs } from "../../src/providers/ctbc/types.js";
 import { firstEtfs } from "../../src/providers/first/types.js";
 import { fubonEtfs } from "../../src/providers/fubon/types.js";
 import { kgiEtfs } from "../../src/providers/kgi/types.js";
+import { sinopacEtfs } from "../../src/providers/sinopac/types.js";
 
 describe("configured active ETF universe", () => {
   it("enables verified June 2026 equity active ETFs with provider fund codes", () => {
@@ -46,6 +47,12 @@ describe("configured active ETF universe", () => {
           fundCode: "183",
           enabled: true,
           source: expect.objectContaining({ providerId: "first" })
+        }),
+        expect.objectContaining({
+          etfCode: "00410A",
+          fundCode: "E5",
+          enabled: true,
+          source: expect.objectContaining({ providerId: "sinopac" })
         })
       ])
     );
@@ -60,5 +67,6 @@ describe("configured active ETF universe", () => {
     expect(ctbcEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00406A", fundCode: "E0038" })]));
     expect(kgiEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00407A", fundCode: "J024" })]));
     expect(firstEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00408A", fundCode: "183" })]));
+    expect(sinopacEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00410A", fundCode: "E5" })]));
   });
 });
