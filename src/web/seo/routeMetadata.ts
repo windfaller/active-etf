@@ -139,6 +139,19 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
     return hasQuery ? { ...metadata, robots: "noindex, nofollow" } : metadata;
   }
 
+  if (path === "/performance") {
+    return metadataBase(
+      path,
+      "ETF 績效排行榜｜台灣與國際基金近期漲跌",
+      "比較台灣主動式 ETF 與國際 ETF 的 1 日、1 週、1 個月及 3 個月市價漲跌幅，查看近期領先與落後排行。",
+      "台灣與國際 ETF 近期績效排行榜",
+      "以各基金最近有效交易日為基準，排序 1 日、1 週、1 個月與 3 個月市價漲跌幅，並揭露資料日期與缺值。",
+      "ETF 績效排行",
+      "tool",
+      [homeBreadcrumb(), { name: "績效排行", path }]
+    );
+  }
+
   const signalMetadata = new Map([
     ["/signals", ["交易日訊號｜連續調倉、反轉與分歧", "連續調倉、反轉與分歧訊號"]],
     ["/signals/consecutive", ["連續加碼與減碼｜3／5／20 交易日訊號", "連續加碼／減碼訊號"]],
@@ -348,6 +361,7 @@ export function allStaticSeoPaths(): string[] {
     "/search",
     ...prerenderedStocks.map((stock) => `/stocks/${stock.market}/${stock.symbol}`),
     "/compare/etfs",
+    "/performance",
     "/signals",
     "/signals/consecutive",
     "/signals/reversals",

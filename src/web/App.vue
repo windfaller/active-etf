@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { ArrowLeft, Calendar, Globe2, Home, Layers, ListChecks, Moon, RefreshCw, Search, Sun } from "@lucide/vue";
+import { ArrowLeft, Calendar, Globe2, Home, Layers, ListChecks, Moon, RefreshCw, Search, Sun, Trophy } from "@lucide/vue";
 import { configuredEtfs } from "../config/etfs";
 import { enabledGlobalEtfs } from "../config/globalEtfs";
 import type { DashboardResponse, EtfCoverageResponse } from "./contracts/dashboard";
@@ -24,6 +24,7 @@ const loadInstitutionView = () => import("./views/InstitutionView.vue");
 const loadStocksIndexView = () => import("./views/StocksIndexView.vue");
 const loadStockDetailView = () => import("./views/StockDetailView.vue");
 const loadEtfCompareView = () => import("./views/EtfCompareView.vue");
+const loadFundPerformanceView = () => import("./views/FundPerformanceView.vue");
 const loadSignalsView = () => import("./views/SignalsView.vue");
 const loadEtfStyleView = () => import("./views/EtfStyleView.vue");
 const loadSearchResultsView = () => import("./views/SearchResultsView.vue");
@@ -41,6 +42,7 @@ const InstitutionView = defineAsyncComponent(loadInstitutionView);
 const StocksIndexView = defineAsyncComponent(loadStocksIndexView);
 const StockDetailView = defineAsyncComponent(loadStockDetailView);
 const EtfCompareView = defineAsyncComponent(loadEtfCompareView);
+const FundPerformanceView = defineAsyncComponent(loadFundPerformanceView);
 const SignalsView = defineAsyncComponent(loadSignalsView);
 const EtfStyleView = defineAsyncComponent(loadEtfStyleView);
 const SearchResultsView = defineAsyncComponent(loadSearchResultsView);
@@ -59,6 +61,7 @@ function routeComponentLoader(pathname: string): RouteComponentLoader | null {
   if (path === "/stocks") return loadStocksIndexView;
   if (/^\/stocks\/(?:tw|us)\/[^/]+$/u.test(path)) return loadStockDetailView;
   if (path === "/compare/etfs") return loadEtfCompareView;
+  if (path === "/performance") return loadFundPerformanceView;
   if (path === "/signals" || path.startsWith("/signals/")) return loadSignalsView;
   if (/^\/etf\/[^/]+\/style$/u.test(path)) return loadEtfStyleView;
   if (/^\/etf\/[^/]+(?:\/(?:changes|premium-history))?$/u.test(path)) return loadTaiwanEtfView;
@@ -144,7 +147,7 @@ const isTaiwanArea = computed(() => ["daily", "market", "taiwanEtf"].includes(ro
 const isTaiwanMarketArea = computed(() => route.value.view === "daily" || route.value.view === "market");
 const isTaiwanEtfArea = computed(() => route.value.view === "taiwanEtf");
 const isGlobalArea = computed(() => ["globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view));
-const isP1Area = computed(() => ["stocks", "stock", "compareEtfs", "signals", "etfStyle", "search", "methodology"].includes(route.value.view));
+const isP1Area = computed(() => ["stocks", "stock", "compareEtfs", "performance", "signals", "etfStyle", "search", "methodology"].includes(route.value.view));
 const shouldShowForvixEmbed = computed(() =>
   ["daily", "market", "taiwanEtf", "globalMarket", "globalEtf", "institutions", "institution"].includes(route.value.view)
 );
@@ -191,6 +194,7 @@ function routeFromPath(pathname: string, search = ""): AppRoute {
     const codes = [...new Set((params.get("codes") ?? "").split(",").map((code) => code.trim().toUpperCase()).filter(Boolean))];
     return { view: "compareEtfs", path, compareType: type, compareCodes: codes };
   }
+  if (path === "/performance") return { view: "performance", path };
   if (path === "/signals") return { view: "signals", path, signalKind: "all" };
   if (path === "/signals/consecutive") return { view: "signals", path, signalKind: "consecutive" };
   if (path === "/signals/reversals") return { view: "signals", path, signalKind: "reversals" };
@@ -470,7 +474,7 @@ function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute
 function scheduleLowPriorityLoads(): void {
   const prefetch = () => {
     void loadTelegramInfo();
-    for (const path of ["/signals", "/compare/etfs", "/stocks"]) prefetchRouteComponent(path);
+    for (const path of ["/performance", "/signals", "/compare/etfs", "/stocks"]) prefetchRouteComponent(path);
   };
   const afterLoad = () => {
     const idleWindow = window as Window & {
@@ -510,6 +514,7 @@ onBeforeUnmount(() => {
         <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' }" @pointerenter="prefetchRouteComponent('/global-etfs')" @focus="prefetchRouteComponent('/global-etfs')" @click.prevent="navigate('/global-etfs')">海外 ETF</a>
         <a href="/institutions" :class="{ active: route.view === 'institutions' || route.view === 'institution' }" @pointerenter="prefetchRouteComponent('/institutions')" @focus="prefetchRouteComponent('/institutions')" @click.prevent="navigate('/institutions')">機構 13F</a>
         <a href="/stocks" :class="{ active: route.view === 'stocks' || route.view === 'stock' }" @pointerenter="prefetchRouteComponent('/stocks')" @focus="prefetchRouteComponent('/stocks')" @click.prevent="navigate('/stocks')">股票</a>
+        <a href="/performance" :class="{ active: route.view === 'performance' }" @pointerenter="prefetchRouteComponent('/performance')" @focus="prefetchRouteComponent('/performance')" @click.prevent="navigate('/performance')">績效排行</a>
         <a href="/compare/etfs" :class="{ active: route.view === 'compareEtfs' }" @pointerenter="prefetchRouteComponent('/compare/etfs')" @focus="prefetchRouteComponent('/compare/etfs')" @click.prevent="navigate('/compare/etfs')">比較</a>
         <a href="/signals" :class="{ active: route.view === 'signals' }" @pointerenter="prefetchRouteComponent('/signals')" @focus="prefetchRouteComponent('/signals')" @click.prevent="navigate('/signals')">訊號</a>
       </nav>
@@ -543,6 +548,7 @@ onBeforeUnmount(() => {
     <InstitutionView v-else-if="route.view === 'institutions' || route.view === 'institution'" :report="globalReport" :options="institutionOptions" :selected-code="route.view === 'institution' ? selectedInstitutionCode : undefined" :loading="isGlobalLoading" :error="globalError" @select="selectInstitution" />
     <StocksIndexView v-else-if="route.view === 'stocks'" @navigate="navigate" />
     <div v-else-if="route.view === 'stock'" class="p1-route-slot p1-route-slot--stock"><StockDetailView :market="route.stockMarket ?? 'tw'" :symbol="route.stockSymbol ?? ''" :refresh-key="p1RefreshKey" /></div>
+    <FundPerformanceView v-else-if="route.view === 'performance'" :refresh-key="p1RefreshKey" @navigate="navigate" />
     <EtfCompareView v-else-if="route.view === 'compareEtfs'" :type="route.compareType ?? 'tw'" :codes="route.compareCodes ?? []" :refresh-key="p1RefreshKey" @navigate="navigate" />
     <SignalsView v-else-if="route.view === 'signals'" :kind="route.signalKind ?? 'all'" :refresh-key="p1RefreshKey" @navigate="navigate" />
     <EtfStyleView v-else-if="route.view === 'etfStyle'" :code="route.etfCode ?? ''" :refresh-key="p1RefreshKey" />
@@ -561,6 +567,7 @@ onBeforeUnmount(() => {
       <a href="/" :class="{ active: route.view === 'daily' }" @pointerdown="prefetchRouteComponent('/')" @click.prevent="navigate('/')"><Home :size="20" /><span>今日</span></a>
       <a href="/market" :class="{ active: route.view === 'market' || route.view === 'taiwanEtf' }" @pointerdown="prefetchRouteComponent('/market')" @click.prevent="navigate('/market')"><Layers :size="20" /><span>台灣</span></a>
       <a href="/global-etfs" :class="{ active: route.view === 'globalMarket' || route.view === 'globalEtf' || route.view === 'institutions' || route.view === 'institution' }" @pointerdown="prefetchRouteComponent('/global-etfs')" @click.prevent="navigate('/global-etfs')"><Globe2 :size="20" /><span>海外</span></a>
+      <a href="/performance" :class="{ active: route.view === 'performance' }" @pointerdown="prefetchRouteComponent('/performance')" @click.prevent="navigate('/performance')"><Trophy :size="20" /><span>排行</span></a>
       <button type="button" :class="{ active: isMobileSearchOpen || route.view === 'stocks' || route.view === 'stock' || route.view === 'search' || route.view === 'compareEtfs' || route.view === 'signals' }" @pointerdown="prefetchRouteComponent('/search')" @click="isMobileSearchOpen = true"><Search :size="20" /><span>搜尋</span></button>
     </nav>
 
@@ -573,7 +580,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .p0-shell{display:grid;gap:16px;width:min(1380px,100%);margin:0 auto;padding:18px 22px 96px}.p1-route-slot--stock{min-height:1900px}.p1-route-slot--stock:has(.p1-error){min-height:0}.p0-topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;min-height:68px;padding:9px 14px;border:1px solid rgba(215,225,229,.92);border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 8px 28px rgba(28,48,65,.08);backdrop-filter:blur(14px)}.brand-link{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#25333e;text-align:left;cursor:pointer}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eef5f4}.brand-mark img{width:29px;height:29px}.brand-link>span:last-child{display:grid;gap:1px}.brand-link b{font-size:15px}.brand-link small{color:#7a8791;font-size:10px}.desktop-primary-nav{display:flex;justify-content:center;gap:2px}.desktop-primary-nav button{min-height:42px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#64717c;font-size:13px;font-weight:760;cursor:pointer}.desktop-primary-nav button.active{background:#173f56;color:#fff}.top-actions{display:flex;align-items:center;gap:7px}.global-search-button{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;font-size:12px;font-weight:760}.global-search-button kbd{padding:2px 4px;border:1px solid #d7e0e4;border-radius:4px;background:#f5f8f9;color:#73818b;font-size:10px}.telegram-link{display:flex;align-items:center;min-height:40px;padding:0 10px;border:1px solid #d7e0e4;border-radius:8px;color:#345986;font-size:12px;font-weight:760;text-decoration:none}.date-control{display:flex;align-items:center;gap:6px;height:40px;padding:0 8px;border:1px solid #d7e0e4;border-radius:8px;color:#61707b}.date-control select{border:0;outline:0;background:#fff;color:#35424e;font-size:12px}.theme-button,.refresh-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #d7e0e4;border-radius:8px;background:#fff;color:#456176;cursor:pointer}.refresh-button:disabled{opacity:.55}.spinning{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.area-subnav{display:flex;justify-content:center;gap:5px}.area-subnav button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;cursor:pointer}.area-subnav button.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav{display:flex}.context-back-nav button{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;cursor:pointer}.context-back-nav button:hover{border-color:#8ca5b9;background:#f7fafb}.newer-date-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #b9d7d3;border-radius:10px;background:#edf8f6;color:#29464d}.newer-date-notice>div{display:grid;gap:3px}.newer-date-notice b{font-size:13px}.newer-date-notice span{font-size:12px;line-height:1.5}.newer-date-notice button{flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #0d7770;border-radius:8px;background:#fff;color:#0d6f69;font-weight:760;cursor:pointer}.app-alert{margin:0;padding:13px 15px;border:1px solid #f1c4c0;border-radius:10px;background:#fff4f3;color:#a8322a}.p0-footer{display:flex;justify-content:space-between;gap:20px;padding:20px 4px;color:#6d7984;font-size:12px;line-height:1.6}.p0-footer p{margin:0}.p0-footer span{display:flex;gap:14px}.p0-footer a{color:#47657f;font-weight:720}.mobile-primary-nav,.mobile-search-overlay{display:none}.global-search-overlay{position:fixed;inset:0;z-index:110;display:grid;place-items:center;padding:16px;background:rgba(7,22,34,.56);backdrop-filter:blur(4px)}
 @media(max-width:1120px){.p0-topbar{grid-template-columns:auto 1fr}.desktop-primary-nav{grid-row:2;grid-column:1 / -1;order:3}.top-actions{justify-self:end}.telegram-link{display:none}}
-@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p1-route-slot--stock{min-height:4800px}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control,.global-search-button{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.newer-date-notice{display:grid;gap:10px}.newer-date-notice button{width:100%;min-height:44px}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(4,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.global-search-overlay{place-items:end center;padding:0}}
+@media(max-width:760px){.p0-shell{gap:12px;padding:10px 10px calc(92px + env(safe-area-inset-bottom))}.p1-route-slot--stock{min-height:4800px}.p0-topbar{position:relative;grid-template-columns:1fr auto;min-height:58px;padding:8px 10px}.desktop-primary-nav,.top-actions .date-control,.global-search-button{display:none}.top-actions{justify-self:end}.theme-button,.refresh-button{width:42px;height:42px}.area-subnav{justify-content:stretch;overflow:auto;padding-bottom:1px}.area-subnav button{flex:1 0 auto;min-height:44px}.context-back-nav button{width:100%;justify-content:flex-start}.newer-date-notice{display:grid;gap:10px}.newer-date-notice button{width:100%;min-height:44px}.p0-footer{display:grid;padding:16px 4px 8px}.p0-footer span{flex-wrap:wrap}.mobile-primary-nav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #d7e0e4;background:rgba(255,255,255,.97);box-shadow:0 -8px 28px rgba(25,45,62,.09);backdrop-filter:blur(14px)}.mobile-primary-nav button{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border:0;border-radius:9px;background:transparent;color:#64727c;font-size:11px;font-weight:740}.mobile-primary-nav button.active{background:#eaf3f2;color:#0c756e}.global-search-overlay{place-items:end center;padding:0}}
 .brand-link{text-decoration:none}.desktop-primary-nav a{display:flex;align-items:center;min-height:42px;padding:0 10px;border-radius:9px;color:#64717c;font-size:13px;font-weight:760;text-decoration:none}.desktop-primary-nav a.active{background:#173f56;color:#fff}.area-subnav a{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#65727d;font-weight:760;text-decoration:none}.area-subnav a.active{border-color:#173f56;background:#173f56;color:#fff}.context-back-nav a{display:flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border:1px solid #d6e0e5;border-radius:9px;background:#fff;color:#345986;font-weight:780;text-decoration:none}.context-back-nav a:hover{border-color:#8ca5b9;background:#f7fafb}
 @media(max-width:760px){.area-subnav a{flex:1 0 auto;min-height:44px}.context-back-nav a{width:100%;justify-content:flex-start}.mobile-primary-nav a{display:grid;justify-items:center;align-content:center;gap:3px;min-height:52px;border-radius:9px;color:#64727c;font-size:11px;font-weight:740;text-decoration:none}.mobile-primary-nav a.active{background:#eaf3f2;color:#0c756e}}
 </style>

@@ -32,6 +32,7 @@ export function sitemapEntries(lastModifiedByPath: SitemapLastModifiedByPath = {
     { path: "/stocks/tw/2330", changefreq: "daily", priority: "0.75" },
     { path: "/stocks/us/MU", changefreq: "daily", priority: "0.7" },
     { path: "/compare/etfs", changefreq: "weekly", priority: "0.7" },
+    { path: "/performance", changefreq: "daily", priority: "0.85" },
     { path: "/signals", changefreq: "daily", priority: "0.8" },
     { path: "/signals/consecutive", changefreq: "daily", priority: "0.7" },
     { path: "/signals/reversals", changefreq: "daily", priority: "0.7" },

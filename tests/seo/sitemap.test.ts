@@ -46,11 +46,12 @@ describe("SEO sitemap files", () => {
     const taiwanCount = configuredEtfs.filter((etf) => etf.enabled).length;
     const globalCount = enabledGlobalEtfs.filter((etf) => etf.strategyType !== "13f").length;
     const institutionCount = enabledGlobalEtfs.filter((etf) => etf.strategyType === "13f").length;
-    expect(sitemapEntries()).toHaveLength(15 + taiwanCount * 4 + globalCount + institutionCount);
+    expect(sitemapEntries()).toHaveLength(16 + taiwanCount * 4 + globalCount + institutionCount);
     expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/institutions/ARK13F" }));
     expect(sitemapEntries()).not.toContainEqual(expect.objectContaining({ path: "/global-etfs/ARK13F" }));
     expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/stocks/tw/2330" }));
     expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/compare/etfs" }));
+    expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/performance" }));
     expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/signals/reversals" }));
     expect(sitemapEntries()).toContainEqual(expect.objectContaining({ path: "/etf/00981A/style" }));
   });

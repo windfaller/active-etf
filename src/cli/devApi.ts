@@ -38,6 +38,7 @@ import {
   stockOverview
 } from "../services/intelligence/stockIntelligenceService.js";
 import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
+import { fundPerformanceRankings } from "../services/performance/fundPerformanceService.js";
 import {
   comparisonTypeSchema,
   limitSchema,
@@ -247,6 +248,16 @@ const server = createServer(async (req, res) => {
         }
       }
       sendJson(res, 200, await compareEtfs(await getDevDb(), type.data, codes, date.value));
+      return;
+    }
+
+    if (req.method === "GET" && parts[1] === "funds" && parts[2] === "performance") {
+      const date = optionalDate(requestUrl.searchParams.get("date"));
+      if (date.error) {
+        sendJson(res, 400, { error: date.error });
+        return;
+      }
+      sendJson(res, 200, await fundPerformanceRankings(await getDevDb(), date.value));
       return;
     }
 

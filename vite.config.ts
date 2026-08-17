@@ -100,6 +100,7 @@ function routeLinks(metadata: RouteMetadata): Array<{ path: string; label: strin
     { path: "/institutions", label: "機構 13F" },
     { path: "/stocks", label: "股票情報" },
     { path: "/compare/etfs", label: "ETF 比較" },
+    { path: "/performance", label: "績效排行" },
     { path: "/signals", label: "交易日訊號" },
     { path: "/methodology", label: "方法論" }
   ].filter((item) => item.path !== metadata.path);
@@ -170,6 +171,7 @@ function modulePreloadSourceForPath(path: string): string | null {
   if (path === "/stocks") return "src/web/views/StocksIndexView.vue";
   if (/^\/stocks\/(?:tw|us)\/[^/]+$/u.test(path)) return "src/web/views/StockDetailView.vue";
   if (path === "/compare/etfs") return "src/web/views/EtfCompareView.vue";
+  if (path === "/performance") return "src/web/views/FundPerformanceView.vue";
   if (path === "/signals" || path.startsWith("/signals/")) return "src/web/views/SignalsView.vue";
   if (/^\/etf\/[^/]+\/style$/u.test(path)) return "src/web/views/EtfStyleView.vue";
   if (/^\/etf\/[^/]+(?:\/(?:changes|premium-history))?$/u.test(path)) return "src/web/views/TaiwanEtfView.vue";
