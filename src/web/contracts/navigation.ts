@@ -9,6 +9,7 @@ export type AppView =
   | "stocks"
   | "stock"
   | "compareEtfs"
+  | "performance"
   | "signals"
   | "etfStyle"
   | "search"

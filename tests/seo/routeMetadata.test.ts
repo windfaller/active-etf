@@ -28,6 +28,7 @@ describe("build-time route metadata", () => {
     expect(routeMetadataForPath("/stocks/tw/2330")?.title).toContain("台積電 2330");
     expect(routeMetadataForPath("/stocks/us/MU")?.description).toContain("資料日期");
     expect(routeMetadataForPath("/compare/etfs")?.robots).toBe("index, follow");
+    expect(routeMetadataForPath("/performance")?.description).toContain("3 個月");
     expect(routeMetadataForPath("/compare/etfs?type=tw&codes=00981A,00982A")?.robots).toBe("noindex, nofollow");
     expect(routeMetadataForPath("/search?q=台積電")?.robots).toBe("noindex, nofollow");
     expect(routeMetadataForPath("/signals/reversals")?.h1).toContain("反轉");
