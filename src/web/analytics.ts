@@ -32,9 +32,11 @@ export function createEtfComparisonTracker(
     if (trackedComparisons.has(comparisonKey)) return false;
 
     const dataLayer = target.dataLayer ??= [];
-    const gtag = target.gtag ?? ((command, eventName, params) => {
-      dataLayer.push([command, eventName, params]);
-    });
+    const gtag = target.gtag ?? function queueGtagCommand(command, eventName, params) {
+      // gtag.js and Google Tag Manager consume an Arguments object. A plain
+      // array looks similar in tests but is ignored by the live tag runtime.
+      dataLayer.push(arguments);
+    };
     gtag("event", ACTIVE_ETF_COMPARE_COMPLETE_EVENT, {
       comparison_market: market,
       etf_count: normalizedCodes.length,

@@ -35,16 +35,17 @@ describe("Active ETF analytics", () => {
     const track = createEtfComparisonTracker(() => target);
 
     expect(track("tw", ["00981A", "00982A", "00983A"])).toBe(true);
-    expect(target.dataLayer).toEqual([
-      [
-        "event",
-        ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
-        {
-          comparison_market: "tw",
-          etf_count: 3,
-          interaction_source: "comparison_results"
-        }
-      ]
+    expect(target.dataLayer).toHaveLength(1);
+    const queuedCommand = target.dataLayer?.[0] as ArrayLike<unknown>;
+    expect(Array.isArray(queuedCommand)).toBe(false);
+    expect(Array.from(queuedCommand)).toEqual([
+      "event",
+      ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
+      {
+        comparison_market: "tw",
+        etf_count: 3,
+        interaction_source: "comparison_results"
+      }
     ]);
   });
 
