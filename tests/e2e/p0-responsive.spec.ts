@@ -4,7 +4,8 @@ import type { GlobalReport } from "../../src/web/contracts/global.js";
 const impacts = [
   { stockId:"2330",stockName:"台積電",sector:"半導體",themeTags:["AI"],etfCount:8,increaseEtfCount:8,decreaseEtfCount:0,totalDiffLots:3600,totalActiveDiffLots:3250,totalDiffWeightPoint:.42,maxAbsActiveDiffLots:1500,maxAbsDiffWeightPoint:.2,impactScore:100,market:{market:"TWSE",closePrice:1200,change:10,changePercent:.84,volumeShares:20_000_000,turnover:24_000_000_000,transactionCount:10000},institutional:{foreignNetShares:-900_000,investmentTrustNetShares:-120_000,dealerNetShares:-100_000,totalNetShares:-1_120_000},primaryImpactEtf:{etfCode:"00981A",diffLots:1000,activeDiffLots:900,diffWeightPoint:.12,currentWeight:12,status:"increase"},etfs:[{etfCode:"00981A",diffLots:1000,activeDiffLots:900,diffWeightPoint:.12,currentWeight:12,status:"increase"}] },
   { stockId:"2317",stockName:"鴻海",sector:"電子零組件",themeTags:["AI Server"],etfCount:5,increaseEtfCount:0,decreaseEtfCount:5,totalDiffLots:-1500,totalActiveDiffLots:-1300,totalDiffWeightPoint:-.25,maxAbsActiveDiffLots:800,maxAbsDiffWeightPoint:.14,impactScore:80,market:null,institutional:{foreignNetShares:300_000,investmentTrustNetShares:100_000,dealerNetShares:0,totalNetShares:400_000},primaryImpactEtf:null,etfs:[] },
-  { stockId:"2454",stockName:"聯發科",sector:"半導體",themeTags:["IC 設計"],etfCount:3,increaseEtfCount:3,decreaseEtfCount:0,totalDiffLots:600,totalActiveDiffLots:550,totalDiffWeightPoint:.1,maxAbsActiveDiffLots:300,maxAbsDiffWeightPoint:.06,impactScore:50,market:null,institutional:{foreignNetShares:200_000,investmentTrustNetShares:0,dealerNetShares:0,totalNetShares:200_000},primaryImpactEtf:null,etfs:[] }
+  { stockId:"2454",stockName:"聯發科",sector:"半導體",themeTags:["IC 設計"],etfCount:3,increaseEtfCount:3,decreaseEtfCount:0,totalDiffLots:600,totalActiveDiffLots:550,totalDiffWeightPoint:.1,maxAbsActiveDiffLots:300,maxAbsDiffWeightPoint:.06,impactScore:50,market:null,institutional:{foreignNetShares:200_000,investmentTrustNetShares:0,dealerNetShares:0,totalNetShares:200_000},primaryImpactEtf:null,etfs:[{etfCode:"00982A",diffLots:600,activeDiffLots:550,diffWeightPoint:.1,currentWeight:6,status:"increase"}] },
+  { stockId:"2303",stockName:"聯電",sector:"半導體",themeTags:["成熟製程"],etfCount:2,increaseEtfCount:2,decreaseEtfCount:0,totalDiffLots:300,totalActiveDiffLots:250,totalDiffWeightPoint:.05,maxAbsActiveDiffLots:250,maxAbsDiffWeightPoint:.05,impactScore:30,market:null,institutional:{foreignNetShares:-100_000,investmentTrustNetShares:50_000,dealerNetShares:0,totalNetShares:-50_000},primaryImpactEtf:null,etfs:[{etfCode:"00980A",diffLots:300,activeDiffLots:250,diffWeightPoint:.05,currentWeight:3,status:"increase"}] }
 ];
 
 const dashboard = {
@@ -24,7 +25,7 @@ const globalReport: GlobalReport = {
   ]
 };
 
-async function mockApis(page: Page, globalReportFixture: GlobalReport = globalReport) {
+async function mockApis(page: Page, globalReportFixture: GlobalReport = globalReport, authenticated = true) {
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
   await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
   await page.route("https://www.forvix.app/**", (route) => route.fulfill({ contentType:"text/html", body:"<!doctype html><title>FORVIX embed fixture</title>" }));
@@ -33,7 +34,8 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
     const headers = { "access-control-allow-origin": "*" };
     if (url.includes("/auth/session")) {
       if (route.request().method() === "POST") return route.fulfill({ headers, json:{authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} });
-      return route.fulfill({ headers, json:{authenticated:false,user:null} });
+      if (route.request().method() === "DELETE") return route.fulfill({ headers, json:{authenticated:false,user:null} });
+      return route.fulfill({ headers, json:authenticated ? {authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} : {authenticated:false,user:null} });
     }
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
@@ -122,7 +124,7 @@ for (const viewport of viewports) {
     await mockApis(page);
     await page.goto("/market");
     await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "登入或免費註冊" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "開啟會員選單" })).toBeVisible();
     const sectorGrid = page.getByLabel("重點產業方向");
     await expect(sectorGrid.getByRole("button", { name: /2330.*台積電.*\+3,250/u })).toBeVisible();
     await expect(page.getByText("正負值同時使用文字與符號呈現，不只依賴顏色。")).toHaveCount(0);
@@ -177,12 +179,49 @@ test("central auth callback becomes a verified member session and removes the UR
   await expect(page).toHaveURL("/");
   expect(await page.evaluate(() => JSON.stringify((window as Window & { dataLayer?: unknown[] }).dataLayer ?? []))).not.toContain("fake-firebase-token");
   await expect(page.getByRole("button", { name: "開啟會員選單" })).toBeVisible();
+  await expect(page.getByTestId("member-locked-result")).toHaveCount(0);
+  if (process.env.MEMBER_PREVIEW_SCREENSHOTS) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator(".brief-section").first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${process.env.MEMBER_PREVIEW_SCREENSHOTS}/active-etf-member-mask-member-mobile.png` });
+  }
   await page.getByRole("button", { name: "開啟會員選單" }).click();
   await expect(page.getByRole("menu")).toContainText("ETF Member");
   await expect(page.getByRole("menu")).toContainText("member@example.com");
 
   await page.getByRole("menuitem", { name: "登出" }).click();
   await expect(page.getByRole("button", { name: "登入或免費註冊" })).toBeVisible();
+});
+
+test("anonymous visitors receive deterministic previews without hidden result data in the DOM", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApis(page, globalReport, false);
+  await page.goto("/");
+
+  await expect(page.locator(".insight-grid").getByTestId("member-locked-result")).toHaveCount(2);
+  await expect(page.locator(".pull-push-grid").getByTestId("member-locked-result")).toHaveCount(2);
+
+  const additions = page.locator(".consensus-panel.increase");
+  const reductions = page.locator(".consensus-panel.decrease");
+  await expect(additions.getByTestId("member-locked-result")).toHaveCount(2);
+  await expect(additions.locator(".consensus-row")).toContainText("2454");
+  await expect(additions.locator(".consensus-row")).not.toContainText("2330");
+  await expect(reductions.getByTestId("member-locked-result")).toHaveCount(1);
+  await expect(reductions.locator(".consensus-row")).toHaveCount(0);
+  await expect(page.getByText("主要標的：", { exact: false })).toHaveCount(0);
+  if (process.env.MEMBER_PREVIEW_SCREENSHOTS) {
+    await page.screenshot({ path: `${process.env.MEMBER_PREVIEW_SCREENSHOTS}/active-etf-member-mask-anonymous-mobile.png`, fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator(".brief-section").first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${process.env.MEMBER_PREVIEW_SCREENSHOTS}/active-etf-member-mask-anonymous-desktop.png` });
+  }
+
+  await page.goto("/market");
+  await expect(page.getByTestId("member-locked-result")).not.toHaveCount(0);
+  await expect(page.locator(".impact-grid .table-row").first()).toContainText("2330");
+  expect((await page.locator(".impact-grid .table-row").allTextContents()).join(" ")).not.toContain("2317");
+  await expect(page.locator("article.market-impact-card").first()).toContainText("2330");
+  expect((await page.locator("article.market-impact-card").allTextContents()).join(" ")).not.toContain("2317");
 });
 
 test("market impact cards keep distinct tone surfaces in dark mode", async ({ page }) => {

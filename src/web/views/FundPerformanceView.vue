@@ -2,10 +2,14 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { ArrowDown, ArrowUp, BarChart3, CalendarDays, ExternalLink, Medal, Trophy } from "@lucide/vue";
 import { getJson } from "../apiClient";
+import MemberLockedResult from "../components/MemberLockedResult.vue";
+import { useAuth } from "../composables/useAuth";
 import type { PerformanceMarket, PerformancePeriod, PerformanceResponse, PerformanceRow } from "../contracts/performance";
+import { shouldMaskMemberResult } from "../domain/memberVisibility";
 
 const props = defineProps<{ refreshKey: number }>();
 const emit = defineEmits<{ navigate: [path: string] }>();
+const { isAuthenticated } = useAuth();
 
 const data = ref<PerformanceResponse | null>(null);
 const loading = ref(true);
@@ -105,7 +109,9 @@ watch(() => props.refreshKey, load);
         <header><div><h2>完整排行榜</h2><p>點選基金可前往單檔持股與調倉資料。</p></div><span>{{ periodLabel }}・{{ descending ? '高至低' : '低至高' }}</span></header>
         <div v-if="rankedRows.length" class="ranking-table" role="table" aria-label="基金績效完整排行榜">
           <div class="ranking-head" role="row"><span>名次</span><span>基金</span><span>資料日／價格</span><span>1 日</span><span>1 週</span><span>1 個月</span><span>3 個月</span></div>
-          <button v-for="(row, index) in rankedRows" :key="row.etfCode" class="ranking-row" type="button" role="row" @click="emit('navigate', fundPath(row))">
+          <template v-for="(row, index) in rankedRows" :key="row.etfCode">
+          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="排行榜資料已遮隱" :source="`performance_rank_${index + 1}`" />
+          <button v-else class="ranking-row" type="button" role="row" @click="emit('navigate', fundPath(row))">
             <span :class="['rank-number', index < 3 ? `rank-number--${index + 1}` : '']" :aria-label="index < 3 ? `第 ${index + 1} 名` : undefined">
               <Medal v-if="index < 3" :size="22" aria-hidden="true" />
               <b>{{ index + 1 }}</b>
@@ -114,6 +120,7 @@ watch(() => props.refreshKey, load);
             <span class="price-cell"><b>{{ sourceLabel(row) }} {{ formatPrice(row) }} {{ row.currency }}</b><small>{{ row.latestDate }}</small></span>
             <span v-for="key in (['d1','w1','m1','m3'] as PerformancePeriod[])" :key="key" :class="['return-cell', returnTone(row.returns[key]), { selected: period === key }]">{{ formatReturn(row.returns[key]) }}</span>
           </button>
+          </template>
         </div>
         <p v-else class="empty-ranking">這個期間尚無足夠的歷史價格可排序。</p>
       </section>

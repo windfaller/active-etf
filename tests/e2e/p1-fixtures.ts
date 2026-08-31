@@ -42,9 +42,10 @@ const signals = {
 };
 const style = { ...meta, etf: { code: "00981A", name: "主動統一台股增長", issuer: "統一投信", sourceUrl: "https://example.com" }, period: { window: 20, effectiveTradingDays: 20, startDate: "2026-06-23", endDate: "2026-07-21" }, concentration: { top5: 35, top10: 55, hhi: .07 }, adjustmentBreadth: { averageDailyAdjustedHoldings: 8, latest: { adjusted: 8, increased: 5, decreased: 3, added: 1, exited: 0 }, trend: [] }, adjustmentIntensity: 3.2, sectorRotation: { intensity: 1.8, increased: [{ sector: "半導體", change: 2 }], decreased: [{ sector: "金融", change: -1 }] }, stability: { retention20: .82, retention60: null, averageNewHoldingDuration: null, frequentEntryExitRatio: null }, tendencies: ["集中持股", "調整頻率低", "持股相對穩定"], percentiles: { comparisonGroup: "台灣已啟用主動式 ETF", sampleSize: 28, calculationWindow: 20, dataDate: "2026-07-21", top10Concentration: 78, adjustmentIntensity: 65 }, limitations: ["資料不足，無法計算 60 日比例。"] };
 
-export async function mockP1Apis(page: Page): Promise<void> {
+export async function mockP1Apis(page: Page, authenticated = true): Promise<void> {
   await page.route("**/api/**", async (route) => {
     const url = route.request().url();
+    if (url.includes("/api/auth/session")) return route.fulfill({ json: authenticated ? { authenticated: true, user: { uid: "firebase-user-1", email: "member@example.com", emailVerified: true, name: "ETF Member", picture: "" } } : { authenticated: false, user: null } });
     if (url.includes("/api/config")) return route.fulfill({ json: { ads: { enabled: false, trackingEnabled: false } } });
     if (url.includes("/stocks/tw/2330/overview")) return route.fulfill({ json: p1Overview });
     if (url.includes("/stocks/us/MU/overview")) return route.fulfill({ json: usOverview });

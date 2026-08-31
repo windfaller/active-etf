@@ -4,9 +4,12 @@ import { ArrowRight, Building2, GitCompareArrows, Globe2, Layers, Search, Trendi
 import { configuredEtfs } from "../../config/etfs";
 import CoverageStatus from "../components/CoverageStatus.vue";
 import DataFreshnessBadge from "../components/DataFreshnessBadge.vue";
+import MemberLockedResult from "../components/MemberLockedResult.vue";
 import MobileDataCard from "../components/MobileDataCard.vue";
+import { useAuth } from "../composables/useAuth";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
 import { buildDailyBrief, hasDirectionConsensus } from "../domain/dailyBrief";
+import { shouldMaskMemberResult } from "../domain/memberVisibility";
 import { buildPullPushPreview } from "../domain/pullPushRadar";
 import { directionLabel, formatLots, formatSigned, formatSignedPp } from "../utils/format";
 
@@ -18,6 +21,7 @@ const props = defineProps<{
   isLoading: boolean;
 }>();
 const emit = defineEmits<{ navigate: [path: string]; stock: [stockId: string] }>();
+const { isAuthenticated } = useAuth();
 
 const brief = computed(() => buildDailyBrief(props.impacts, props.sectors, props.coverage));
 const compareOptions = configuredEtfs.filter((row) => row.enabled && ["TWD"].includes(row.currency));
@@ -75,11 +79,14 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <p>中性研究摘要，不構成買賣建議。</p>
       </div>
       <div v-if="brief.insights.length" class="insight-grid">
-        <article v-for="(insight, index) in brief.insights" :key="insight.id" :class="['brief-insight', insight.tone]">
-          <span>0{{ index + 1 }}</span>
-          <h3>{{ insight.title }}</h3>
-          <p>{{ insight.description }}</p>
-        </article>
+        <template v-for="(insight, index) in brief.insights" :key="insight.id">
+          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'after-first')" title="今日重點已遮隱" :source="`daily_brief_${index + 1}`" />
+          <article v-else :class="['brief-insight', insight.tone]">
+            <span>0{{ index + 1 }}</span>
+            <h3>{{ insight.title }}</h3>
+            <p>{{ insight.description }}</p>
+          </article>
+        </template>
       </div>
       <div v-else-if="isLoading" class="brief-empty" role="status">正在整理今日公開資料…</div>
     </section>
@@ -90,27 +97,30 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <p>拉力呈現產業題材與市場反應；推力使用規模校正 ETF 與投信方向，只顯示可自動更新的訊號。</p>
       </div>
       <div v-if="pullPush.candidates.length" class="pull-push-grid">
-        <a v-for="row in pullPush.candidates" :key="row.stockId" :href="`/stocks/tw/${row.stockId}`" @click.prevent="emit('navigate', `/stocks/tw/${row.stockId}`)">
-          <header><span :class="row.crossSourceState">{{ row.statusLabel }}</span><small>公開資料觀察</small></header>
-          <h3>{{ row.stockId }} {{ row.stockName }}</h3>
-          <div class="force-signal-grid">
-            <div v-if="row.pullSignals.length || row.marketChangePercent !== null" class="pull-signal">
-              <small>拉力線索</small>
-              <b>{{ row.pullSignals.join('、') || '市場反應' }}</b>
-              <span v-if="row.marketChangePercent !== null" :class="directionClass(row.marketChangePercent)">當日股價 {{ formatSigned(row.marketChangePercent, 2) }}%</span>
+        <template v-for="(row, index) in pullPush.candidates" :key="row.stockId">
+          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'after-first')" title="拉推訊號已遮隱" :source="`pull_push_${index + 1}`" />
+          <a v-else :href="`/stocks/tw/${row.stockId}`" @click.prevent="emit('navigate', `/stocks/tw/${row.stockId}`)">
+            <header><span :class="row.crossSourceState">{{ row.statusLabel }}</span><small>公開資料觀察</small></header>
+            <h3>{{ row.stockId }} {{ row.stockName }}</h3>
+            <div class="force-signal-grid">
+              <div v-if="row.pullSignals.length || row.marketChangePercent !== null" class="pull-signal">
+                <small>拉力線索</small>
+                <b>{{ row.pullSignals.join('、') || '市場反應' }}</b>
+                <span v-if="row.marketChangePercent !== null" :class="directionClass(row.marketChangePercent)">當日股價 {{ formatSigned(row.marketChangePercent, 2) }}%</span>
+              </div>
+              <div class="push-signal">
+                <small>推力訊號</small>
+                <b>{{ row.activeEtfCount }} 檔 ETF／{{ row.issuerCount }} 家投信</b>
+                <span>{{ row.statusLabel }}</span>
+              </div>
             </div>
-            <div class="push-signal">
-              <small>推力訊號</small>
-              <b>{{ row.activeEtfCount }} 檔 ETF／{{ row.issuerCount }} 家投信</b>
-              <span>{{ row.statusLabel }}</span>
-            </div>
-          </div>
-          <dl>
-            <div><dt>ETF 規模校正後加碼</dt><dd :class="directionClass(row.adjustedActiveLots)">{{ formatLots(row.adjustedActiveLots) }} 張</dd></div>
-            <div><dt>投信當日買賣超</dt><dd :class="directionClass(row.investmentTrustNetShares)">{{ row.investmentTrustNetShares === null ? '未知' : formatSigned(row.investmentTrustNetShares) + ' 股' }}</dd></div>
-          </dl>
-          <footer>查看個股證據 <ArrowRight :size="16" /></footer>
-        </a>
+            <dl>
+              <div><dt>ETF 規模校正後加碼</dt><dd :class="directionClass(row.adjustedActiveLots)">{{ formatLots(row.adjustedActiveLots) }} 張</dd></div>
+              <div><dt>投信當日買賣超</dt><dd :class="directionClass(row.investmentTrustNetShares)">{{ row.investmentTrustNetShares === null ? '未知' : formatSigned(row.investmentTrustNetShares) + ' 股' }}</dd></div>
+            </dl>
+            <footer>查看個股證據 <ArrowRight :size="16" /></footer>
+          </a>
+        </template>
       </div>
       <p v-else class="brief-empty">當日尚無可驗證的拉推訊號。</p>
     </section>
@@ -123,22 +133,28 @@ function directionClass(value: number | null | undefined): "direction-positive" 
       <div class="consensus-columns">
         <section class="consensus-panel increase">
           <h3><TrendingUp :size="18" /> 共同加碼 <small>{{ brief.additions.length }} 檔</small></h3>
-          <button v-for="row in brief.additions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
-            <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
-            <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
-            <ArrowRight :size="16" />
-          </button>
+          <template v-for="(row, index) in brief.additions" :key="row.stockId">
+            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'human-odd')" compact title="共同加碼資料已遮隱" :source="`common_addition_${index + 1}`" />
+            <button v-else type="button" class="consensus-row" @click="emit('stock', row.stockId)">
+              <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
+              <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
+              <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
+              <ArrowRight :size="16" />
+            </button>
+          </template>
           <p v-if="!brief.additions.length" class="list-empty">今日尚無足夠樣本形成共同加碼結論。</p>
         </section>
         <section class="consensus-panel decrease">
           <h3><TrendingDown :size="18" /> 共同減碼 <small>{{ brief.reductions.length }} 檔</small></h3>
-          <button v-for="row in brief.reductions" :key="row.stockId" type="button" class="consensus-row" @click="emit('stock', row.stockId)">
-            <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
-            <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
-            <ArrowRight :size="16" />
-          </button>
+          <template v-for="(row, index) in brief.reductions" :key="row.stockId">
+            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'human-odd')" compact title="共同減碼資料已遮隱" :source="`common_reduction_${index + 1}`" />
+            <button v-else type="button" class="consensus-row" @click="emit('stock', row.stockId)">
+              <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
+              <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
+              <span><b :class="directionClass(row.totalDiffWeightPoint)">{{ formatSignedPp(row.totalDiffWeightPoint) }}</b><small :class="directionClass(row.institutional?.totalNetShares)">{{ institutionLabel(row) }}</small></span>
+              <ArrowRight :size="16" />
+            </button>
+          </template>
           <p v-if="!brief.reductions.length" class="list-empty">今日尚無足夠樣本形成共同減碼結論。</p>
         </section>
       </div>
@@ -153,7 +169,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <MobileDataCard v-for="row in brief.sectors" :key="row.sector" :label="row.sector" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
           <template #title>{{ row.sector }}</template>
           <template #summary><span class="sector-direction-metric" :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</span><span>｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票</span><br /><span class="sector-direction-metric" :class="directionClass(row.totalInstitutionalNetLots)">三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</span></template>
-          <p>主要標的：{{ row.topStocks.map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
+          <p v-if="isAuthenticated">主要標的：{{ row.topStocks.map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
+          <MemberLockedResult v-else compact title="主要標的已遮隱" source="sector_primary_targets" />
         </MobileDataCard>
       </div>
     </section>

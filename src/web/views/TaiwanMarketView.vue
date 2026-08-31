@@ -2,9 +2,12 @@
 import { computed, ref } from "vue";
 import { BarChart3, Search } from "@lucide/vue";
 import CoverageStatus from "../components/CoverageStatus.vue";
+import MemberLockedResult from "../components/MemberLockedResult.vue";
 import MobileDataCard from "../components/MobileDataCard.vue";
 import ResponsiveDataTable from "../components/ResponsiveDataTable.vue";
+import { useAuth } from "../composables/useAuth";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
+import { shouldMaskMemberResult } from "../domain/memberVisibility";
 import { directionLabel, formatLots, formatMoney, formatSignedPp, valueTone } from "../utils/format";
 
 const props = defineProps<{
@@ -16,6 +19,7 @@ const props = defineProps<{
   focusStockId?: string;
 }>();
 const emit = defineEmits<{ etf: [code: string]; stock: [stockId: string] }>();
+const { isAuthenticated } = useAuth();
 const query = ref("");
 const displayed = computed(() => {
   const normalized = query.value.trim().toLowerCase();
@@ -39,12 +43,13 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
     <section class="market-sector-grid" aria-label="重點產業方向">
       <article v-for="row in leadSectors" :key="row.sector" :class="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'">
         <header><span>{{ row.sector }}</span><strong :class="valueTone(row.totalActiveDiffLots)">{{ formatLots(row.totalActiveDiffLots) }} 張</strong><small>{{ row.etfCount }} 檔 ETF · {{ row.stockCount }} 檔股</small></header>
-        <div v-if="row.topStocks.length" class="sector-stock-list">
+        <div v-if="isAuthenticated && row.topStocks.length" class="sector-stock-list">
           <button v-for="stock in row.topStocks.slice(0,3)" :key="stock.stockId" type="button" @click="emit('stock', stock.stockId)">
             <span><b>{{ stock.stockId }}</b> {{ stock.stockName }}</span>
             <strong :class="valueTone(stock.totalActiveDiffLots)">{{ formatLots(stock.totalActiveDiffLots) }}</strong>
           </button>
         </div>
+        <MemberLockedResult v-else-if="row.topStocks.length" compact title="產業主要標的已遮隱" source="market_sector_targets" />
       </article>
     </section>
 
@@ -56,18 +61,23 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
       <ResponsiveDataTable label="台灣個股影響排名" :empty="!loading && !displayed.length" empty-text="此日期尚無跨 ETF 異動資料。">
         <div class="desktop-table impact-grid">
           <div class="table-head"><span>股票</span><span>產業</span><span>主動淨變動</span><span>權重變動</span><span>三大法人</span><span>影響 ETF</span><span>主要來源</span></div>
-          <div v-for="row in displayed" :id="`market-stock-${row.stockId}`" :key="row.stockId" class="table-row" :class="{ focused: focusStockId === row.stockId }" role="button" tabindex="0" @click="emit('stock', row.stockId)" @keydown.enter.prevent="emit('stock', row.stockId)">
-            <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
-            <span><b>{{ row.sector || "其他" }}</b><small>{{ row.themeTags.slice(0,2).join("、") || "-" }}</small></span>
-            <span :class="valueTone(row.totalActiveDiffLots)"><b>{{ directionLabel(row.totalActiveDiffLots) }} {{ formatLots(row.totalActiveDiffLots) }}</b><small>張</small></span>
-            <span :class="valueTone(row.totalDiffWeightPoint)"><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b></span>
-            <span :class="valueTone(institutionLots(row))"><b>{{ directionLabel(institutionLots(row), "買超", "賣超") }} {{ formatLots(institutionLots(row)) }}</b><small>張</small></span>
-            <span><b>{{ row.etfCount }} 檔</b><small>加 {{ row.increaseEtfCount }} / 減 {{ row.decreaseEtfCount }}</small></span>
-            <span><button v-if="row.primaryImpactEtf" type="button" class="inline-link" @click.stop="emit('etf', row.primaryImpactEtf.etfCode)">{{ row.primaryImpactEtf.etfCode }}</button><small>{{ formatMoney(row.market?.turnover) }}</small></span>
-          </div>
+          <template v-for="(row, index) in displayed" :key="row.stockId">
+            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_${index + 1}`" />
+            <div v-else :id="`market-stock-${row.stockId}`" class="table-row" :class="{ focused: focusStockId === row.stockId }" role="button" tabindex="0" @click="emit('stock', row.stockId)" @keydown.enter.prevent="emit('stock', row.stockId)">
+              <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
+              <span><b>{{ row.sector || "其他" }}</b><small>{{ row.themeTags.slice(0,2).join("、") || "-" }}</small></span>
+              <span :class="valueTone(row.totalActiveDiffLots)"><b>{{ directionLabel(row.totalActiveDiffLots) }} {{ formatLots(row.totalActiveDiffLots) }}</b><small>張</small></span>
+              <span :class="valueTone(row.totalDiffWeightPoint)"><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b></span>
+              <span :class="valueTone(institutionLots(row))"><b>{{ directionLabel(institutionLots(row), "買超", "賣超") }} {{ formatLots(institutionLots(row)) }}</b><small>張</small></span>
+              <span><b>{{ row.etfCount }} 檔</b><small>加 {{ row.increaseEtfCount }} / 減 {{ row.decreaseEtfCount }}</small></span>
+              <span><button v-if="row.primaryImpactEtf" type="button" class="inline-link" @click.stop="emit('etf', row.primaryImpactEtf.etfCode)">{{ row.primaryImpactEtf.etfCode }}</button><small>{{ formatMoney(row.market?.turnover) }}</small></span>
+            </div>
+          </template>
         </div>
         <template #mobile>
-          <MobileDataCard v-for="row in displayed" :id="`market-stock-${row.stockId}`" :key="row.stockId" class="market-impact-card" :class="{ 'is-focused': focusStockId === row.stockId }" :label="`${row.stockId} ${row.stockName}`" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
+          <template v-for="(row, index) in displayed" :key="row.stockId">
+          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_mobile_${index + 1}`" />
+          <MobileDataCard v-else :id="`market-stock-${row.stockId}`" class="market-impact-card" :class="{ 'is-focused': focusStockId === row.stockId }" :label="`${row.stockId} ${row.stockName}`" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
             <template #title>{{ row.stockId }} {{ row.stockName }}</template>
             <template #summary>
               <span class="impact-summary-primary">
@@ -97,6 +107,7 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
               </div>
             </dl>
           </MobileDataCard>
+          </template>
         </template>
       </ResponsiveDataTable>
     </section>
