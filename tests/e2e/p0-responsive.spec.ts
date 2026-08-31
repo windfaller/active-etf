@@ -183,15 +183,22 @@ test("market impact cards keep distinct tone surfaces in dark mode", async ({ pa
   expect(darkStyles[1].background).not.toBe(lightStyles[1].background);
 });
 
-test("homepage action and sector metrics keep Taiwan direction colors in light and dark modes", async ({ page }) => {
+test("homepage public observations and sector metrics keep Taiwan direction colors in light and dark modes", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApis(page);
   await page.goto("/");
 
-  const pullPushRadar = page.getByLabel("拉推 v2.1 前置雷達");
+  const pullPushRadar = page.getByLabel("拉推訊號觀察");
   await expect(pullPushRadar).toBeVisible();
-  await expect(pullPushRadar.getByText("可交易分").first()).toBeVisible();
-  await expect(pullPushRadar.getByText("未產生").first()).toBeVisible();
+  await expect(pullPushRadar.getByRole("heading", { name: "拉推訊號觀察" })).toBeVisible();
+  await expect(pullPushRadar.getByText("拉力線索").first()).toBeVisible();
+  await expect(pullPushRadar.getByText("推力訊號").first()).toBeVisible();
+  await expect(pullPushRadar.getByText("ETF 規模校正後加碼").first()).toBeVisible();
+  await expect(pullPushRadar).not.toContainText("Institution_35");
+  await expect(pullPushRadar).not.toContainText("分析師共識");
+  await expect(pullPushRadar).not.toContainText("待補");
+  await expect(pullPushRadar).not.toContainText("未計分");
+  await expect(pullPushRadar).not.toContainText("未產生");
 
   const addition = page.locator(".consensus-panel.increase .consensus-row").first();
   const reduction = page.locator(".consensus-panel.decrease .consensus-row").first();

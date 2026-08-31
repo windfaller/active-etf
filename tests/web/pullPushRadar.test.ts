@@ -32,25 +32,25 @@ function impact(overrides: Partial<StockImpact> = {}): StockImpact {
 const coverage: EtfCoverageResponse = { date: "2026-08-28", trackedCount: 3, availableCount: 3, staleCount: 0, etfs: [] };
 const issuers = new Map([["00981A", "統一投信"], ["00982A", "群益投信"], ["00990A", "元大投信"]]);
 
-describe("pull-push v2.1 homepage preview", () => {
-  it("uses only flow-corrected ETF rows and refuses to manufacture a trade score", () => {
+describe("ETF and investment-trust homepage observation", () => {
+  it("uses only flow-corrected ETF rows and exposes no unavailable score fields", () => {
     const result = buildPullPushPreview([impact()], coverage, "2026-08-28", issuers);
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]).toMatchObject({
+      pullSignals: ["半導體", "AI"],
+      marketChangePercent: null,
       adjustedActiveLots: 150,
-      rawDiffLots: 220,
-      adjustedEtfCount: 2,
-      totalEtfCount: 3,
       activeEtfCount: 2,
       issuerCount: 2,
-      flowCorrectionCoverage: 2 / 3,
-      statusLabel: "推力初篩同向",
-      decision: "僅觀察",
-      pullScore: null,
-      pushScoreV21: null,
-      investableScore: null
+      statusLabel: "ETF 與投信同向"
     });
-    expect(result.candidates[0]?.blockers.join(" ")).toContain("原始張數已排除");
+    expect(result).not.toHaveProperty("readiness");
+    expect(result.candidates[0]).not.toHaveProperty("rawDiffLots");
+    expect(result.candidates[0]).not.toHaveProperty("flowCorrectionCoverage");
+    expect(result.candidates[0]).not.toHaveProperty("pullScore");
+    expect(result.candidates[0]).not.toHaveProperty("pushScoreV21");
+    expect(result.candidates[0]).not.toHaveProperty("investableScore");
+    expect(result.candidates[0]).not.toHaveProperty("blockers");
   });
 
   it("uses investment-trust direction instead of the total institutional flow", () => {
@@ -59,14 +59,13 @@ describe("pull-push v2.1 homepage preview", () => {
     });
     const result = buildPullPushPreview([divergent], coverage, "2026-08-28", issuers);
     expect(result.candidates[0]?.crossSourceState).toBe("divergent");
-    expect(result.candidates[0]?.statusLabel).toBe("ETF／投信分歧");
+    expect(result.candidates[0]?.statusLabel).toBe("ETF 加碼、投信賣超");
   });
 
   it("conservatively collapses multiple ETFs from one issuer", () => {
     const oneIssuer = new Map([["00981A", "統一投信"], ["00982A", "統一投信"], ["00990A", "元大投信"]]);
     const result = buildPullPushPreview([impact()], coverage, "2026-08-28", oneIssuer);
     expect(result.candidates[0]?.issuerCount).toBe(1);
-    expect(result.candidates[0]?.statusLabel).toBe("ETF 單側訊號");
-    expect(result.candidates[0]?.blockers[0]).toContain("同投信旗下多檔 ETF");
+    expect(result.candidates[0]?.statusLabel).toBe("ETF 加碼觀察");
   });
 });

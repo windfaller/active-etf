@@ -35,7 +35,7 @@ onBeforeUnmount(abort);
 
 <template>
   <section class="stock-view">
-    <header class="stock-hero"><div><span class="eyebrow">{{ market === 'tw' ? '台灣股票情報' : '美國股票情報' }}</span><h1>{{ overview?.stock.symbol ?? symbol }} {{ overview?.stock.name ?? '' }}</h1><p>{{ overview?.stock.sector ?? '產業資料待補' }}｜{{ market === 'tw' ? '交易日主動調倉與法人方向' : '海外 ETF 與 13F 使用不同時間尺度' }}</p></div><div class="hero-facts"><span>涵蓋 ETF</span><b>{{ overview?.summary.coveredEtfs ?? 0 }}</b><small>資料日 {{ overview?.sourceAsOf ?? '-' }}</small></div></header>
+    <header class="stock-hero"><div><span class="eyebrow">{{ market === 'tw' ? '台灣股票情報' : '美國股票情報' }}</span><h1>{{ overview?.stock.symbol ?? symbol }} {{ overview?.stock.name ?? '' }}</h1><p><template v-if="overview?.stock.sector">{{ overview.stock.sector }}｜</template>{{ market === 'tw' ? '交易日主動調倉與法人方向' : '海外 ETF 與 13F 使用不同時間尺度' }}</p></div><div class="hero-facts"><span>涵蓋 ETF</span><b>{{ overview?.summary.coveredEtfs ?? 0 }}</b><small>資料日 {{ overview?.sourceAsOf ?? '-' }}</small></div></header>
     <p v-if="error" class="p1-error">{{ error }}</p><p v-else-if="loading && !overview" class="p1-state">股票情報載入中…</p>
     <IntelligenceMetaStrip v-if="overview" :source-as-of="overview.sourceAsOf" :generated-at="overview.generatedAt" :coverage="overview.coverage" :confidence="overview.confidence" />
 
