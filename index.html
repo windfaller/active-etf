@@ -2,6 +2,22 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
+    <meta name="referrer" content="same-origin" />
+    <!-- Remove one-time auth credentials before GTM can read page_location. -->
+    <script>
+      (function(w){
+        try {
+          var url = new URL(w.location.href);
+          var token = url.searchParams.get('idToken');
+          if (!token) return;
+          Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__', {
+            value: token, writable: true, configurable: true, enumerable: false
+          });
+          url.searchParams.delete('idToken');
+          w.history.replaceState({}, document.title, url.toString());
+        } catch (_) {}
+      })(window);
+    </script>
     <!-- Google Tag Manager -->
     <script>
       (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':

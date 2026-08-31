@@ -1,4 +1,5 @@
 import "../api/postAdTracking.js";
+import "../api/authSession.js";
 import "../api/getEtfChanges.js";
 import "../api/getEtfCoverage.js";
 import "../api/getEtfDates.js";

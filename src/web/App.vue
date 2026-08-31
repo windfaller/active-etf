@@ -8,7 +8,9 @@ import { emptyChanges } from "./contracts/dashboard";
 import type { GlobalEtfOption, GlobalEtfUniverseResponse, GlobalReport } from "./contracts/global";
 import type { AppRoute } from "./contracts/navigation";
 import { useColorMode } from "./composables/useColorMode";
+import { useAuth } from "./composables/useAuth";
 import { getJson } from "./apiClient";
+import AuthMenu from "./components/AuthMenu.vue";
 import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGIN } from "./seo/routeMetadata";
 
 type RouteComponentLoader = () => Promise<unknown>;
@@ -136,6 +138,7 @@ const telegramInfo = ref<TelegramInfo | null>(null);
 const isMobileSearchOpen = ref(false);
 const p1RefreshKey = ref(0);
 const { isDarkMode, toggleColorMode } = useColorMode();
+const { initialize: initializeAuth } = useAuth();
 const marketDateCoverageThreshold = 0.7;
 const initialMarketDateLimit = 60;
 
@@ -488,6 +491,7 @@ function scheduleLowPriorityLoads(): void {
 }
 
 onMounted(() => {
+  void initializeAuth();
   applyRouteFromLocation();
   window.addEventListener("popstate", onPopState);
   window.addEventListener("keydown", onGlobalShortcut);
@@ -520,6 +524,7 @@ onBeforeUnmount(() => {
       </nav>
       <div class="top-actions">
         <button class="global-search-button" type="button" aria-label="開啟全站搜尋" title="全站搜尋（Cmd/Ctrl + K）" @pointerenter="prefetchRouteComponent('/search')" @focus="prefetchRouteComponent('/search')" @click="isMobileSearchOpen = true"><Search :size="16" /><span>搜尋</span><kbd>⌘K</kbd></button>
+        <AuthMenu />
         <a class="telegram-link" :href="telegramUrl" target="_blank" rel="noreferrer" :aria-disabled="telegramInfo && !telegramInfo.configured">Telegram</a>
         <label v-if="isTaiwanMarketArea" class="date-control"><Calendar :size="15" /><select v-model="marketDate" aria-label="台灣市場資料日期" @change="loadMarketDashboard()"><option v-if="!marketAvailableDates.length" value="">載入中</option><option v-for="date in marketAvailableDates" :key="date" :value="date">{{ marketDateLabel(date) }}</option></select></label>
         <label v-else-if="isTaiwanEtfArea" class="date-control"><Calendar :size="15" /><select v-model="selectedEtfDate" aria-label="單檔 ETF 資料日期" @change="loadSelectedEtfDashboard()"><option v-if="!selectedEtfAvailableDates.length" value="">載入中</option><option v-for="date in selectedEtfAvailableDates" :key="date" :value="date">{{ date }}</option></select></label>
