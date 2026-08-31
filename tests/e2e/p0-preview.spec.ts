@@ -74,6 +74,20 @@ test("primary navigation is crawlable and preserves SPA navigation", async ({ pa
   await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
 });
 
+test("mobile homepage opens a preselected ETF comparison in one action", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApis(page);
+  await page.goto("/");
+  const launcher = page.getByLabel("首頁 ETF 快速比較");
+  await expect(launcher).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(launcher.getByLabel("快速比較第一檔 ETF")).toHaveValue("00981A");
+  await expect(launcher.getByLabel("快速比較第二檔 ETF")).toHaveValue("00982A");
+  await launcher.getByRole("link", { name: "立即比較 00981A × 00982A" }).click();
+  await expect(page).toHaveURL(/\/compare\/etfs\?type=tw&codes=00981A,00982A$/u);
+  await expect(page.getByRole("heading", { name: "持股重疊、調倉與配置差異" })).toBeVisible();
+});
+
 test("unknown routes are real noindex 404s while dynamic stock deep links remain available", async ({ page }) => {
   for (const path of ["/does-not-exist", "/etf/NOTREAL"]) {
     const response = await page.goto(path);

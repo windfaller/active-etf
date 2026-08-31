@@ -188,6 +188,11 @@ test("homepage action and sector metrics keep Taiwan direction colors in light a
   await mockApis(page);
   await page.goto("/");
 
+  const pullPushRadar = page.getByLabel("拉推 v2.1 前置雷達");
+  await expect(pullPushRadar).toBeVisible();
+  await expect(pullPushRadar.getByText("可交易分").first()).toBeVisible();
+  await expect(pullPushRadar.getByText("未產生").first()).toBeVisible();
+
   const addition = page.locator(".consensus-panel.increase .consensus-row").first();
   const reduction = page.locator(".consensus-panel.decrease .consensus-row").first();
   const increasingSector = page.locator(".sector-direction-grid .mobile-data-card.increase").first();
