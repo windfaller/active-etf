@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const sections = [
+  { title: "拉推 v2.1 資料分層", fact: "忠實四榜、ETF 流量校正、投信獨立因子、拉力與第二階段交易閘門是不同層次。", calculation: "完整版 Push_v2_1 = 投信 35 + ETF 45 + 真正跨來源共振 20；拉推核心分 = sqrt(拉力 × 推力)。", limit: "首頁目前只展示已可驗證的前置資金證據。缺分析師共識、自由流通量、ADV20、經理人 ID 或公開時點時，不生成 v2.1 可交易分。" },
   { title: "主動淨變動與基金規模校正", fact: "表面張數變動是兩個有效交易日公開持股差額。", calculation: "預期持股 = 前期持股 × 本期受益權單位數 / 前期受益權單位數；主動淨變動 = 本期持股 − 預期持股。", limit: "缺少基金規模或前期資料時不以表面變動假裝為完整規模校正。" },
+  { title: "投信與 ETF 獨立計分", fact: "投信買賣超與主動 ETF 調倉是兩個獨立資金來源。", calculation: "投信完整因子需連買、3/5 日強度、持股比變化、買超/自由流通股與買超金額/ADV20；ETF 因子需流量校正、ETF/經理人 breadth 與 single-source cap。", limit: "單日投信買超只能標示同向或分歧，不足以代表 Institution_35。同投信旗下多檔 ETF 不當成完全獨立來源。" },
   { title: "跨 ETF 共識", fact: "increase、decrease、neutral 與 unknown 分開計數。", calculation: "同方向至少 2 檔、同方向多於反方向，且同方向 / directional ETF ≥ 60%。neutral 不進入分母，但會另外顯示。", limit: "共識描述目前追蹤 ETF 的共同方向，不代表市場全部資金。" },
   { title: "3／5／20 日連續與反轉", fact: "window 使用有效市場交易日，不使用日曆天；API 同時回傳實際與缺失觀察數。", calculation: "主動張數跨過 ±0.01 張時以張數決定方向；張數在門檻內才使用權重 ±0.0001 pp。兩者都未跨門檻才是 neutral，缺少該 ETF 當日紀錄是 unknown。neutral 與 unknown 都中斷連續訊號。", limit: "來源延遲或缺失日不會被補成零；例如 20 日中只有 17 日有紀錄，顯示有效觀察 17/20 並降低信心。" },
   { title: "張數與權重方向衝突", fact: "主動張數與權重變化會各自保留，不以任一欄覆蓋另一欄。", calculation: "兩者都顯著且方向相反時，最終方向仍依主動張數，另回傳 directionConflict。", limit: "方向衝突會顯示「方向指標分歧」、寫入信心原因，且不可判為高信心。" },

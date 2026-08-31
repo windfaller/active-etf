@@ -71,4 +71,18 @@ describe("stock impact display names", () => {
     expect(result.impacts[0]?.stockName).toBe("兆豐金");
     expect(result.sectorSummary.sectors[0]?.topStocks[0]?.stockName).toBe("兆豐金");
   });
+
+  it("does not treat raw share growth as active buying when fund-unit correction is unavailable", async () => {
+    const missingScale = { ...change("兆豐金"), activeDiffShares: null, activeDiffLots: null, activeDiffPct: null, prevTotalUnits: null, currentTotalUnits: null };
+    const collection = () => ({ find: () => ({ toArray: async () => [] }) });
+    const result = await stockImpactsForDate({ collection } as never, "2026-07-17", [missingScale]);
+
+    expect(result.impacts[0]).toMatchObject({
+      totalDiffLots: 1,
+      totalActiveDiffLots: 0,
+      increaseEtfCount: 0,
+      decreaseEtfCount: 0
+    });
+    expect(result.impacts[0]?.etfs[0]?.activeDiffLots).toBeNull();
+  });
 });

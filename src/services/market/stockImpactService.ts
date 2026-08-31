@@ -107,7 +107,7 @@ function computeImpacts(changes: EtfHoldingChange[]): StockImpactRow[] {
       change.stockName,
       mappedStockNameForStock(change.stockId)
     );
-    const activeDiffLots = change.activeDiffLots ?? change.diffLots;
+    const activeDiffLots = change.activeDiffLots;
     const diffWeightPoint = change.diffWeightPoint ?? 0;
     const etfImpact: StockImpactEtf = {
       etfCode: change.etfCode,
@@ -121,14 +121,14 @@ function computeImpacts(changes: EtfHoldingChange[]): StockImpactRow[] {
 
     row.etfs.push(etfImpact);
     row.etfCount += 1;
-    row.increaseEtfCount += activeDiffLots > 0 ? 1 : 0;
-    row.decreaseEtfCount += activeDiffLots < 0 ? 1 : 0;
+    row.increaseEtfCount += activeDiffLots !== null && activeDiffLots > 0 ? 1 : 0;
+    row.decreaseEtfCount += activeDiffLots !== null && activeDiffLots < 0 ? 1 : 0;
     row.totalDiffLots = round(row.totalDiffLots + change.diffLots);
-    row.totalActiveDiffLots = round(row.totalActiveDiffLots + activeDiffLots);
+    row.totalActiveDiffLots = round(row.totalActiveDiffLots + (activeDiffLots ?? 0));
     row.totalDiffWeightPoint = round(row.totalDiffWeightPoint + diffWeightPoint);
-    row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots));
+    row.maxAbsActiveDiffLots = Math.max(row.maxAbsActiveDiffLots, Math.abs(activeDiffLots ?? 0));
     row.maxAbsDiffWeightPoint = Math.max(row.maxAbsDiffWeightPoint, Math.abs(diffWeightPoint));
-    if (!row.primaryImpactEtf || Math.abs(activeDiffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
+    if (!row.primaryImpactEtf || Math.abs(activeDiffLots ?? change.diffLots) > primaryMagnitude) row.primaryImpactEtf = etfImpact;
     rowsByStock.set(change.stockId, row);
   }
 
