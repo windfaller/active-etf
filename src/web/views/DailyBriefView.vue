@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ArrowRight, Building2, CircleAlert, GitCompareArrows, Globe2, Layers, Search, TrendingDown, TrendingUp } from "@lucide/vue";
+import { ArrowRight, Building2, GitCompareArrows, Globe2, Layers, Search, TrendingDown, TrendingUp } from "@lucide/vue";
 import { configuredEtfs } from "../../config/etfs";
 import CoverageStatus from "../components/CoverageStatus.vue";
 import DataFreshnessBadge from "../components/DataFreshnessBadge.vue";
@@ -84,31 +84,35 @@ function directionClass(value: number | null | undefined): "direction-positive" 
       <div v-else-if="isLoading" class="brief-empty" role="status">正在整理今日公開資料…</div>
     </section>
 
-    <section id="pull-push-radar" class="brief-section pull-push-section" aria-label="拉推 v2.1 前置雷達">
+    <section id="pull-push-radar" class="brief-section pull-push-section" aria-label="拉推訊號觀察">
       <div class="brief-heading">
-        <div><span class="section-kicker">PULL × PUSH v2.1</span><h2>拉推 v2.1 前置雷達</h2><span class="sample-scope">{{ pullPush.selectedDate || '資料日未知' }} · {{ pullPush.coverageLabel }}</span></div>
-        <p>這是資金證據初篩，不是可交易榜。缺任一必要資料就不產生 v2.1 分數。</p>
-      </div>
-      <div class="radar-readiness" aria-label="v2.1 資料完整度">
-        <article v-for="item in pullPush.readiness" :key="item.label" :class="item.status"><span>{{ item.status === 'ready' ? '已接入' : item.status === 'partial' ? '部分' : '待補' }}</span><b>{{ item.label }}</b><small>{{ item.detail }}</small></article>
+        <div><span class="section-kicker">PULL × PUSH</span><h2>拉推訊號觀察</h2><span class="sample-scope">{{ pullPush.selectedDate || '資料日未知' }} · {{ pullPush.coverageLabel }}</span></div>
+        <p>拉力呈現產業題材與市場反應；推力使用規模校正 ETF 與投信方向，只顯示可自動更新的訊號。</p>
       </div>
       <div v-if="pullPush.candidates.length" class="pull-push-grid">
         <a v-for="row in pullPush.candidates" :key="row.stockId" :href="`/stocks/tw/${row.stockId}`" @click.prevent="emit('navigate', `/stocks/tw/${row.stockId}`)">
-          <header><span :class="row.crossSourceState">{{ row.statusLabel }}</span><small>{{ row.decision }}</small></header>
+          <header><span :class="row.crossSourceState">{{ row.statusLabel }}</span><small>公開資料觀察</small></header>
           <h3>{{ row.stockId }} {{ row.stockName }}</h3>
-          <div class="score-gate"><span><small>拉力</small><b>未計分</b></span><span><small>推力 v2.1</small><b>未計分</b></span><span><small>可交易分</small><b>未產生</b></span></div>
+          <div class="force-signal-grid">
+            <div v-if="row.pullSignals.length || row.marketChangePercent !== null" class="pull-signal">
+              <small>拉力線索</small>
+              <b>{{ row.pullSignals.join('、') || '市場反應' }}</b>
+              <span v-if="row.marketChangePercent !== null" :class="directionClass(row.marketChangePercent)">當日股價 {{ formatSigned(row.marketChangePercent, 2) }}%</span>
+            </div>
+            <div class="push-signal">
+              <small>推力訊號</small>
+              <b>{{ row.activeEtfCount }} 檔 ETF／{{ row.issuerCount }} 家投信</b>
+              <span>{{ row.statusLabel }}</span>
+            </div>
+          </div>
           <dl>
-            <div><dt>流量校正主動增持</dt><dd :class="directionClass(row.adjustedActiveLots)">{{ formatLots(row.adjustedActiveLots) }} 張</dd></div>
-            <div><dt>ETF／跨投信來源</dt><dd>{{ row.activeEtfCount }} 檔／{{ row.issuerCount }} 家</dd></div>
+            <div><dt>ETF 規模校正後加碼</dt><dd :class="directionClass(row.adjustedActiveLots)">{{ formatLots(row.adjustedActiveLots) }} 張</dd></div>
             <div><dt>投信當日買賣超</dt><dd :class="directionClass(row.investmentTrustNetShares)">{{ row.investmentTrustNetShares === null ? '未知' : formatSigned(row.investmentTrustNetShares) + ' 股' }}</dd></div>
-            <div><dt>流量校正涵蓋</dt><dd>{{ Math.round(row.flowCorrectionCoverage * 100) }}% ({{ row.adjustedEtfCount }}/{{ row.totalEtfCount }})</dd></div>
           </dl>
-          <p><CircleAlert :size="15" />{{ row.blockers[0] }}</p>
           <footer>查看個股證據 <ArrowRight :size="16" /></footer>
         </a>
       </div>
-      <p v-else class="brief-empty">當日尚無「流量校正後為正」的可驗證 ETF 初篩候選。</p>
-      <footer class="radar-methodology"><span>忠實四榜、single-source cap、manager breadth、freshness 與第二階段交易閘門都會保留；未完成前只能稱「前置雷達」。</span><a href="/methodology" @click.prevent="emit('navigate', '/methodology')">查看方法與限制 <ArrowRight :size="15" /></a></footer>
+      <p v-else class="brief-empty">當日尚無可驗證的拉推訊號。</p>
     </section>
 
     <section class="brief-section consensus-section">
@@ -193,10 +197,10 @@ function directionClass(value: number | null | undefined): "direction-positive" 
 .direction-positive,.consensus-row small.direction-positive{color:var(--theme-positive)!important;font-weight:800}.direction-negative,.consensus-row small.direction-negative{color:var(--theme-negative)!important;font-weight:800}.direction-neutral{color:var(--theme-text-muted)!important}.sector-direction-metric{display:inline;font-weight:800}
 .list-empty,.brief-empty { margin:0; padding:24px; color:#6a7782; text-align:center; }
 .sector-direction-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-.pull-push-section{display:grid;gap:16px}.radar-readiness{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.radar-readiness article{display:grid;gap:6px;padding:13px;border:1px solid var(--theme-border);border-radius:10px;background:var(--theme-surface-muted)}.radar-readiness article>span{width:max-content;padding:3px 7px;border-radius:999px;background:#edf1f3;color:var(--theme-text-muted);font-size:10px;font-weight:850}.radar-readiness article.ready>span{background:#e9f7f2;color:#14755e}.radar-readiness article.partial>span{background:#fff4dc;color:#8a6106}.radar-readiness b{color:var(--theme-text-strong)}.radar-readiness small{color:var(--theme-text-muted);line-height:1.5}.pull-push-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.pull-push-grid>a{display:grid;gap:12px;padding:17px;border:1px solid var(--theme-border);border-radius:12px;background:var(--theme-surface-muted);color:var(--theme-text);text-decoration:none}.pull-push-grid>a:hover{border-color:#7ea0b0;box-shadow:0 10px 28px rgba(29,54,71,.08)}.pull-push-grid header{display:flex;justify-content:space-between;gap:8px}.pull-push-grid header>span{padding:4px 8px;border-radius:999px;background:#edf1f3;color:var(--theme-text-muted);font-size:11px;font-weight:850}.pull-push-grid header>span.aligned{background:var(--theme-positive-soft);color:var(--theme-positive)}.pull-push-grid header>span.divergent{background:#fff4dc;color:#8a6106}.pull-push-grid header small{color:var(--theme-text-muted)}.pull-push-grid h3{margin:0;color:var(--theme-text-strong);font-size:20px}.score-gate{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.score-gate span{display:grid;gap:3px;padding:8px;border-radius:8px;background:var(--theme-surface)}.score-gate small{color:var(--theme-text-muted);font-size:10px}.score-gate b{color:var(--theme-text-strong);font-size:12px}.pull-push-grid dl{display:grid;gap:7px;margin:0}.pull-push-grid dl>div{display:flex;justify-content:space-between;gap:10px}.pull-push-grid dt{color:var(--theme-text-muted);font-size:12px}.pull-push-grid dd{margin:0;color:var(--theme-text-strong);font-size:12px;font-weight:800;text-align:right}.pull-push-grid p{display:flex;gap:6px;margin:0;padding-top:10px;border-top:1px solid var(--theme-border);color:var(--theme-text-muted);font-size:11px;line-height:1.5}.pull-push-grid p svg{flex:0 0 auto}.pull-push-grid>a>footer{display:flex;justify-content:flex-end;align-items:center;gap:5px;color:#345986;font-size:12px;font-weight:800}.radar-methodology{display:flex;justify-content:space-between;gap:16px;padding-top:12px;border-top:1px solid var(--theme-border);color:var(--theme-text-muted);font-size:12px;line-height:1.5}.radar-methodology a{display:flex;align-items:center;gap:5px;flex:0 0 auto;color:#345986;font-weight:800;text-decoration:none}
+.pull-push-section{display:grid;gap:16px}.pull-push-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.pull-push-grid>a{display:grid;gap:12px;padding:17px;border:1px solid var(--theme-border);border-radius:12px;background:var(--theme-surface-muted);color:var(--theme-text);text-decoration:none}.pull-push-grid>a:hover{border-color:#7ea0b0;box-shadow:0 10px 28px rgba(29,54,71,.08)}.pull-push-grid header{display:flex;justify-content:space-between;gap:8px}.pull-push-grid header>span{padding:4px 8px;border-radius:999px;background:#edf1f3;color:var(--theme-text-muted);font-size:11px;font-weight:850}.pull-push-grid header>span.aligned{background:var(--theme-positive-soft);color:var(--theme-positive)}.pull-push-grid header>span.divergent{background:#fff4dc;color:#8a6106}.pull-push-grid header small{color:var(--theme-text-muted)}.pull-push-grid h3{margin:0;color:var(--theme-text-strong);font-size:20px}.force-signal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.force-signal-grid>div{display:grid;align-content:start;gap:4px;min-height:82px;padding:10px;border-radius:9px;background:var(--theme-surface)}.force-signal-grid small{color:var(--theme-text-muted);font-size:10px;font-weight:800}.force-signal-grid b{color:var(--theme-text-strong);font-size:12px;line-height:1.45}.force-signal-grid span{color:var(--theme-text-muted);font-size:11px;line-height:1.4}.force-signal-grid .pull-signal{border-top:3px solid #6279a8}.force-signal-grid .push-signal{border-top:3px solid #b93f36}.pull-push-grid dl{display:grid;gap:7px;margin:0}.pull-push-grid dl>div{display:flex;justify-content:space-between;gap:10px}.pull-push-grid dt{color:var(--theme-text-muted);font-size:12px}.pull-push-grid dd{margin:0;color:var(--theme-text-strong);font-size:12px;font-weight:800;text-align:right}.pull-push-grid>a>footer{display:flex;justify-content:flex-end;align-items:center;gap:5px;padding-top:10px;border-top:1px solid var(--theme-border);color:#345986;font-size:12px;font-weight:800}
 .sector-direction-grid :deep(.mobile-data-card.increase .mobile-card-title){color:var(--theme-positive)}.sector-direction-grid :deep(.mobile-data-card.decrease .mobile-card-title){color:var(--theme-negative)}
 .advanced-entry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }.advanced-entry button{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;cursor:pointer}.advanced-entry button:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry button:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry span{display:grid;gap:4px}.advanced-entry small{color:#65727c;line-height:1.4}
-@media (max-width:960px){.brief-hero{grid-template-columns:1fr}.hero-radar{position:absolute;right:-60px;bottom:-80px;opacity:.65}.insight-grid,.sector-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.advanced-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.consensus-columns{grid-template-columns:1fr}.radar-readiness{grid-template-columns:repeat(2,minmax(0,1fr))}.pull-push-grid{grid-template-columns:1fr}}
-@media (max-width:760px){.daily-brief-view{gap:12px}.brief-hero{min-height:0;padding:24px 16px;border-radius:14px}.brief-hero h1{font-size:36px}.brief-hero p{font-size:15px}.quick-compare-controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.quick-compare-controls>a{grid-column:1 / -1}.brief-section{padding:18px 14px}.brief-heading{display:grid}.brief-heading>p{text-align:left}.insight-grid,.sector-direction-grid,.advanced-entry,.radar-readiness{grid-template-columns:1fr}.brief-insight{min-height:0}.consensus-row{grid-template-columns:1fr 1fr 18px}.consensus-row>span:nth-child(3){grid-column:1 / 3}.advanced-entry button{min-height:78px}.score-gate{grid-template-columns:1fr}.radar-methodology{display:grid}.radar-methodology a{justify-self:start}}
+@media (max-width:960px){.brief-hero{grid-template-columns:1fr}.hero-radar{position:absolute;right:-60px;bottom:-80px;opacity:.65}.insight-grid,.sector-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.advanced-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.consensus-columns{grid-template-columns:1fr}.pull-push-grid{grid-template-columns:1fr}}
+@media (max-width:760px){.daily-brief-view{gap:12px}.brief-hero{min-height:0;padding:24px 16px;border-radius:14px}.brief-hero h1{font-size:36px}.brief-hero p{font-size:15px}.quick-compare-controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.quick-compare-controls>a{grid-column:1 / -1}.brief-section{padding:18px 14px}.brief-heading{display:grid}.brief-heading>p{text-align:left}.insight-grid,.sector-direction-grid,.advanced-entry{grid-template-columns:1fr}.brief-insight{min-height:0}.consensus-row{grid-template-columns:1fr 1fr 18px}.consensus-row>span:nth-child(3){grid-column:1 / 3}.advanced-entry button{min-height:78px}}
 .advanced-entry a{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;text-decoration:none}.advanced-entry a:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry a:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry a span{display:grid;gap:4px}.advanced-entry a small{color:#65727c;line-height:1.4}@media(max-width:760px){.advanced-entry a{min-height:78px}}
 </style>
