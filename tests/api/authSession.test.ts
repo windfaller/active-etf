@@ -41,13 +41,21 @@ describe("/api/auth/session", () => {
   it("creates an HttpOnly same-site session after backend verification", async () => {
     const response = await authSession(request("POST", { body: { idToken: "signed.firebase.token" }, secure: true }), context());
     const headers = new Headers(response.headers);
+    const cookie = response.cookies?.[0];
 
     expect(response.status).toBe(200);
     expect(response.jsonBody).toMatchObject({ authenticated: true, user: { uid: "firebase-user-1", email: "member@example.com" } });
-    expect(headers.get("Set-Cookie")).toContain("active_etf_session=");
-    expect(headers.get("Set-Cookie")).toContain("HttpOnly");
-    expect(headers.get("Set-Cookie")).toContain("SameSite=Lax");
-    expect(headers.get("Set-Cookie")).toContain("Secure");
+    expect(cookie).toMatchObject({
+      name: "active_etf_session",
+      value: "signed.firebase.token",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: true
+    });
+    expect(cookie?.maxAge).toBeGreaterThan(0);
+    expect(cookie?.maxAge).toBeLessThanOrEqual(3_600);
+    expect(headers.has("Set-Cookie")).toBe(false);
     expect(headers.get("Cache-Control")).toContain("no-store");
   });
 
@@ -58,7 +66,7 @@ describe("/api/auth/session", () => {
 
     const deleteResponse = await authSession(request("DELETE", { cookie: "active_etf_session=signed.firebase.token" }), context());
     expect(deleteResponse.jsonBody).toEqual({ authenticated: false, user: null });
-    expect(new Headers(deleteResponse.headers).get("Set-Cookie")).toContain("Max-Age=0");
+    expect(deleteResponse.cookies?.[0]).toMatchObject({ name: "active_etf_session", value: "", maxAge: 0 });
   });
 
   it("rejects invalid callbacks and removes invalid stored sessions", async () => {
@@ -70,7 +78,7 @@ describe("/api/auth/session", () => {
     const getResponse = await authSession(request("GET", { cookie: "active_etf_session=bad.token" }), context());
     expect(getResponse.status).toBe(200);
     expect(getResponse.jsonBody).toEqual({ authenticated: false, user: null });
-    expect(new Headers(getResponse.headers).get("Set-Cookie")).toContain("Max-Age=0");
+    expect(getResponse.cookies?.[0]).toMatchObject({ name: "active_etf_session", value: "", maxAge: 0 });
   });
 
   it("requires a callback token", async () => {

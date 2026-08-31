@@ -1,4 +1,4 @@
-import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
+import { app, type Cookie, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
 import { verifyFirebaseIdToken, type FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
 import { jsonResponse } from "./response.js";
 
@@ -49,28 +49,29 @@ function isSecureRequest(request: HttpRequest): boolean {
   return forwardedProto === "https" || request.url.startsWith("https://");
 }
 
-function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number): string {
+function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number): Cookie {
   const maxAge = Math.max(0, Math.min(3_600, expiresAt - Math.floor(Date.now() / 1000)));
-  return [
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(idToken)}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${maxAge}`,
-    isSecureRequest(request) ? "Secure" : ""
-  ].filter(Boolean).join("; ");
+  return {
+    name: SESSION_COOKIE_NAME,
+    value: encodeURIComponent(idToken),
+    path: "/",
+    httpOnly: true,
+    sameSite: "Lax",
+    maxAge,
+    secure: isSecureRequest(request)
+  };
 }
 
-function expiredSessionCookie(request: HttpRequest): string {
-  return [
-    `${SESSION_COOKIE_NAME}=`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Max-Age=0",
-    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
-    isSecureRequest(request) ? "Secure" : ""
-  ].filter(Boolean).join("; ");
+function expiredSessionCookie(request: HttpRequest): Cookie {
+  return {
+    name: SESSION_COOKIE_NAME,
+    value: "",
+    path: "/",
+    httpOnly: true,
+    sameSite: "Lax",
+    maxAge: 0,
+    secure: isSecureRequest(request)
+  };
 }
 
 async function readTokenBody(request: HttpRequest): Promise<string | null> {
@@ -88,14 +89,16 @@ async function establishSession(request: HttpRequest, context: InvocationContext
 
   try {
     const claims = await verifyFirebaseIdToken(idToken);
-    return jsonResponse({ authenticated: true, user: safeUser(claims) }, 200, noStoreHeaders({
-      "Set-Cookie": sessionCookie(request, idToken, claims.exp ?? 0)
-    }));
+    return {
+      ...jsonResponse({ authenticated: true, user: safeUser(claims) }, 200, noStoreHeaders()),
+      cookies: [sessionCookie(request, idToken, claims.exp ?? 0)]
+    };
   } catch (error) {
     context.warn("Firebase login callback verification failed.", error instanceof Error ? error.message : "unknown");
-    return jsonResponse({ error: "登入驗證失敗，請重新登入。" }, 401, noStoreHeaders({
-      "Set-Cookie": expiredSessionCookie(request)
-    }));
+    return {
+      ...jsonResponse({ error: "登入驗證失敗，請重新登入。" }, 401, noStoreHeaders()),
+      cookies: [expiredSessionCookie(request)]
+    };
   }
 }
 
@@ -107,18 +110,20 @@ async function readSession(request: HttpRequest): Promise<HttpResponseInit> {
     const claims = await verifyFirebaseIdToken(idToken);
     return jsonResponse({ authenticated: true, user: safeUser(claims) }, 200, noStoreHeaders());
   } catch {
-    return jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders({
-      "Set-Cookie": expiredSessionCookie(request)
-    }));
+    return {
+      ...jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders()),
+      cookies: [expiredSessionCookie(request)]
+    };
   }
 }
 
 export async function authSession(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   if (request.method === "POST") return establishSession(request, context);
   if (request.method === "DELETE") {
-    return jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders({
-      "Set-Cookie": expiredSessionCookie(request)
-    }));
+    return {
+      ...jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders()),
+      cookies: [expiredSessionCookie(request)]
+    };
   }
   return readSession(request);
 }
