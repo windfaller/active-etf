@@ -31,6 +31,10 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
     const headers = { "access-control-allow-origin": "*" };
+    if (url.includes("/auth/session")) {
+      if (route.request().method() === "POST") return route.fulfill({ headers, json:{authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} });
+      return route.fulfill({ headers, json:{authenticated:false,user:null} });
+    }
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
     if (url.includes("/global-etfs/daily-report")) return route.fulfill({ headers, json:globalReportFixture });
@@ -118,6 +122,7 @@ for (const viewport of viewports) {
     await mockApis(page);
     await page.goto("/market");
     await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "登入或免費註冊" })).toBeVisible();
     const sectorGrid = page.getByLabel("重點產業方向");
     await expect(sectorGrid.getByRole("button", { name: /2330.*台積電.*\+3,250/u })).toBeVisible();
     await expect(page.getByText("正負值同時使用文字與符號呈現，不只依賴顏色。")).toHaveCount(0);
@@ -164,6 +169,21 @@ for (const viewport of viewports) {
     }
   });
 }
+
+test("central auth callback becomes a verified member session and removes the URL token", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/?idToken=fake-firebase-token");
+
+  await expect(page).toHaveURL("/");
+  expect(await page.evaluate(() => JSON.stringify((window as Window & { dataLayer?: unknown[] }).dataLayer ?? []))).not.toContain("fake-firebase-token");
+  await expect(page.getByRole("button", { name: "開啟會員選單" })).toBeVisible();
+  await page.getByRole("button", { name: "開啟會員選單" }).click();
+  await expect(page.getByRole("menu")).toContainText("ETF Member");
+  await expect(page.getByRole("menu")).toContainText("member@example.com");
+
+  await page.getByRole("menuitem", { name: "登出" }).click();
+  await expect(page.getByRole("button", { name: "登入或免費註冊" })).toBeVisible();
+});
 
 test("market impact cards keep distinct tone surfaces in dark mode", async ({ page }) => {
   await page.setViewportSize({ width:390, height:844 });
@@ -285,7 +305,7 @@ test("homepage does not request the full global report and browser history follo
   await expect(page.getByRole("heading", { name: "主動 ETF 機構調倉情報" })).toBeVisible();
   await page.waitForTimeout(500);
   expect(globalReportRequests).toHaveLength(0);
-  expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/market/bootstrap"]);
+  expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/auth/session", "/api/market/bootstrap"]);
   await page.getByRole("link", { name: "海外 ETF", exact: true }).click();
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();

@@ -1,4 +1,9 @@
 export const ACTIVE_ETF_COMPARE_COMPLETE_EVENT = "active_etf_compare_complete";
+export type AuthAnalyticsEvent =
+  | "active_etf_login_intent"
+  | "active_etf_login_success"
+  | "active_etf_login_failed"
+  | "active_etf_logout";
 
 type ComparisonMarket = "tw" | "global";
 type AnalyticsEventParams = {
@@ -43,3 +48,15 @@ export function createEtfComparisonTracker(
 }
 
 export const trackEtfCompareComplete = createEtfComparisonTracker();
+
+export function trackAuthEvent(event: AuthAnalyticsEvent, interactionSource: string): boolean {
+  const target = browserAnalyticsTarget();
+  if (!target) return false;
+  const dataLayer = target.dataLayer ??= [];
+  dataLayer.push({
+    event,
+    auth_method: "external_firebase",
+    interaction_source: interactionSource
+  });
+  return true;
+}

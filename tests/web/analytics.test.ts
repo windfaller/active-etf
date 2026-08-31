@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
   createEtfComparisonTracker,
+  trackAuthEvent,
   type AnalyticsTarget
 } from "../../src/web/analytics.js";
 
@@ -52,5 +53,22 @@ describe("Active ETF analytics", () => {
     expect(track("tw", ["1", "2", "3", "4", "5"])).toBe(false);
     expect(noBrowserTrack("tw", ["00981A", "00982A"])).toBe(false);
     expect(target.dataLayer).toBeUndefined();
+  });
+
+  it("tracks auth lifecycle without user identifiers or token data", () => {
+    const previousWindow = globalThis.window;
+    const target: AnalyticsTarget = {};
+    Object.defineProperty(globalThis, "window", { configurable: true, value: target });
+    try {
+      expect(trackAuthEvent("active_etf_login_success", "auth_callback")).toBe(true);
+      expect(target.dataLayer).toEqual([{
+        event: "active_etf_login_success",
+        auth_method: "external_firebase",
+        interaction_source: "auth_callback"
+      }]);
+      expect(JSON.stringify(target.dataLayer)).not.toMatch(/email|uid|token/iu);
+    } finally {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: previousWindow });
+    }
   });
 });
