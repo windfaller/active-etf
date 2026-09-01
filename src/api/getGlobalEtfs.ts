@@ -55,8 +55,8 @@ async function getCachedGlobalEtfDailyReport(sourceDate?: string): Promise<Globa
 async function getCachedGlobalEtfWebReport(sourceDate?: string) {
   const db = await getDb();
   const version = await globalEtfSnapshotVersion(db);
-  return getOrSetDailyCache(["global-etfs", "web-report", sourceDate ?? "latest", version], async () =>
-    projectGlobalEtfWebReport(await getGlobalEtfDailyReport(db, sourceDate))
+  return getOrSetDailyCache(["global-etfs", "web-report", "v2", sourceDate ?? "latest", version], async () =>
+    projectGlobalEtfWebReport(await getCachedGlobalEtfDailyReport(sourceDate))
   );
 }
 
