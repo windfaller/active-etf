@@ -18,6 +18,8 @@ const globalReport = {
 };
 
 async function mockApis(page: Page) {
+  await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
+  await page.route("https://connect.facebook.net/**", (route) => route.abort());
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
     if (url.includes("/market/bootstrap")) return route.fulfill({ json: { dates: ["2026-07-21"], recommendedDate: "2026-07-21", selectedDate: "2026-07-21", coverage: [{ date: "2026-07-21", availableCount: 1, trackedCount: 1, coverageRate: 1 }], dashboard: { date: "2026-07-21", stockImpact: dashboard.stockImpact, coverage: dashboard.coverage } } });
@@ -56,21 +58,25 @@ const directRoutes = [
   ["/terms", "服務條款"]
 ] as const;
 
-test("optional analytics load only after consent and the choice can be reopened", async ({ page }) => {
+test("anonymous Google measurement starts before consent while Meta remains gated", async ({ page }) => {
   await mockApis(page);
   await page.goto("/");
 
-  const consent = page.getByRole("dialog", { name: "由你決定是否允許成效分析" });
+  const consent = page.getByRole("dialog", { name: "匿名量測與完整追蹤" });
   await expect(consent).toBeVisible();
-  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(0);
+  await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
+  await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(0);
+  await expect(page.locator('script[data-gtm-id]')).toHaveCount(0);
 
-  await consent.getByRole("button", { name: "僅使用必要功能" }).click();
+  await consent.getByRole("button", { name: "維持匿名量測" }).click();
   await expect(consent).toBeHidden();
-  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(0);
+  await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
+  await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(0);
 
   await page.getByRole("button", { name: "追蹤設定" }).click();
-  await consent.getByRole("button", { name: "允許成效分析" }).click();
-  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(1);
+  await consent.getByRole("button", { name: "同意完整量測" }).click();
+  await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
+  await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(1);
 });
 
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {
@@ -94,6 +100,8 @@ test("primary navigation is crawlable and preserves SPA navigation", async ({ pa
   await taiwanLink.click();
   await expect(page).toHaveURL(/\/market$/u);
   await expect(page.getByRole("heading", { name: "台灣主動式 ETF 市場總覽" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "匿名量測與完整追蹤" })).toBeHidden();
+  await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(1);
 });
 
 test("mobile homepage opens a preselected ETF comparison in one action", async ({ page }) => {

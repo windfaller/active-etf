@@ -181,7 +181,7 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
   }
 
   if (path === "/privacy") {
-    return metadataBase(path, "隱私政策｜ETF 持倉雷達", "說明 ETF 持倉雷達的會員工作階段、選用成效分析、第三方服務及追蹤同意選擇。", "隱私政策", "了解本站如何處理必要會員工作階段、追蹤同意及 Google、Meta 成效分析資料。", "隱私與資料", "reference", [homeBreadcrumb(), { name: "隱私政策", path }]);
+    return metadataBase(path, "隱私政策｜ETF 持倉雷達", "說明 ETF 持倉雷達的會員工作階段、進站匿名量測、互動同意、第三方服務及追蹤設定。", "隱私政策", "了解本站如何處理必要會員工作階段、Google 匿名量測與升級後的 Google、Meta 成效分析資料。", "隱私與資料", "reference", [homeBreadcrumb(), { name: "隱私政策", path }]);
   }
 
   if (path === "/terms") {

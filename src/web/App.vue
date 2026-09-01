@@ -579,7 +579,7 @@ onBeforeUnmount(() => {
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>
-      <span><a href="/methodology" @pointerenter="prefetchRouteComponent('/methodology')" @focus="prefetchRouteComponent('/methodology')" @click.prevent="navigate('/methodology')">方法論</a><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a><a href="/privacy" @pointerenter="prefetchRouteComponent('/privacy')" @focus="prefetchRouteComponent('/privacy')" @click.prevent="navigate('/privacy')">隱私政策</a><a href="/terms" @pointerenter="prefetchRouteComponent('/terms')" @focus="prefetchRouteComponent('/terms')" @click.prevent="navigate('/terms')">服務條款</a><button type="button" @click="trackingConsent?.open()">追蹤設定</button></span>
+      <span><a href="/methodology" @pointerenter="prefetchRouteComponent('/methodology')" @focus="prefetchRouteComponent('/methodology')" @click.prevent="navigate('/methodology')">方法論</a><a href="/active-etfs/">追蹤 ETF 清單</a><a href="/data-usage/">資料來源與使用說明</a><a href="/privacy" @pointerenter="prefetchRouteComponent('/privacy')" @focus="prefetchRouteComponent('/privacy')" @click.prevent="navigate('/privacy')">隱私政策</a><a href="/terms" @pointerenter="prefetchRouteComponent('/terms')" @focus="prefetchRouteComponent('/terms')" @click.prevent="navigate('/terms')">服務條款</a><button type="button" data-tracking-consent-ui @click="trackingConsent?.open()">追蹤設定</button></span>
     </footer>
 
     <TrackingConsent ref="trackingConsent" />

@@ -1,7 +1,14 @@
-import { hasTrackingConsent, type TrackingConsentTarget } from "./consent.js";
+import {
+  grantTrackingConsent,
+  pushGoogleCommand,
+  trackMetaCustomEvent,
+  type ImpliedConsentInteraction,
+  type TrackingConsentTarget
+} from "./consent.js";
 
 export const ACTIVE_ETF_COMPARE_COMPLETE_EVENT = "active_etf_compare_complete";
 export const ACTIVE_ETF_PAGE_CLICK_EVENT = "active_etf_page_click";
+export const ACTIVE_ETF_FEATURE_INTERACTION_EVENT = "active_etf_feature_interaction";
 export type AuthAnalyticsEvent =
   | "active_etf_login_intent"
   | "active_etf_login_success"
@@ -10,11 +17,7 @@ export type AuthAnalyticsEvent =
   | "active_etf_logout";
 
 type ComparisonMarket = "tw" | "global";
-type AnalyticsEventParams = {
-  comparison_market: ComparisonMarket;
-  etf_count: number;
-  interaction_source: "comparison_results";
-};
+type AnalyticsEventParams = Record<string, string | number | boolean>;
 
 export interface AnalyticsTarget extends TrackingConsentTarget {
   dataLayer?: unknown[];
@@ -22,6 +25,12 @@ export interface AnalyticsTarget extends TrackingConsentTarget {
 
 function browserAnalyticsTarget(): AnalyticsTarget | null {
   return typeof window === "undefined" ? null : window as AnalyticsTarget;
+}
+
+function sendAnalyticsEvent(target: AnalyticsTarget, event: string, params: AnalyticsEventParams): boolean {
+  pushGoogleCommand(target, "event", event, params);
+  trackMetaCustomEvent(event, target);
+  return true;
 }
 
 export function createEtfComparisonTracker(
@@ -34,14 +43,12 @@ export function createEtfComparisonTracker(
     if (normalizedCodes.length < 2 || normalizedCodes.length > 4) return false;
 
     const target = getTarget();
-    if (!target || !hasTrackingConsent(target)) return false;
+    if (!target) return false;
 
     const comparisonKey = `${market}:${normalizedCodes.join(",")}`;
     if (trackedComparisons.has(comparisonKey)) return false;
 
-    const dataLayer = target.dataLayer ??= [];
-    dataLayer.push({
-      event: ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
+    sendAnalyticsEvent(target, ACTIVE_ETF_COMPARE_COMPLETE_EVENT, {
       comparison_market: market,
       etf_count: normalizedCodes.length,
       interaction_source: "comparison_results"
@@ -95,26 +102,44 @@ export function pageDestination(pathname: string): PageDestination {
   return "other";
 }
 
+export function trackInitialPageView(pathname: string): boolean {
+  const target = browserAnalyticsTarget();
+  if (!target) return false;
+  const destination = pageDestination(pathname);
+  return sendAnalyticsEvent(target, "page_view", {
+    page_destination: destination,
+    page_location: `https://active-etf.inthewins.com/_measurement/${destination}`,
+    page_title: `active_etf_${destination}`,
+    interaction_source: "initial_page_load"
+  });
+}
+
 export function trackPageClick(pathname: string): boolean {
   const target = browserAnalyticsTarget();
-  if (!target || !hasTrackingConsent(target)) return false;
-  const dataLayer = target.dataLayer ??= [];
-  dataLayer.push({
-    event: ACTIVE_ETF_PAGE_CLICK_EVENT,
+  if (!target) return false;
+  return sendAnalyticsEvent(target, ACTIVE_ETF_PAGE_CLICK_EVENT, {
     page_destination: pageDestination(pathname),
     interaction_source: "internal_navigation"
   });
-  return true;
+}
+
+export function trackFeatureInteraction(interaction: ImpliedConsentInteraction): boolean {
+  const target = browserAnalyticsTarget();
+  if (!target) return false;
+  return sendAnalyticsEvent(target, ACTIVE_ETF_FEATURE_INTERACTION_EVENT, {
+    interaction_kind: interaction,
+    interaction_source: "consent_upgrade"
+  });
 }
 
 export function trackAuthEvent(event: AuthAnalyticsEvent, interactionSource: string): boolean {
   const target = browserAnalyticsTarget();
-  if (!target || !hasTrackingConsent(target)) return false;
-  const dataLayer = target.dataLayer ??= [];
-  dataLayer.push({
-    event,
+  if (!target) return false;
+  if (event === "active_etf_login_intent" || event === "active_etf_sign_up_success") {
+    grantTrackingConsent(target);
+  }
+  return sendAnalyticsEvent(target, event, {
     auth_method: "external_firebase",
     interaction_source: interactionSource
   });
-  return true;
 }

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("auth callback bootstrap", () => {
-  it("removes the one-time token before the consent-gated app can load Google Tag Manager", async () => {
+  it("removes the one-time token before the app can start denied-mode Google measurement", async () => {
     const [html, main, consent] = await Promise.all([
       readFile("index.html", "utf8"),
       readFile("src/web/main.ts", "utf8"),
@@ -17,7 +17,9 @@ describe("auth callback bootstrap", () => {
     expect(html).toContain('<meta name="referrer" content="same-origin" />');
     expect(html).not.toContain("googletagmanager.com");
     expect(main.indexOf("initializeTrackingConsent()")).toBeLessThan(main.indexOf("createApp(App).mount"));
-    expect(consent).toContain("googletagmanager.com/gtm.js");
+    expect(main.indexOf("initializeTrackingConsent()")).toBeLessThan(main.indexOf("trackInitialPageView(window.location.pathname)"));
+    expect(consent).toContain("googletagmanager.com/gtag/js");
+    expect(consent).toContain("connect.facebook.net/en_US/fbevents.js");
     expect(consent).toContain("hasTrackingConsent(target)");
   });
 });

@@ -1,12 +1,15 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import { trackFeatureInteraction, trackInitialPageView } from "./analytics";
 import { startAppVersionMonitor } from "./cacheVersion";
 import { initializeColorMode } from "./composables/useColorMode";
-import { initializeTrackingConsent } from "./consent";
+import { initializeTrackingConsent, installImpliedTrackingConsent } from "./consent";
 import "./styles.css";
 
 initializeColorMode();
 initializeTrackingConsent();
+installImpliedTrackingConsent(trackFeatureInteraction);
+trackInitialPageView(window.location.pathname);
 
 createApp(App).mount("#app");
 
