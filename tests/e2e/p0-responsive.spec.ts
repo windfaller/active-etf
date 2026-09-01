@@ -29,6 +29,8 @@ async function mockApis(page: Page, globalReportFixture: GlobalReport = globalRe
   let sessionAuthenticated = authenticated;
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
   await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
+  await page.route("https://connect.facebook.net/**", (route) => route.abort());
+  await page.route("https://www.facebook.com/**", (route) => route.abort());
   await page.route("https://www.forvix.app/**", (route) => route.fulfill({ contentType:"text/html", body:"<!doctype html><title>FORVIX embed fixture</title>" }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
@@ -104,6 +106,9 @@ test("Forvix market embed stays at content end on every requested product route"
     "/institutions",
     "/institutions/ARK13F"
   ];
+
+  await page.goto("/");
+  await page.getByRole("dialog", { name: "匿名量測與完整追蹤" }).getByRole("button", { name: "同意完整量測" }).click();
 
   for (const path of paths) {
     await page.goto(path);

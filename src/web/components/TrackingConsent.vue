@@ -47,7 +47,7 @@ defineExpose({ open });
     <div>
       <span>隱私與追蹤設定</span>
       <h2 id="tracking-consent-title">匿名量測與完整追蹤</h2>
-      <p>進站時 Google 會以 Consent Mode denied 進行無 Cookie 的受限匿名量測，Meta Pixel 不會啟動。操作分頁、點擊內容或功能，或進入登入／加入會員流程，即視為同意升級完整成效分析；事件不含會員識別、搜尋字或股票與 ETF 代碼。</p>
+      <p>進站時 Google 會以 Consent Mode denied 進行無 Cookie 的受限匿名量測，Meta Pixel 與 Forvix 跨站內容不會啟動。操作分頁、點擊內容或功能，或進入登入／加入會員流程，即視為同意升級完整成效分析；事件不含會員識別、搜尋字或股票與 ETF 代碼。</p>
       <nav aria-label="追蹤設定說明">
         <a href="/privacy">隱私政策</a>
         <a href="/terms">服務條款</a>

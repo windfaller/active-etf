@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { hasTrackingConsent, TRACKING_CONSENT_CHANGED_EVENT } from "../consent";
 
 const eventId = "106981";
 const forvixOrigin = "https://www.forvix.app";
 const parentOrigin = typeof window === "undefined" ? "https://active-etf.inthewins.com" : window.location.origin;
 const host = ref<HTMLElement | null>(null);
-const shouldLoad = ref(false);
+const isNearViewport = ref(false);
+const consentGranted = ref(hasTrackingConsent());
 let observer: IntersectionObserver | null = null;
 let fallbackTimer: number | null = null;
+
+const shouldLoad = computed(() => isNearViewport.value && consentGranted.value);
 
 const embedUrl = computed(() => {
   const params = new URLSearchParams({
@@ -28,14 +32,19 @@ const fullPageUrl = computed(() => {
 });
 
 function loadEmbed(): void {
-  shouldLoad.value = true;
+  isNearViewport.value = true;
   observer?.disconnect();
   observer = null;
   if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
   fallbackTimer = null;
 }
 
+function syncConsent(): void {
+  consentGranted.value = hasTrackingConsent();
+}
+
 onMounted(() => {
+  window.addEventListener(TRACKING_CONSENT_CHANGED_EVENT, syncConsent);
   if ("IntersectionObserver" in window && host.value) {
     observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) loadEmbed();
@@ -47,6 +56,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener(TRACKING_CONSENT_CHANGED_EVENT, syncConsent);
   observer?.disconnect();
   if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
 });
@@ -73,7 +83,7 @@ onBeforeUnmount(() => {
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
       scrolling="yes"
     />
-    <div v-else class="embed-placeholder" aria-hidden="true">延伸閱讀將在捲動至此處時載入</div>
+    <div v-else class="embed-placeholder" aria-hidden="true">{{ consentGranted ? '延伸閱讀將在捲動至此處時載入' : '完整量測同意後才載入跨站延伸閱讀' }}</div>
   </aside>
 </template>
 

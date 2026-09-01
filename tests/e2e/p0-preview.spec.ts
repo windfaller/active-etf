@@ -20,6 +20,7 @@ const globalReport = {
 async function mockApis(page: Page) {
   await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
   await page.route("https://connect.facebook.net/**", (route) => route.abort());
+  await page.route("https://www.forvix.app/**", (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>FORVIX embed fixture</title>" }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
     if (url.includes("/market/bootstrap")) return route.fulfill({ json: { dates: ["2026-07-21"], recommendedDate: "2026-07-21", selectedDate: "2026-07-21", coverage: [{ date: "2026-07-21", availableCount: 1, trackedCount: 1, coverageRate: 1 }], dashboard: { date: "2026-07-21", stockImpact: dashboard.stockImpact, coverage: dashboard.coverage } } });
@@ -67,6 +68,9 @@ test("anonymous Google measurement starts before consent while Meta remains gate
   await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
   await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(0);
   await expect(page.locator('script[data-gtm-id]')).toHaveCount(0);
+  const forvixEmbed = page.locator("#forvix-market-watch-embed");
+  await forvixEmbed.scrollIntoViewIfNeeded();
+  await expect(forvixEmbed.locator("iframe")).toHaveCount(0);
 
   await consent.getByRole("button", { name: "維持匿名量測" }).click();
   await expect(consent).toBeHidden();
@@ -77,6 +81,7 @@ test("anonymous Google measurement starts before consent while Meta remains gate
   await consent.getByRole("button", { name: "同意完整量測" }).click();
   await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
   await expect(page.locator('script[data-meta-pixel-id="1811635619849853"]')).toHaveCount(1);
+  await expect(forvixEmbed.locator("iframe")).toHaveCount(1);
 });
 
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {
