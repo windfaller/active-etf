@@ -1,6 +1,6 @@
 # Azure Deployment Plan
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-09-01 11:35:52 Asia/Taipei
 
@@ -90,11 +90,11 @@ The user explicitly approved publishing the existing application. The repository
 
 ### Phase 4: Deployment
 
-- [ ] Invoke `azure-deploy`
-- [ ] Push the scoped release commit to `main`
-- [ ] Confirm the Static Web Apps workflow succeeds
-- [ ] Verify production endpoints and caller-side opt-in behavior
-- [ ] Set status to `Deployed`
+- [x] Invoke `azure-deploy`
+- [x] Push the scoped release commit to `main`
+- [x] Confirm the Static Web Apps workflow succeeds
+- [x] Verify production endpoints and caller-side opt-in behavior
+- [x] Set status to `Deployed`
 
 ## 8. Validation Proof
 
@@ -112,6 +112,18 @@ The user explicitly approved publishing the existing application. The repository
 **Validated by:** `azure-validate` workflow
 
 **Validation timestamp:** 2026-09-01 11:36:31 Asia/Taipei
+
+## 8.1 Deployment Proof
+
+| Check | Result | Timestamp |
+|-------|--------|-----------|
+| Auth App release | Commit `a849a9a` deployed by GitHub Actions run `33466550779` | 2026-09-01 11:33 Asia/Taipei |
+| Auth App production | `https://auth-app.gogowinners.me/sign-in` and Azure default hostname returned HTTP 200; deployed bundle contains the opt-in contract | 2026-09-01 11:34 Asia/Taipei |
+| Active ETF release | Commit `bcfd052` deployed by GitHub Actions run `33466882205` | 2026-09-01 11:39 Asia/Taipei |
+| Pipeline acceptance | Build/deploy, P1 production indexes, and production route/semantic smoke all passed | 2026-09-01 11:39 Asia/Taipei |
+| Active ETF production web | `https://active-etf.inthewins.com/` and Azure default hostname returned HTTP 200 | 2026-09-01 11:39 Asia/Taipei |
+| Active ETF production session | Anonymous `/api/auth/session` returned HTTP 200 with `authenticated=false` and no user payload | 2026-09-01 11:39 Asia/Taipei |
+| Deployed caller contract | Production bundle `assets/index-8j2QVDUl.js` contains `returnAuthAction`, `active_etf_login_success`, and `active_etf_sign_up_success` | 2026-09-01 11:40 Asia/Taipei |
 
 ## 9. Functional Verification
 
