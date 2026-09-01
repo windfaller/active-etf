@@ -156,6 +156,7 @@ test("signals, style, and search interactions are keyboard accessible", async ({
   const consecutiveCard = page.getByTestId("signal-consecutive-2330");
   await expect(consecutiveCard.getByText("連續 3 日", { exact: true })).toBeVisible();
   await expect(consecutiveCard.getByText("有效觀察 17/20", { exact: false })).toBeVisible();
+  await expect(page.getByTestId("signal-divergence-2303").getByText("法人合計 -500 張", { exact: true })).toBeVisible();
   await page.goto("/etf/00981A/style");
   await expect(page.getByRole("heading", { name: "00981A 主動統一台股增長" })).toBeVisible();
   await expect(page.getByText("第 78 百分位")).toBeVisible();
@@ -189,6 +190,10 @@ test("financial direction colors stay consistent across signals, stock, compare,
   expect(await colorOf('[data-testid="signal-consecutive-2317"] .signal-metric')).toBe(dark.negative);
 
   await page.goto("/stocks/tw/2330");
+  await expect(page.locator(".institution-grid article").nth(0)).toContainText("外資+1張");
+  await expect(page.locator(".institution-grid article").nth(1)).toContainText("投信+0.2張");
+  await expect(page.locator(".institution-grid article").nth(2)).toContainText("自營商-0.1張");
+  await expect(page.locator(".institution-grid article").nth(3)).toContainText("三大法人合計+1.1張");
   expect(await colorOf(".institution-grid article:nth-child(1) .positive")).toBe(dark.positive);
   expect(await colorOf(".institution-grid article:nth-child(3) .negative")).toBe(dark.negative);
 

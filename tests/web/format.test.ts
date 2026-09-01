@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { directionTone, valueTone } from "../../src/web/utils/format.js";
+import { directionTone, formatSharesAsLots, valueTone } from "../../src/web/utils/format.js";
 
 describe("semantic value tones", () => {
   it("uses Taiwan market colors only for actual positive and negative values", () => {
@@ -16,5 +16,13 @@ describe("semantic value tones", () => {
     expect(directionTone("decrease")).toBe("negative");
     expect(directionTone("neutral")).toBe("neutral");
     expect(directionTone("unknown")).toBe("neutral");
+  });
+
+  it("converts Taiwan share counts to lots without losing odd-lot precision", () => {
+    expect(formatSharesAsLots(401_989)).toBe("+401.989");
+    expect(formatSharesAsLots(200_000)).toBe("+200");
+    expect(formatSharesAsLots(-2_590_990)).toBe("-2,590.99");
+    expect(formatSharesAsLots(0)).toBe("0");
+    expect(formatSharesAsLots(null)).toBe("-");
   });
 });

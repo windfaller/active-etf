@@ -9,7 +9,7 @@ import { useAuth } from "../composables/useAuth";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
 import type { MemberResult } from "../domain/memberVisibility";
 import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
-import { directionLabel, formatLots, formatMoney, formatSignedPp, valueTone } from "../utils/format";
+import { directionLabel, formatLots, formatMoney, formatSharesAsLots, formatSignedPp, valueTone } from "../utils/format";
 
 const props = defineProps<{
   impacts: Array<MemberResult<StockImpact>>;
@@ -28,8 +28,8 @@ const displayed = computed(() => {
   return props.impacts.filter((row) => isMemberLockedResult(row) || `${row.stockId} ${row.stockName} ${row.sector} ${row.themeTags.join(" ")} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`.toLowerCase().includes(normalized));
 });
 const leadSectors = computed(() => [...props.sectors].filter((row) => row.sector !== "其他").sort((a,b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots)).slice(0,6));
-function institutionLots(row: StockImpact): number | null { const value = row.institutional?.totalNetShares; return value === null || value === undefined ? null : value / 1000; }
-function institutionLotsLabel(row: StockImpact): string { const lots = institutionLots(row); return lots === null ? "-" : `${formatLots(lots)} 張`; }
+function institutionNetShares(row: StockImpact): number | null { return row.institutional?.totalNetShares ?? null; }
+function institutionLotsLabel(row: StockImpact): string { const shares = institutionNetShares(row); return shares === null ? "-" : `${formatSharesAsLots(shares)} 張`; }
 </script>
 
 <template>
@@ -69,7 +69,7 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
               <span><b>{{ row.sector || "其他" }}</b><small>{{ row.themeTags.slice(0,2).join("、") || "-" }}</small></span>
               <span :class="valueTone(row.totalActiveDiffLots)"><b>{{ directionLabel(row.totalActiveDiffLots) }} {{ formatLots(row.totalActiveDiffLots) }}</b><small>張</small></span>
               <span :class="valueTone(row.totalDiffWeightPoint)"><b>{{ formatSignedPp(row.totalDiffWeightPoint) }}</b></span>
-              <span :class="valueTone(institutionLots(row))"><b>{{ directionLabel(institutionLots(row), "買超", "賣超") }} {{ formatLots(institutionLots(row)) }}</b><small>張</small></span>
+              <span :class="valueTone(institutionNetShares(row))"><b>{{ directionLabel(institutionNetShares(row), "買超", "賣超") }} {{ formatSharesAsLots(institutionNetShares(row)) }}</b><small>張</small></span>
               <span><b>{{ row.etfCount }} 檔</b><small>加 {{ row.increaseEtfCount }} / 減 {{ row.decreaseEtfCount }}</small></span>
               <span><button v-if="row.primaryImpactEtf" type="button" class="inline-link" @click.stop="emit('etf', row.primaryImpactEtf.etfCode)">{{ row.primaryImpactEtf.etfCode }}</button><small>{{ formatMoney(row.market?.turnover) }}</small></span>
             </div>
@@ -87,7 +87,7 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
               </span>
               <span class="impact-summary-secondary">
                 <span>加 {{ row.increaseEtfCount }}／減 {{ row.decreaseEtfCount }} 檔</span>
-                <span :class="valueTone(institutionLots(row))">法人 {{ institutionLotsLabel(row) }}</span>
+                <span :class="valueTone(institutionNetShares(row))">法人 {{ institutionLotsLabel(row) }}</span>
               </span>
             </template>
             <dl class="impact-card-facts">

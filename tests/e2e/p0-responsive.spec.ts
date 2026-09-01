@@ -258,6 +258,8 @@ test("homepage public observations and sector metrics keep Taiwan direction colo
   await expect(pullPushRadar.getByText("拉力線索").first()).toBeVisible();
   await expect(pullPushRadar.getByText("推力訊號").first()).toBeVisible();
   await expect(pullPushRadar.getByText("ETF 規模校正後加碼").first()).toBeVisible();
+  await expect(pullPushRadar.getByText("投信當日買賣超").first().locator("..")).toContainText("+50 張");
+  await expect(pullPushRadar).not.toContainText(/投信當日買賣超[^張]*股/u);
   await expect(pullPushRadar).not.toContainText("Institution_35");
   await expect(pullPushRadar).not.toContainText("分析師共識");
   await expect(pullPushRadar).not.toContainText("待補");

@@ -27,6 +27,16 @@ export function formatLots(value: NullableNumber | undefined): string {
   return formatSigned(value, 0);
 }
 
+export function formatSharesAsLots(value: NullableNumber | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+  const lots = value / 1_000;
+  const formatted = new Intl.NumberFormat("zh-TW", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3
+  }).format(lots);
+  return `${lots > 0 ? "+" : ""}${formatted}`;
+}
+
 export function formatWeight(value: NullableNumber | undefined, digits = 2): string {
   if (value === null || value === undefined) return "-";
   return value === 0 ? "<0.01%" : `${formatNumber(value, digits)}%`;

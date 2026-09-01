@@ -12,7 +12,7 @@ import type { MarketMemberPreview } from "../contracts/memberPreview";
 import { buildDailyBrief, hasDirectionConsensus } from "../domain/dailyBrief";
 import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
 import { buildPullPushPreview } from "../domain/pullPushRadar";
-import { directionLabel, formatLots, formatSigned, formatSignedPp } from "../utils/format";
+import { directionLabel, formatLots, formatSharesAsLots, formatSigned, formatSignedPp } from "../utils/format";
 
 const props = defineProps<{
   impacts: Array<StockImpact | import("../../domain/memberAccess").MemberLockedResult>;
@@ -40,7 +40,7 @@ const sampleOnly = computed(() => brief.value.confidence.level === "low");
 function institutionLabel(row: StockImpact): string {
   const shares = row.institutional?.totalNetShares;
   if (shares === null || shares === undefined) return "法人無資料";
-  return `法人${directionLabel(shares, "買超", "賣超")} ${formatLots(shares / 1000)} 張`;
+  return `法人${directionLabel(shares, "買超", "賣超")} ${formatSharesAsLots(shares)} 張`;
 }
 
 function directionClass(value: number | null | undefined): "direction-positive" | "direction-negative" | "direction-neutral" {
@@ -119,7 +119,7 @@ function directionClass(value: number | null | undefined): "direction-positive" 
             </div>
             <dl>
               <div><dt>ETF 規模校正後加碼</dt><dd :class="directionClass(row.adjustedActiveLots)">{{ formatLots(row.adjustedActiveLots) }} 張</dd></div>
-              <div><dt>投信當日買賣超</dt><dd :class="directionClass(row.investmentTrustNetShares)">{{ row.investmentTrustNetShares === null ? '未知' : formatSigned(row.investmentTrustNetShares) + ' 股' }}</dd></div>
+              <div><dt>投信當日買賣超</dt><dd :class="directionClass(row.investmentTrustNetShares)">{{ row.investmentTrustNetShares === null ? '未知' : formatSharesAsLots(row.investmentTrustNetShares) + ' 張' }}</dd></div>
             </dl>
             <footer>查看個股證據 <ArrowRight :size="16" /></footer>
           </a>
