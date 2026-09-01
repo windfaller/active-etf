@@ -177,11 +177,12 @@ function modulePreloadSourceForPath(path: string): string | null {
   if (/^\/etf\/[^/]+(?:\/(?:changes|premium-history))?$/u.test(path)) return "src/web/views/TaiwanEtfView.vue";
   if (path === "/search") return "src/web/views/SearchResultsView.vue";
   if (path === "/methodology") return "src/web/views/MethodologyView.vue";
+  if (path === "/privacy" || path === "/terms") return "src/web/views/LegalDocumentView.vue";
   return null;
 }
 
 function injectRouteModulePreload(html: string, metadata: RouteMetadata, manifest: ViteManifest): string {
-  if (metadata.pageType === "reference") return html;
+  if (metadata.pageType === "reference" && metadata.path !== "/privacy" && metadata.path !== "/terms") return html;
   const source = modulePreloadSourceForPath(metadata.path);
   if (!source) return html;
   const entry = Object.values(manifest).find((item) => item.src === source);

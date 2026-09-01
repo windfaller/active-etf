@@ -180,6 +180,14 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
     return metadataBase(path, "方法論｜主動調倉、重疊、反轉與風格指標", "了解主動淨變動、規模校正、共識、連續與反轉訊號、ETF 重疊、經理人風格、可信度與 13F 限制。", "情報指標方法論與限制", "區分可觀察事實、系統計算結果與研究解讀，說明公式、缺失資料處理與不同時間尺度。", "研究方法", "tool", [homeBreadcrumb(), { name: "方法論", path }]);
   }
 
+  if (path === "/privacy") {
+    return metadataBase(path, "隱私政策｜ETF 持倉雷達", "說明 ETF 持倉雷達的會員工作階段、選用成效分析、第三方服務及追蹤同意選擇。", "隱私政策", "了解本站如何處理必要會員工作階段、追蹤同意及 Google、Meta 成效分析資料。", "隱私與資料", "reference", [homeBreadcrumb(), { name: "隱私政策", path }]);
+  }
+
+  if (path === "/terms") {
+    return metadataBase(path, "服務條款｜ETF 持倉雷達", "ETF 持倉雷達的研究資訊性質、資料限制、會員使用規範與服務調整說明。", "服務條款", "使用本站前請了解公開資料時差、研究資訊限制、會員責任與禁止行為。", "服務規範", "reference", [homeBreadcrumb(), { name: "服務條款", path }]);
+  }
+
   if (parts[0] === "etf" && parts[1]) {
     const code = parts[1].toUpperCase();
     const etf = taiwanEtfs.find((row) => row.etfCode === code);
@@ -367,6 +375,8 @@ export function allStaticSeoPaths(): string[] {
     "/signals/reversals",
     "/signals/divergence",
     "/methodology",
+    "/privacy",
+    "/terms",
     ...taiwanEtfs.flatMap((etf) => [
       `/etf/${etf.etfCode}`,
       `/etf/${etf.etfCode}/changes`,

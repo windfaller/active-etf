@@ -11,7 +11,7 @@ import {
 
 describe("Active ETF analytics", () => {
   it("tracks a completed comparison without sending ETF codes", () => {
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     const track = createEtfComparisonTracker(() => target);
 
     expect(track("tw", ["00982A", "00981A"])).toBe(true);
@@ -26,7 +26,7 @@ describe("Active ETF analytics", () => {
   });
 
   it("deduplicates the same comparison within the current page session", () => {
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     const track = createEtfComparisonTracker(() => target);
 
     expect(track("global", ["DRAM", "HBMX"])).toBe(true);
@@ -35,7 +35,7 @@ describe("Active ETF analytics", () => {
   });
 
   it("pushes a GTM custom event object", () => {
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     const track = createEtfComparisonTracker(() => target);
 
     expect(track("tw", ["00981A", "00982A", "00983A"])).toBe(true);
@@ -48,7 +48,7 @@ describe("Active ETF analytics", () => {
   });
 
   it("does not track invalid comparison sizes or non-browser execution", () => {
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     const track = createEtfComparisonTracker(() => target);
     const noBrowserTrack = createEtfComparisonTracker(() => null);
 
@@ -58,9 +58,17 @@ describe("Active ETF analytics", () => {
     expect(target.dataLayer).toBeUndefined();
   });
 
+  it("does not track any event before optional tracking consent", () => {
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: false };
+    const track = createEtfComparisonTracker(() => target);
+
+    expect(track("tw", ["00981A", "00982A"])).toBe(false);
+    expect(target.dataLayer).toBeUndefined();
+  });
+
   it("tracks auth lifecycle without user identifiers or token data", () => {
     const previousWindow = globalThis.window;
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     Object.defineProperty(globalThis, "window", { configurable: true, value: target });
     try {
       expect(trackAuthEvent("active_etf_login_success", "auth_callback")).toBe(true);
@@ -77,7 +85,7 @@ describe("Active ETF analytics", () => {
 
   it("tracks sanitized internal page destinations without stock or ETF codes", () => {
     const previousWindow = globalThis.window;
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     Object.defineProperty(globalThis, "window", { configurable: true, value: target });
     try {
       expect(trackPageClick("/stocks/tw/2330?from=market")).toBe(true);
@@ -97,11 +105,13 @@ describe("Active ETF analytics", () => {
     expect(pageDestination("/compare/etfs?codes=00981A,00982A")).toBe("etf_compare");
     expect(pageDestination("/global-etfs/DRAM")).toBe("global_etf");
     expect(pageDestination("/institutions/BRK")).toBe("institution");
+    expect(pageDestination("/privacy")).toBe("privacy");
+    expect(pageDestination("/terms")).toBe("terms");
   });
 
   it("tracks a verified sign-up callback as a distinct auth event", () => {
     const previousWindow = globalThis.window;
-    const target: AnalyticsTarget = {};
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     Object.defineProperty(globalThis, "window", { configurable: true, value: target });
     try {
       expect(trackAuthEvent("active_etf_sign_up_success", "auth_callback")).toBe(true);

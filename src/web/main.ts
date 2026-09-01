@@ -2,9 +2,11 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { startAppVersionMonitor } from "./cacheVersion";
 import { initializeColorMode } from "./composables/useColorMode";
+import { initializeTrackingConsent } from "./consent";
 import "./styles.css";
 
 initializeColorMode();
+initializeTrackingConsent();
 
 createApp(App).mount("#app");
 

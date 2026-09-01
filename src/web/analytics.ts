@@ -1,3 +1,5 @@
+import { hasTrackingConsent, type TrackingConsentTarget } from "./consent.js";
+
 export const ACTIVE_ETF_COMPARE_COMPLETE_EVENT = "active_etf_compare_complete";
 export const ACTIVE_ETF_PAGE_CLICK_EVENT = "active_etf_page_click";
 export type AuthAnalyticsEvent =
@@ -14,7 +16,7 @@ type AnalyticsEventParams = {
   interaction_source: "comparison_results";
 };
 
-export interface AnalyticsTarget {
+export interface AnalyticsTarget extends TrackingConsentTarget {
   dataLayer?: unknown[];
 }
 
@@ -32,7 +34,7 @@ export function createEtfComparisonTracker(
     if (normalizedCodes.length < 2 || normalizedCodes.length > 4) return false;
 
     const target = getTarget();
-    if (!target) return false;
+    if (!target || !hasTrackingConsent(target)) return false;
 
     const comparisonKey = `${market}:${normalizedCodes.join(",")}`;
     if (trackedComparisons.has(comparisonKey)) return false;
@@ -67,6 +69,8 @@ type PageDestination =
   | "signals"
   | "search"
   | "methodology"
+  | "privacy"
+  | "terms"
   | "other";
 
 export function pageDestination(pathname: string): PageDestination {
@@ -86,12 +90,14 @@ export function pageDestination(pathname: string): PageDestination {
   if (path === "/signals" || path.startsWith("/signals/")) return "signals";
   if (path === "/search") return "search";
   if (path === "/methodology") return "methodology";
+  if (path === "/privacy") return "privacy";
+  if (path === "/terms") return "terms";
   return "other";
 }
 
 export function trackPageClick(pathname: string): boolean {
   const target = browserAnalyticsTarget();
-  if (!target) return false;
+  if (!target || !hasTrackingConsent(target)) return false;
   const dataLayer = target.dataLayer ??= [];
   dataLayer.push({
     event: ACTIVE_ETF_PAGE_CLICK_EVENT,
@@ -103,7 +109,7 @@ export function trackPageClick(pathname: string): boolean {
 
 export function trackAuthEvent(event: AuthAnalyticsEvent, interactionSource: string): boolean {
   const target = browserAnalyticsTarget();
-  if (!target) return false;
+  if (!target || !hasTrackingConsent(target)) return false;
   const dataLayer = target.dataLayer ??= [];
   dataLayer.push({
     event,

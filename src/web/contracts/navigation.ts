@@ -14,6 +14,8 @@ export type AppView =
   | "etfStyle"
   | "search"
   | "methodology"
+  | "privacy"
+  | "terms"
   | "notFound";
 
 export type TaiwanEtfPage = "report" | "premiumHistory";

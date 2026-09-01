@@ -51,8 +51,27 @@ const directRoutes = [
   ["/signals/reversals", "連續調倉、反轉與方向分歧"],
   ["/signals/divergence", "連續調倉、反轉與方向分歧"],
   ["/etf/00981A/style", "00981A 主動統一台股增長"],
-  ["/methodology", "情報指標方法論與限制"]
+  ["/methodology", "情報指標方法論與限制"],
+  ["/privacy", "隱私政策"],
+  ["/terms", "服務條款"]
 ] as const;
+
+test("optional analytics load only after consent and the choice can be reopened", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/");
+
+  const consent = page.getByRole("dialog", { name: "由你決定是否允許成效分析" });
+  await expect(consent).toBeVisible();
+  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(0);
+
+  await consent.getByRole("button", { name: "僅使用必要功能" }).click();
+  await expect(consent).toBeHidden();
+  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(0);
+
+  await page.getByRole("button", { name: "追蹤設定" }).click();
+  await consent.getByRole("button", { name: "允許成效分析" }).click();
+  await expect(page.locator('script[data-gtm-id="GTM-WSP962PS"]')).toHaveCount(1);
+});
 
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {
   await mockApis(page);

@@ -39,6 +39,8 @@ const compare = html("compare/etfs");
 const reversals = html("signals/reversals");
 const style = html("etf/00981A/style");
 const methodology = html("methodology");
+const privacy = html("privacy");
+const terms = html("terms");
 const search = html("search");
 const notFound = html("404");
 const dynamicStock = html("stocks/_dynamic");
@@ -53,6 +55,8 @@ includesAll(compare, ["ETF 多檔比較工具", "https://active-etf.inthewins.co
 includesAll(reversals, ["方向反轉訊號", "https://active-etf.inthewins.com/signals/reversals"]);
 includesAll(style, ["00981A 主動統一台股增長經理人風格", "https://active-etf.inthewins.com/etf/00981A/style"]);
 includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.inthewins.com/methodology"]);
+includesAll(privacy, ["<h1>隱私政策</h1>", "https://active-etf.inthewins.com/privacy", "選用成效分析"]);
+includesAll(terms, ["<h1>服務條款</h1>", "https://active-etf.inthewins.com/terms", "研究資訊限制"]);
 includesAll(search, ["<meta name=\"robots\" content=\"noindex, nofollow\"", "https://active-etf.inthewins.com/search"]);
 includesAll(notFound, ["<h1>找不到頁面</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
 includesAll(dynamicStock, ["<h1>股票 ETF 持股與調倉</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
@@ -63,6 +67,8 @@ assertModulePreload(reversals, "src/web/views/SignalsView.vue");
 assertModulePreload(style, "src/web/views/EtfStyleView.vue");
 assertModulePreload(stockTw, "src/web/views/StockDetailView.vue");
 assertModulePreload(methodology, "src/web/views/MethodologyView.vue");
+assertModulePreload(privacy, "src/web/views/LegalDocumentView.vue");
+assertModulePreload(terms, "src/web/views/LegalDocumentView.vue");
 assertModulePreload(search, "src/web/views/SearchResultsView.vue");
 for (const body of [market, etf, changes, dram, stockTw, stockUs, compare, reversals, style, methodology, search]) assert.ok(!body.includes("active-etf.chicoo.co"));
 for (const [route, body] of [["/", home], ["/market", market], ["/compare/etfs", compare], ["/signals/reversals", reversals], ["/methodology", methodology]]) {

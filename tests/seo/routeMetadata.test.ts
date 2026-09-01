@@ -34,6 +34,8 @@ describe("build-time route metadata", () => {
     expect(routeMetadataForPath("/signals/reversals")?.h1).toContain("反轉");
     expect(routeMetadataForPath("/etf/00981A/style")?.title).toContain("經理人風格");
     expect(routeMetadataForPath("/methodology")?.description).toContain("13F");
+    expect(routeMetadataForPath("/privacy")?.title).toContain("隱私政策");
+    expect(routeMetadataForPath("/terms")?.title).toContain("服務條款");
   });
 
   it("never canonicalizes an unknown stock to a different stock", () => {
