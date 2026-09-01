@@ -3,6 +3,7 @@ import { apiBase } from "../apiClient.js";
 export const AUTH_APP_BASE = "https://auth-app.gogowinners.me";
 export const AUTH_TOKEN_PARAM = "idToken";
 export const AUTH_ACTION_PARAM = "authAction";
+export const AUTH_ACTION_OPT_IN_PARAM = "returnAuthAction";
 export type AuthAction = "login" | "sign_up";
 
 export interface AuthUser {
@@ -28,7 +29,8 @@ export function stripAuthToken(input: string): string {
 export function buildSignInUrl(currentUrl: string, locale = "zh-TW"): string {
   const params = new URLSearchParams({
     redirect: stripAuthToken(currentUrl),
-    locale
+    locale,
+    [AUTH_ACTION_OPT_IN_PARAM]: "1"
   });
   return `${AUTH_APP_BASE}/sign-in?${params.toString()}`;
 }

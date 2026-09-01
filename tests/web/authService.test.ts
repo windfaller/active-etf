@@ -6,6 +6,7 @@ describe("external auth URL contract", () => {
     const result = new URL(buildSignInUrl("https://active-etf.inthewins.com/compare/etfs?type=tw&codes=00981A,00982A"));
     expect(`${result.origin}${result.pathname}`).toBe("https://auth-app.gogowinners.me/sign-in");
     expect(result.searchParams.get("locale")).toBe("zh-TW");
+    expect(result.searchParams.get("returnAuthAction")).toBe("1");
     expect(result.searchParams.get("redirect")).toBe("https://active-etf.inthewins.com/compare/etfs?type=tw&codes=00981A%2C00982A");
   });
 
@@ -21,8 +22,10 @@ describe("external auth URL contract", () => {
   });
 
   it("never reflects an old token into a new auth redirect", () => {
-    const result = new URL(buildSignInUrl("https://active-etf.inthewins.com/?idToken=old-token"));
+    const result = new URL(buildSignInUrl("https://active-etf.inthewins.com/?idToken=old-token&authAction=sign_up"));
     expect(result.searchParams.get("redirect")).toBe("https://active-etf.inthewins.com/");
+    expect(result.searchParams.get("returnAuthAction")).toBe("1");
     expect(result.toString()).not.toContain("old-token");
+    expect(result.searchParams.get("redirect")).not.toContain("authAction");
   });
 });
