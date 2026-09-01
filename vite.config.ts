@@ -245,7 +245,7 @@ function staticSeoPlugin(): Plugin {
             staticSeoShell(metadata, prerenderContentForPath(snapshot, path))
           );
         html = injectRouteModulePreload(html, metadata, manifest);
-        if (metadata.pageType === "reference") {
+        if (metadata.pageType === "reference" && metadata.path !== "/privacy" && metadata.path !== "/terms") {
           html = html.replace(/\s*<script type="module"[^>]*src="[^"]+"><\/script>/u, "");
         }
         const outputFile = outputFileForRoute(outDir, path);

@@ -80,6 +80,9 @@ test("built static preview serves and hydrates every P0 direct route", async ({ 
     expect(response?.status(), path).toBe(200);
     expect(await response?.text(), path).toContain(`href="https://active-etf.inthewins.com${path}"`);
     await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible();
+    if (path === "/privacy" || path === "/terms") {
+      await expect(page.locator(".legal-view section").first()).toBeVisible();
+    }
   }
 });
 

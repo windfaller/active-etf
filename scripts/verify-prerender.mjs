@@ -57,6 +57,8 @@ includesAll(style, ["00981A 主動統一台股增長經理人風格", "https://a
 includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.inthewins.com/methodology"]);
 includesAll(privacy, ["<h1>隱私政策</h1>", "https://active-etf.inthewins.com/privacy", "選用成效分析"]);
 includesAll(terms, ["<h1>服務條款</h1>", "https://active-etf.inthewins.com/terms", "研究資訊限制"]);
+assert.match(privacy, /<script type="module"[^>]*src="\/assets\/index-[^"]+\.js"><\/script>/u);
+assert.match(terms, /<script type="module"[^>]*src="\/assets\/index-[^"]+\.js"><\/script>/u);
 includesAll(search, ["<meta name=\"robots\" content=\"noindex, nofollow\"", "https://active-etf.inthewins.com/search"]);
 includesAll(notFound, ["<h1>找不到頁面</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
 includesAll(dynamicStock, ["<h1>股票 ETF 持股與調倉</h1>", "<meta name=\"robots\" content=\"noindex, nofollow\""]);
