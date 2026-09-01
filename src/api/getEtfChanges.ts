@@ -3,7 +3,9 @@ import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { projectChangeCollectionsForMember } from "./memberProjection.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 export async function getEtfChanges(request: HttpRequest, _context: InvocationContext) {
   const etfCode = request.params.etfCode;
@@ -36,7 +38,8 @@ export async function getEtfChanges(request: HttpRequest, _context: InvocationCo
     };
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse(projectChangeCollectionsForMember(body, access.authenticated));
 }
 
 app.http("getEtfChanges", {

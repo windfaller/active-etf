@@ -1,4 +1,5 @@
 import type { IntelligenceMeta, SignalDirection } from "./intelligence";
+import type { MemberResult } from "../../domain/memberAccess.js";
 
 export type StockMarket = "tw" | "us";
 
@@ -18,8 +19,8 @@ export interface StockOverview extends IntelligenceMeta {
     institutionRelation: "aligned" | "divergent" | "insufficient";
     primaryEtfs: Array<{ etfCode: string; activeDiffLots: number | null; diffLots: number; direction: SignalDirection; directionConflict: boolean }>;
   };
-  overseasEtfExposure: null | { timeScale: string; rows: Array<{ etfCode: string; fundName: string; sourceAsOf: string; fetchedAt: string; sourceUrl: string; sourceStatus: string; assetType: string; weightPercent: number | null; shares: number | null }> };
-  sec13f: null | { timeScale: string; rows: Array<{ institutionCode: string; institutionName: string; periodOfReport: string; filedAt: string | null; capturedAt: string; shares: number | null; marketValue: number | null; weightPercent: number | null; sourceUrl: string }> };
+  overseasEtfExposure: null | { timeScale: string; rows: Array<MemberResult<{ etfCode: string; fundName: string; sourceAsOf: string; fetchedAt: string; sourceUrl: string; sourceStatus: string; assetType: string; weightPercent: number | null; shares: number | null }>> };
+  sec13f: null | { timeScale: string; rows: Array<MemberResult<{ institutionCode: string; institutionName: string; periodOfReport: string; filedAt: string | null; capturedAt: string; shares: number | null; marketValue: number | null; weightPercent: number | null; sourceUrl: string }>> };
 }
 
 export interface StockHistory extends IntelligenceMeta {
@@ -56,14 +57,15 @@ export interface StockHistory extends IntelligenceMeta {
     neutralEtfCount?: number;
   }>;
   timeScale?: string;
+  memberTrendWindows?: Array<MemberResult<{ window: 3 | 5 | 20; cumulative: number | null; increases: number; decreases: number; observations: number; coverage: number }>>;
 }
 
 export interface StockEtfs extends IntelligenceMeta {
-  rows: Array<{ etfCode: string; name: string; latestWeight: number | null; weightChange: number | null; activeNetLots?: number | null; surfaceNetLots?: number | null; consecutiveDirection?: SignalDirection; consecutiveTradingDays?: number; directionConflict?: boolean; observationCoverage?: { expected: number; actual: number; missing: number }; dataDate: string | null; confidence: string; confidenceReason?: string; assetType?: string; sourceUrl?: string }>;
+  rows: Array<MemberResult<{ etfCode: string; name: string; latestWeight: number | null; weightChange: number | null; activeNetLots?: number | null; surfaceNetLots?: number | null; consecutiveDirection?: SignalDirection; consecutiveTradingDays?: number; directionConflict?: boolean; observationCoverage?: { expected: number; actual: number; missing: number }; dataDate: string | null; confidence: string; confidenceReason?: string; assetType?: string; sourceUrl?: string }>>;
 }
 
 export interface StockInstitutions extends IntelligenceMeta {
   timeScale: string;
   row?: null | { foreignNetShares: number | null; investmentTrustNetShares: number | null; dealerNetShares: number | null; totalNetShares: number | null; source: string; relation: string };
-  rows?: Array<{ institutionCode: string; institutionName: string; periodOfReport: string; filedAt: string | null; capturedAt: string; shares: number | null; marketValue: number | null; sourceUrl: string }>;
+  rows?: Array<MemberResult<{ institutionCode: string; institutionName: string; periodOfReport: string; filedAt: string | null; capturedAt: string; shares: number | null; marketValue: number | null; sourceUrl: string }>>;
 }

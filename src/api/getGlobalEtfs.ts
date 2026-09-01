@@ -1,11 +1,14 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import type { Db } from "mongodb";
+import { maskMemberResults, maskMemberResultsByStableKey } from "../domain/memberAccess.js";
 import { enabledGlobalEtfs, findGlobalEtfConfig, globalEtfCandidates } from "../config/globalEtfs.js";
 import { getDb } from "../db/mongo.js";
 import type { GlobalEtfDailyReport } from "../models/GlobalEtf.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { availableGlobalEtfSourceDates, getGlobalEtfDailyReport } from "../services/globalEtf/globalEtfService.js";
 import { projectGlobalEtfWebReport } from "../services/globalEtf/webReportProjection.js";
+import type { GlobalEtfWebReport } from "../services/globalEtf/webReportProjection.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 import { badRequest, jsonResponse } from "./response.js";
 
 function sanitizeGlobalSourceDate(value: string | null): string | undefined {
@@ -57,6 +60,42 @@ async function getCachedGlobalEtfWebReport(sourceDate?: string) {
   );
 }
 
+export function projectGlobalWebReportForMember(report: GlobalEtfWebReport, authenticated: boolean) {
+  return {
+    ...report,
+    commonHoldings: maskMemberResultsByStableKey(report.commonHoldings, authenticated, (row) => `common:${row.ticker ?? row.name}`),
+    commonWeightChanges: maskMemberResultsByStableKey(report.commonWeightChanges, authenticated, (row) => `common-change:${row.ticker ?? row.name}`),
+    sections: report.sections.map((section) => ({
+      ...section,
+      topHoldings: maskMemberResultsByStableKey(section.topHoldings, authenticated, (row) => `${section.etfCode}:holding:${row.ticker ?? row.name}`),
+      weightChanges: maskMemberResultsByStableKey(section.weightChanges, authenticated, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`)
+    }))
+  };
+}
+
+export function projectGlobalRawReportForMember(report: GlobalEtfDailyReport, authenticated: boolean) {
+  if (authenticated) return report;
+  return {
+    ...report,
+    highlights: maskMemberResults(report.highlights, false, "after-first"),
+    commonHoldings: maskMemberResultsByStableKey(report.commonHoldings, false, (row) => `common:${row.ticker ?? row.name}`),
+    globalMovers: maskMemberResultsByStableKey(report.globalMovers, false, (row) => `global-change:${row.etfCode}:${row.positionKey ?? row.ticker ?? row.name}`),
+    sections: report.sections.map((section) => ({
+      ...section,
+      topHoldings: maskMemberResultsByStableKey(section.topHoldings, false, (row) => `${section.etfCode}:holding:${row.ticker ?? row.name}`),
+      newPositions: maskMemberResultsByStableKey(section.newPositions, false, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+      exitedPositions: maskMemberResultsByStableKey(section.exitedPositions, false, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+      weightChanges: maskMemberResultsByStableKey(section.weightChanges, false, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+      shareChanges: maskMemberResultsByStableKey(section.shareChanges, false, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+      marketValueChanges: maskMemberResultsByStableKey(section.marketValueChanges, false, (row) => `${section.etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+      sectorChanges: maskMemberResultsByStableKey(section.sectorChanges, false, (row) => `${section.etfCode}:sector:${row.name}`),
+      countryChanges: maskMemberResultsByStableKey(section.countryChanges, false, (row) => `${section.etfCode}:country:${row.name}`),
+      takeaway: "完整解讀限會員"
+    })),
+    html: ""
+  };
+}
+
 export async function getEnabledGlobalEtfs(_request: HttpRequest, _context: InvocationContext) {
   return jsonResponse({
     productGroup: "global_etf",
@@ -73,8 +112,11 @@ export async function getGlobalEtfDates(request: HttpRequest, _context: Invocati
 
 export async function getGlobalEtfDailyReportApi(request: HttpRequest, _context: InvocationContext) {
   const sourceDate = sanitizeGlobalSourceDate(request.query.get("date"));
-  if (request.query.get("format") === "web") return jsonResponse(await getCachedGlobalEtfWebReport(sourceDate));
-  return jsonResponse(await getCachedGlobalEtfDailyReport(sourceDate));
+  const access = await memberRequestAccess(request);
+  if (request.query.get("format") === "web") {
+    return memberJsonResponse(projectGlobalWebReportForMember(await getCachedGlobalEtfWebReport(sourceDate), access.authenticated));
+  }
+  return memberJsonResponse(projectGlobalRawReportForMember(await getCachedGlobalEtfDailyReport(sourceDate), access.authenticated));
 }
 
 export async function getGlobalEtfHoldings(request: HttpRequest, _context: InvocationContext) {
@@ -82,7 +124,13 @@ export async function getGlobalEtfHoldings(request: HttpRequest, _context: Invoc
   if (!etfCode || !findGlobalEtfConfig(etfCode)) return badRequest("known global ETF code is required");
   const report = await getCachedGlobalEtfDailyReport(sanitizeGlobalSourceDate(request.query.get("date")));
   const section = report.sections.find((item) => item.etfCode === etfCode);
-  return jsonResponse({ etfCode, date: section?.sourceAsOf ?? null, holdings: section?.topHoldings ?? [], demoMode: report.demoMode });
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({
+    etfCode,
+    date: section?.sourceAsOf ?? null,
+    holdings: maskMemberResultsByStableKey(section?.topHoldings ?? [], access.authenticated, (row) => `${etfCode}:holding:${row.ticker ?? row.name}`),
+    demoMode: report.demoMode
+  });
 }
 
 export async function getGlobalEtfChanges(request: HttpRequest, _context: InvocationContext) {
@@ -90,18 +138,19 @@ export async function getGlobalEtfChanges(request: HttpRequest, _context: Invoca
   if (!etfCode || !findGlobalEtfConfig(etfCode)) return badRequest("known global ETF code is required");
   const report = await getCachedGlobalEtfDailyReport(sanitizeGlobalSourceDate(request.query.get("date")));
   const section = report.sections.find((item) => item.etfCode === etfCode);
-  return jsonResponse({
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({
     etfCode,
     date: section?.sourceAsOf ?? null,
     changes: section
       ? {
-          newPositions: section.newPositions,
-          exitedPositions: section.exitedPositions,
-          weightChanges: section.weightChanges,
-          shareChanges: section.shareChanges,
-          marketValueChanges: section.marketValueChanges,
-          sectorChanges: section.sectorChanges,
-          countryChanges: section.countryChanges
+          newPositions: maskMemberResultsByStableKey(section.newPositions, access.authenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+          exitedPositions: maskMemberResultsByStableKey(section.exitedPositions, access.authenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+          weightChanges: maskMemberResultsByStableKey(section.weightChanges, access.authenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+          shareChanges: maskMemberResultsByStableKey(section.shareChanges, access.authenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+          marketValueChanges: maskMemberResultsByStableKey(section.marketValueChanges, access.authenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+          sectorChanges: maskMemberResultsByStableKey(section.sectorChanges, access.authenticated, (row) => `${etfCode}:sector:${row.name}`),
+          countryChanges: maskMemberResultsByStableKey(section.countryChanges, access.authenticated, (row) => `${etfCode}:country:${row.name}`)
         }
       : null,
     demoMode: report.demoMode

@@ -34,7 +34,7 @@ export function clearJsonCache(path?: string): void {
 }
 
 export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, { signal });
+  const response = await fetch(`${apiBase}${path}`, { signal, cache: "no-store", credentials: "include" });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(payload?.error ?? `${response.status} ${response.statusText}`);

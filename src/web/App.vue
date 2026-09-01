@@ -6,10 +6,12 @@ import { enabledGlobalEtfs } from "../config/globalEtfs";
 import type { DashboardResponse, EtfCoverageResponse } from "./contracts/dashboard";
 import { emptyChanges } from "./contracts/dashboard";
 import type { GlobalEtfOption, GlobalEtfUniverseResponse, GlobalReport } from "./contracts/global";
+import type { MarketMemberPreview } from "./contracts/memberPreview";
 import type { AppRoute } from "./contracts/navigation";
 import { useColorMode } from "./composables/useColorMode";
 import { useAuth } from "./composables/useAuth";
 import { getJson } from "./apiClient";
+import { trackPageClick } from "./analytics";
 import AuthMenu from "./components/AuthMenu.vue";
 import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGIN } from "./seo/routeMetadata";
 
@@ -90,6 +92,7 @@ interface MarketDashboardResponse {
   date: string;
   stockImpact: DashboardResponse["stockImpact"];
   coverage: DashboardResponse["coverage"];
+  memberPreview?: MarketMemberPreview;
 }
 interface MarketBootstrapResponse extends MarketDatesResponse {
   selectedDate: string | null;
@@ -119,7 +122,7 @@ const emptyDashboard = (): DashboardResponse => ({
   stockImpact: { impacts: [], sectorSummary: { sectors: [] } },
   coverage: { date: null, trackedCount: 0, availableCount: 0, staleCount: 0, etfs: [] }
 });
-const marketDashboard = ref<DashboardResponse>(emptyDashboard());
+const marketDashboard = ref<DashboardResponse & { memberPreview?: MarketMemberPreview }>(emptyDashboard());
 const selectedEtfDashboard = ref<DashboardResponse>(emptyDashboard());
 const isTaiwanLoading = ref(false);
 const taiwanError = ref("");
@@ -426,7 +429,10 @@ async function navigate(path: string, replace = false): Promise<void> {
   const next = cleanPath(url.pathname);
   const nextLocation = `${next}${url.search}`;
   const currentLocation = `${cleanPath(window.location.pathname)}${window.location.search}`;
-  if (currentLocation !== nextLocation) window.history[replace ? "replaceState" : "pushState"]({}, "", nextLocation);
+  if (currentLocation !== nextLocation) {
+    trackPageClick(next);
+    window.history[replace ? "replaceState" : "pushState"]({}, "", nextLocation);
+  }
   applyRouteFromLocation();
   isMobileSearchOpen.value = false;
   await loadForCurrentRoute();
@@ -490,12 +496,12 @@ function scheduleLowPriorityLoads(): void {
   else window.addEventListener("load", afterLoad, { once: true });
 }
 
-onMounted(() => {
-  void initializeAuth();
+onMounted(async () => {
   applyRouteFromLocation();
   window.addEventListener("popstate", onPopState);
   window.addEventListener("keydown", onGlobalShortcut);
-  void loadForCurrentRoute().then(scheduleLowPriorityLoads, scheduleLowPriorityLoads);
+  await initializeAuth();
+  await loadForCurrentRoute().then(scheduleLowPriorityLoads, scheduleLowPriorityLoads);
 });
 
 onBeforeUnmount(() => {
@@ -545,7 +551,7 @@ onBeforeUnmount(() => {
 
     <p v-if="taiwanError && isTaiwanArea" class="app-alert">{{ taiwanError }}</p>
 
-    <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" @navigate="navigate" @stock="showMarketStock" />
+    <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" :member-preview="marketDashboard.memberPreview" @navigate="navigate" @stock="showMarketStock" />
     <TaiwanMarketView v-else-if="route.view === 'market'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :loading="isTaiwanLoading" :focus-stock-id="focusStockId" @etf="selectTaiwanEtf" @stock="showMarketStock" />
     <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedEtfDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" @style="navigate(`/etf/${selectedEtfCode}/style`)" />
     <GlobalMarketView v-else-if="route.view === 'globalMarket'" :report="globalReport" :loading="isGlobalLoading" :error="globalError" :selected-date="selectedGlobalDate" @etf="selectGlobalEtf" @institutions="navigate('/institutions')" />

@@ -4,6 +4,11 @@ import { URL } from "node:url";
 import type { Db } from "mongodb";
 import { configuredEtfs } from "../config/etfs.js";
 import { enabledGlobalEtfs, findGlobalEtfConfig, globalEtfCandidates } from "../config/globalEtfs.js";
+import {
+  MEMBER_LOCKED_RESULT,
+  maskMemberResults,
+  maskMemberResultsByStableKey
+} from "../domain/memberAccess.js";
 import { closeDb, getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
@@ -39,6 +44,14 @@ import {
 } from "../services/intelligence/stockIntelligenceService.js";
 import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
 import { fundPerformanceRankings } from "../services/performance/fundPerformanceService.js";
+import { verifyFirebaseIdToken, type FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
+import { MEMBER_SESSION_COOKIE_NAME } from "../services/auth/memberSession.js";
+import {
+  projectChangeCollectionsForMember,
+  projectMarketDashboardForMember,
+  projectStockImpactForMember
+} from "../api/memberProjection.js";
+import { projectGlobalRawReportForMember, projectGlobalWebReportForMember } from "../api/getGlobalEtfs.js";
 import {
   comparisonTypeSchema,
   limitSchema,
@@ -56,12 +69,41 @@ import { assertTradeDate } from "../utils/date.js";
 
 const port = Number(process.env.PORT ?? 7071);
 
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
+function sendJson(res: ServerResponse, status: number, body: unknown, extraHeaders: Record<string, string> = {}): void {
+  const requestOrigin = res.req.headers.origin;
+  const allowedOrigin = requestOrigin && /^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/u.test(requestOrigin)
+    ? requestOrigin
+    : "http://127.0.0.1:5173";
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*"
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Credentials": "true",
+    "Cache-Control": "private, no-store",
+    "Vary": "Origin, Cookie",
+    ...extraHeaders
   });
   res.end(JSON.stringify(body, null, 2));
+}
+
+function devSessionToken(req: IncomingMessage): string | null {
+  const raw = req.headers.cookie ?? "";
+  for (const part of raw.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0 || part.slice(0, separator).trim() !== MEMBER_SESSION_COOKIE_NAME) continue;
+    try { return decodeURIComponent(part.slice(separator + 1).trim()); }
+    catch { return null; }
+  }
+  return null;
+}
+
+function devAuthUser(claims: FirebaseIdTokenClaims) {
+  return {
+    uid: claims.user_id ?? claims.sub ?? "",
+    email: typeof claims.email === "string" ? claims.email : "",
+    emailVerified: claims.email_verified === true,
+    name: typeof claims.name === "string" ? claims.name : "",
+    picture: typeof claims.picture === "string" ? claims.picture : ""
+  };
 }
 
 function required(value: string | null, name: string): string {
@@ -87,6 +129,31 @@ function envFlag(name: string): boolean | null {
 
 function runtimeAdsEnabled(): boolean {
   return envFlag("ENABLE_ADS") ?? envFlag("VITE_ENABLE_ADS") ?? false;
+}
+
+function projectDevComparison(value: Awaited<ReturnType<typeof compareEtfs>>, authenticated: boolean) {
+  const cards = value.cards.map((card) => ({
+    ...card,
+    topHoldings: maskMemberResultsByStableKey(card.topHoldings ?? [], authenticated, (row) => `${card.code}:holding:${row.key}`),
+    sectorExposure: maskMemberResultsByStableKey(card.sectorExposure ?? [], authenticated, (row) => `${card.code}:sector:${row.sector}`),
+    ...( "assetComposition" in card && Array.isArray(card.assetComposition)
+      ? { assetComposition: maskMemberResultsByStableKey(card.assetComposition, authenticated, (row) => `${card.code}:asset:${row.assetType}`) }
+      : {}),
+    ...( "activeAdjustments" in card && Array.isArray(card.activeAdjustments)
+      ? { activeAdjustments: maskMemberResultsByStableKey(card.activeAdjustments, authenticated, (row) => `${card.code}:window:${row.window}`) }
+      : {}),
+    ...( !authenticated && "addedHoldings" in card ? { addedHoldings: MEMBER_LOCKED_RESULT, exitedHoldings: MEMBER_LOCKED_RESULT } : {}),
+    ...( !authenticated && "weightAdjustmentIntensity" in card ? { weightAdjustmentIntensity: MEMBER_LOCKED_RESULT } : {})
+  }));
+  const pairwiseRows = (value.pairwise ?? []).map((pair) => ({
+    ...pair,
+    common: maskMemberResultsByStableKey(pair.common, authenticated, (row) => `${[pair.left, pair.right].sort().join(":")}:common:${row.key}`)
+  }));
+  return {
+    ...value,
+    cards,
+    pairwise: maskMemberResultsByStableKey(pairwiseRows, authenticated, (pair) => [pair.left, pair.right].sort().join(":"))
+  };
 }
 
 function enabledEtfSummaries() {
@@ -162,9 +229,72 @@ const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     const parts = requestUrl.pathname.split("/").filter(Boolean);
 
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": req.headers.origin ?? "http://127.0.0.1:5173",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+        "Vary": "Origin"
+      });
+      res.end();
+      return;
+    }
+
     if (parts[0] !== "api") {
       sendJson(res, 404, { error: "Not found" });
       return;
+    }
+
+    if (parts[1] === "auth" && parts[2] === "session") {
+      if (req.method === "DELETE") {
+        sendJson(res, 200, { authenticated: false, user: null }, {
+          "Set-Cookie": `${MEMBER_SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+        });
+        return;
+      }
+      if (req.method === "POST") {
+        const body = await readJsonBody(req) as { idToken?: unknown };
+        if (typeof body.idToken !== "string") {
+          sendJson(res, 400, { error: "idToken is required." });
+          return;
+        }
+        try {
+          const claims = await verifyFirebaseIdToken(body.idToken);
+          const maxAge = Math.max(0, Math.min(3_600, (claims.exp ?? 0) - Math.floor(Date.now() / 1000)));
+          sendJson(res, 200, { authenticated: true, user: devAuthUser(claims) }, {
+            "Set-Cookie": `${MEMBER_SESSION_COOKIE_NAME}=${encodeURIComponent(body.idToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`
+          });
+        } catch {
+          sendJson(res, 401, { error: "登入驗證失敗，請重新登入。" });
+        }
+        return;
+      }
+      const token = devSessionToken(req);
+      if (!token) {
+        sendJson(res, 200, { authenticated: false, user: null });
+        return;
+      }
+      try {
+        const claims = await verifyFirebaseIdToken(token);
+        sendJson(res, 200, { authenticated: true, user: devAuthUser(claims) });
+      } catch {
+        sendJson(res, 200, { authenticated: false, user: null }, {
+          "Set-Cookie": `${MEMBER_SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+        });
+      }
+      return;
+    }
+
+    let devMemberAuthenticated = false;
+    const requestSessionToken = devSessionToken(req);
+    if (requestSessionToken) {
+      try {
+        await verifyFirebaseIdToken(requestSessionToken);
+        devMemberAuthenticated = true;
+      } catch {
+        devMemberAuthenticated = false;
+      }
     }
 
     if (req.method === "GET" && parts[1] === "config") {
@@ -199,7 +329,15 @@ const server = createServer(async (req, res) => {
       const endpoint = parts[4];
       if (endpoint === "overview") {
         const body = await stockOverview(await getDevDb(), params.market, params.symbol, params.date);
-        sendJson(res, body.found ? 200 : 404, body.found ? body : { error: "stock was not found in the tracked data universe" });
+        sendJson(res, body.found ? 200 : 404, body.found ? {
+          ...body,
+          overseasEtfExposure: body.overseasEtfExposure
+            ? { ...body.overseasEtfExposure, rows: maskMemberResultsByStableKey(body.overseasEtfExposure.rows, devMemberAuthenticated, (row) => `${params.market}:${params.symbol}:exposure:${row.etfCode}:${row.assetType}`) }
+            : null,
+          sec13f: body.sec13f
+            ? { ...body.sec13f, rows: maskMemberResultsByStableKey(body.sec13f.rows, devMemberAuthenticated, (row) => `${params.market}:${params.symbol}:13f:${row.institutionCode}`) }
+            : null
+        } : { error: "stock was not found in the tracked data universe" });
         return;
       }
       if (endpoint === "history") {
@@ -208,15 +346,29 @@ const server = createServer(async (req, res) => {
           sendJson(res, 400, { error: "window must be 3, 5, or 20 effective trading days" });
           return;
         }
-        sendJson(res, 200, await stockHistory(await getDevDb(), params.market, params.symbol, window.data, params.date));
+        const body = await stockHistory(await getDevDb(), params.market, params.symbol, window.data, params.date);
+        sendJson(res, 200, devMemberAuthenticated ? body : { ...body, points: body.points.slice(0, 3), summary: undefined, globalSummary: undefined });
         return;
       }
       if (endpoint === "etfs") {
-        sendJson(res, 200, await stockEtfs(await getDevDb(), params.market, params.symbol, params.date));
+        const body = await stockEtfs(await getDevDb(), params.market, params.symbol, params.date);
+        const rows = body.rows as Array<(typeof body.rows)[number]>;
+        sendJson(res, 200, {
+          ...body,
+          rows: maskMemberResultsByStableKey(
+            rows,
+            devMemberAuthenticated,
+            (row) => `${params.market}:${params.symbol}:etf:${row.etfCode}:${"assetType" in row ? row.assetType : "holding"}`
+          )
+        });
         return;
       }
       if (endpoint === "institutions") {
-        sendJson(res, 200, await stockInstitutions(await getDevDb(), params.market, params.symbol, params.date));
+        const body = await stockInstitutions(await getDevDb(), params.market, params.symbol, params.date);
+        sendJson(res, 200, {
+          ...body,
+          rows: body.rows ? maskMemberResultsByStableKey(body.rows, devMemberAuthenticated, (row) => `${params.market}:${params.symbol}:institution:${row.institutionCode}`) : undefined
+        });
         return;
       }
     }
@@ -247,7 +399,7 @@ const server = createServer(async (req, res) => {
           return;
         }
       }
-      sendJson(res, 200, await compareEtfs(await getDevDb(), type.data, codes, date.value));
+      sendJson(res, 200, projectDevComparison(await compareEtfs(await getDevDb(), type.data, codes, date.value), devMemberAuthenticated));
       return;
     }
 
@@ -257,7 +409,14 @@ const server = createServer(async (req, res) => {
         sendJson(res, 400, { error: date.error });
         return;
       }
-      sendJson(res, 200, await fundPerformanceRankings(await getDevDb(), date.value));
+      const body = await fundPerformanceRankings(await getDevDb(), date.value);
+      sendJson(res, 200, {
+        ...body,
+        sections: {
+          tw: { ...body.sections.tw, rows: maskMemberResultsByStableKey(body.sections.tw.rows, devMemberAuthenticated, (row) => `tw:${row.etfCode}`) },
+          global: { ...body.sections.global, rows: maskMemberResultsByStableKey(body.sections.global.rows, devMemberAuthenticated, (row) => `global:${row.etfCode}`) }
+        }
+      });
       return;
     }
 
@@ -270,7 +429,13 @@ const server = createServer(async (req, res) => {
         sendJson(res, 400, { error: "invalid signal query" });
         return;
       }
-      sendJson(res, 200, await intelligenceSignals(await getDevDb(), kind.data, window.data, limit.data, date.value));
+      const body = await intelligenceSignals(await getDevDb(), kind.data, window.data, limit.data, date.value);
+      sendJson(res, 200, {
+        ...body,
+        consecutive: maskMemberResultsByStableKey(body.consecutive, devMemberAuthenticated, (row) => `consecutive:${row.stock.symbol}`),
+        reversals: maskMemberResultsByStableKey(body.reversals, devMemberAuthenticated, (row) => `reversal:${row.stock.symbol}`),
+        divergences: maskMemberResultsByStableKey(body.divergences, devMemberAuthenticated, (row) => `divergence:${row.stock.symbol}`)
+      });
       return;
     }
 
@@ -282,7 +447,13 @@ const server = createServer(async (req, res) => {
         sendJson(res, 400, { error: "invalid ETF style query" });
         return;
       }
-      sendJson(res, 200, await etfStyleProfile(await getDevDb(), code, window.data, date.value));
+      const body = await etfStyleProfile(await getDevDb(), code, window.data, date.value);
+      sendJson(res, 200, devMemberAuthenticated ? body : {
+        ...body,
+        adjustmentBreadth: MEMBER_LOCKED_RESULT,
+        stability: MEMBER_LOCKED_RESULT,
+        percentiles: MEMBER_LOCKED_RESULT
+      });
       return;
     }
 
@@ -315,7 +486,7 @@ const server = createServer(async (req, res) => {
         return stockImpactsForDate(db, date, changes);
       });
 
-      sendJson(res, 200, body);
+      sendJson(res, 200, projectStockImpactForMember(body, devMemberAuthenticated));
       return;
     }
 
@@ -338,7 +509,7 @@ const server = createServer(async (req, res) => {
       const body = await getOrSetDailyCache(["market", "dashboard", "v1", date], async () =>
         marketDashboardForDate(await getDevDb(), date)
       );
-      sendJson(res, 200, body);
+      sendJson(res, 200, projectMarketDashboardForMember(body, devMemberAuthenticated));
       return;
     }
 
@@ -362,7 +533,7 @@ const server = createServer(async (req, res) => {
             marketDashboardForDate(await getDevDb(), selectedDate)
           )
         : null;
-      sendJson(res, 200, { ...overview, selectedDate, dashboard });
+      sendJson(res, 200, { ...overview, selectedDate, dashboard: dashboard ? projectMarketDashboardForMember(dashboard, devMemberAuthenticated) : null });
       return;
     }
 
@@ -530,7 +701,13 @@ const server = createServer(async (req, res) => {
         };
       });
 
-      sendJson(res, 200, body);
+      sendJson(res, 200, {
+        ...body,
+        holdings: maskMemberResults(body.holdings, devMemberAuthenticated),
+        summaries: maskMemberResults(body.summaries, devMemberAuthenticated),
+        changes: projectChangeCollectionsForMember(body.changes, devMemberAuthenticated),
+        stockImpact: projectStockImpactForMember(body.stockImpact, devMemberAuthenticated)
+      });
       return;
     }
 
@@ -546,7 +723,9 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && parts[1] === "global-etfs" && parts[2] === "daily-report") {
       const sourceDate = requestUrl.searchParams.get("date") ?? undefined;
       const report = await getDevGlobalEtfReport(sourceDate);
-      sendJson(res, 200, requestUrl.searchParams.get("format") === "web" ? projectGlobalEtfWebReport(report) : report);
+      sendJson(res, 200, requestUrl.searchParams.get("format") === "web"
+        ? projectGlobalWebReportForMember(projectGlobalEtfWebReport(report), devMemberAuthenticated)
+        : projectGlobalRawReportForMember(report, devMemberAuthenticated));
       return;
     }
 
@@ -559,7 +738,12 @@ const server = createServer(async (req, res) => {
       const report = await getDevGlobalEtfReport();
       const section = report.sections.find((item) => item.etfCode === etfCode);
       if (parts[3] === "holdings") {
-        sendJson(res, 200, { etfCode, date: section?.sourceAsOf ?? null, holdings: section?.topHoldings ?? [], demoMode: report.demoMode });
+        sendJson(res, 200, {
+          etfCode,
+          date: section?.sourceAsOf ?? null,
+          holdings: maskMemberResultsByStableKey(section?.topHoldings ?? [], devMemberAuthenticated, (row) => `${etfCode}:holding:${row.ticker ?? row.name}`),
+          demoMode: report.demoMode
+        });
         return;
       }
       if (parts[3] === "changes") {
@@ -568,13 +752,13 @@ const server = createServer(async (req, res) => {
           date: section?.sourceAsOf ?? null,
           changes: section
             ? {
-                newPositions: section.newPositions,
-                exitedPositions: section.exitedPositions,
-                weightChanges: section.weightChanges,
-                shareChanges: section.shareChanges,
-                marketValueChanges: section.marketValueChanges,
-                sectorChanges: section.sectorChanges,
-                countryChanges: section.countryChanges
+                newPositions: maskMemberResultsByStableKey(section.newPositions, devMemberAuthenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+                exitedPositions: maskMemberResultsByStableKey(section.exitedPositions, devMemberAuthenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+                weightChanges: maskMemberResultsByStableKey(section.weightChanges, devMemberAuthenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+                shareChanges: maskMemberResultsByStableKey(section.shareChanges, devMemberAuthenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+                marketValueChanges: maskMemberResultsByStableKey(section.marketValueChanges, devMemberAuthenticated, (row) => `${etfCode}:change:${row.positionKey ?? row.ticker ?? row.name}`),
+                sectorChanges: maskMemberResultsByStableKey(section.sectorChanges, devMemberAuthenticated, (row) => `${etfCode}:sector:${row.name}`),
+                countryChanges: maskMemberResultsByStableKey(section.countryChanges, devMemberAuthenticated, (row) => `${etfCode}:country:${row.name}`)
               }
             : null,
           demoMode: report.demoMode
@@ -904,7 +1088,7 @@ const server = createServer(async (req, res) => {
 
         return { date, ranking };
       });
-      sendJson(res, 200, body);
+      sendJson(res, 200, { ...body, ranking: maskMemberResults(body.ranking, devMemberAuthenticated) });
       return;
     }
 
@@ -944,7 +1128,7 @@ const server = createServer(async (req, res) => {
 
         return { etfCode, date, holdings };
       });
-      sendJson(res, 200, body);
+      sendJson(res, 200, { ...body, holdings: maskMemberResults(body.holdings, devMemberAuthenticated) });
       return;
     }
 
@@ -972,7 +1156,7 @@ const server = createServer(async (req, res) => {
 
         return { etfCode, summaries };
       });
-      sendJson(res, 200, body);
+      sendJson(res, 200, { ...body, summaries: maskMemberResults(body.summaries, devMemberAuthenticated) });
       return;
     }
 
@@ -1005,7 +1189,7 @@ const server = createServer(async (req, res) => {
           tagMovements: await tagMovementsForChanges(db, changes)
         };
       });
-      sendJson(res, 200, body);
+      sendJson(res, 200, projectChangeCollectionsForMember(body, devMemberAuthenticated));
       return;
     }
 

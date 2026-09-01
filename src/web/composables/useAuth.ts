@@ -1,9 +1,10 @@
 import { computed, readonly, ref } from "vue";
 import { trackAuthEvent } from "../analytics";
+import { clearJsonCache } from "../apiClient";
 import {
   buildSignInUrl,
   clearAuthSession,
-  consumeBrowserAuthToken,
+  consumeBrowserAuthCallback,
   establishAuthSession,
   getAuthSession,
   type AuthUser
@@ -21,14 +22,16 @@ function applySession(authenticated: boolean, nextUser: AuthUser | null): void {
 async function initialize(): Promise<void> {
   if (initialization) return initialization;
   initialization = (async () => {
-    const idToken = consumeBrowserAuthToken();
+    const { idToken, action } = consumeBrowserAuthCallback();
 
     isLoading.value = true;
     error.value = "";
     try {
       const session = idToken ? await establishAuthSession(idToken) : await getAuthSession();
       applySession(session.authenticated, session.user);
-      if (idToken && session.authenticated) trackAuthEvent("active_etf_login_success", "auth_callback");
+      if (idToken && session.authenticated && action) {
+        trackAuthEvent(action === "sign_up" ? "active_etf_sign_up_success" : "active_etf_login_success", "auth_callback");
+      }
     } catch {
       applySession(false, null);
       error.value = "登入驗證失敗，請再試一次。";
@@ -52,7 +55,9 @@ async function signOut(source = "account_menu"): Promise<void> {
   try {
     await clearAuthSession();
     user.value = null;
+    clearJsonCache();
     trackAuthEvent("active_etf_logout", source);
+    window.location.reload();
   } catch {
     error.value = "登出失敗，請稍後再試。";
   } finally {

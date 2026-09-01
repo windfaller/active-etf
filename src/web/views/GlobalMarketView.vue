@@ -6,26 +6,27 @@ import MobileDataCard from "../components/MobileDataCard.vue";
 import ResponsiveDataTable from "../components/ResponsiveDataTable.vue";
 import SourceDisclosure from "../components/SourceDisclosure.vue";
 import { useAuth } from "../composables/useAuth";
-import type { GlobalHolding, GlobalReport } from "../contracts/global";
-import { shouldMaskMemberResult } from "../domain/memberVisibility";
+import type { GlobalReport } from "../contracts/global";
+import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
 import { formatSignedPp, formatWeight, valueTone } from "../utils/format";
 
 const props = defineProps<{ report: GlobalReport | null; loading: boolean; error: string; selectedDate: string }>();
 const emit = defineEmits<{ etf: [code: string]; institutions: [] }>();
 const { isAuthenticated } = useAuth();
 const sections = computed(() => (props.report?.sections ?? []).filter((row) => row.strategyType !== "13f"));
-function keyOf(row: GlobalHolding): string { return row.ticker ?? row.name; }
 const commonRows = computed(() => {
+  if (props.report?.commonHoldings) return props.report.commonHoldings;
   const rows = new Map<string,{ticker?:string;name:string;etfs:Array<{code:string;weight:number}>;total:number;max:number}>();
-  for (const section of sections.value) for (const holding of section.topHoldings) {
-    const key = keyOf(holding); const weight = holding.weightPercent ?? 0; const current = rows.get(key) ?? { ticker: holding.ticker, name: holding.name, etfs: [], total: 0, max: 0 };
+  for (const section of sections.value) for (const holding of visibleMemberResults(section.topHoldings)) {
+    const key = holding.ticker ?? holding.name; const weight = holding.weightPercent ?? 0; const current = rows.get(key) ?? { ticker: holding.ticker, name: holding.name, etfs: [], total: 0, max: 0 };
     current.etfs.push({ code: section.etfCode, weight }); current.total += weight; current.max = Math.max(current.max, weight); rows.set(key,current);
   }
   return [...rows.values()].filter((row) => row.etfs.length >= 2).sort((a,b) => b.etfs.length-a.etfs.length || b.total-a.total).slice(0,30);
 });
 const moverRows = computed(() => {
+  if (props.report?.commonWeightChanges) return props.report.commonWeightChanges;
   const rows = new Map<string,{ticker?:string;name:string;etfs:string[];delta:number}>();
-  for (const section of sections.value) for (const change of section.weightChanges) {
+  for (const section of sections.value) for (const change of visibleMemberResults(section.weightChanges)) {
     const key = change.positionKey ?? change.ticker ?? change.name; const current = rows.get(key) ?? { ticker: change.ticker, name: change.name, etfs: [], delta: 0 };
     current.etfs.push(section.etfCode); current.delta += change.deltaPp ?? 0; rows.set(key,current);
   }
@@ -40,14 +41,14 @@ const moverRows = computed(() => {
     <p v-if="error" class="error-message">{{ error }}</p>
     <section class="data-panel"><div class="panel-heading"><div><h2>海外 ETF 共同持有</h2><p>{{ selectedDate || report?.reportDate || "-" }}｜只比較 ETF，不混入 13F。</p></div></div>
       <ResponsiveDataTable label="海外 ETF 共同持有" :empty="!loading && !commonRows.length">
-        <div class="global-table"><div class="table-head"><span>標的</span><span>持有 ETF</span><span>合計權重</span><span>最高權重</span></div><template v-for="(row,index) in commonRows" :key="row.ticker ?? row.name"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="共同持有資料已遮隱" :source="`global_common_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.ticker ?? "-" }}</b><small>{{ row.name }}</small></span><span class="chips"><a v-for="etf in row.etfs" :key="etf.code" :href="`/global-etfs/${etf.code}`" @click.prevent="emit('etf',etf.code)">{{ etf.code }}</a></span><span>{{ formatWeight(row.total,1) }}</span><span>{{ formatWeight(row.max,1) }}</span></div></template></div>
-        <template #mobile><template v-for="(row,index) in commonRows" :key="row.ticker ?? row.name"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="共同持有資料已遮隱" :source="`global_common_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.ticker ?? row.name"><template #title>{{ row.ticker ?? "-" }} {{ row.name }}</template><template #summary>{{ row.etfs.length }} 檔 ETF 共同持有｜合計 {{ formatWeight(row.total,1) }}</template><p>最高單檔權重 {{ formatWeight(row.max,1) }}</p><p><a v-for="etf in row.etfs" :key="etf.code" :href="`/global-etfs/${etf.code}`" class="chip" @click.prevent="emit('etf',etf.code)">{{ etf.code }} {{ formatWeight(etf.weight,1) }}</a></p></MobileDataCard></template></template>
+        <div class="global-table"><div class="table-head"><span>標的</span><span>持有 ETF</span><span>合計權重</span><span>最高權重</span></div><template v-for="(row,index) in commonRows" :key="isMemberLockedResult(row) ? `locked-common-${index}` : row.ticker ?? row.name"><MemberLockedResult v-if="shouldRenderMemberLock(commonRows,row,isAuthenticated,index)" compact title="共同持有資料已遮隱" :source="`global_common_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.ticker ?? "-" }}</b><small>{{ row.name }}</small></span><span class="chips"><a v-for="etf in row.etfs" :key="etf.code" :href="`/global-etfs/${etf.code}`" @click.prevent="emit('etf',etf.code)">{{ etf.code }}</a></span><span>{{ formatWeight(row.total,1) }}</span><span>{{ formatWeight(row.max,1) }}</span></div></template></div>
+        <template #mobile><template v-for="(row,index) in commonRows" :key="isMemberLockedResult(row) ? `locked-common-mobile-${index}` : row.ticker ?? row.name"><MemberLockedResult v-if="shouldRenderMemberLock(commonRows,row,isAuthenticated,index)" compact title="共同持有資料已遮隱" :source="`global_common_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.ticker ?? row.name"><template #title>{{ row.ticker ?? "-" }} {{ row.name }}</template><template #summary>{{ row.etfs.length }} 檔 ETF 共同持有｜合計 {{ formatWeight(row.total,1) }}</template><p>最高單檔權重 {{ formatWeight(row.max,1) }}</p><p><a v-for="etf in row.etfs" :key="etf.code" :href="`/global-etfs/${etf.code}`" class="chip" @click.prevent="emit('etf',etf.code)">{{ etf.code }} {{ formatWeight(etf.weight,1) }}</a></p></MobileDataCard></template></template>
       </ResponsiveDataTable>
     </section>
     <section class="data-panel"><div class="panel-heading"><div><h2>海外 ETF 共同權重變化</h2><p>使用 ETF 持股權重變化，不將被動 ETF 寫成經理人主動加碼。</p></div></div>
       <ResponsiveDataTable label="海外 ETF 共同權重變化" :empty="!loading && !moverRows.length">
-        <div class="global-table"><div class="table-head"><span>標的</span><span>影響 ETF</span><span>方向</span><span>合計變化</span></div><template v-for="(row,index) in moverRows" :key="row.ticker ?? row.name"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="共同權重變化已遮隱" :source="`global_mover_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.ticker ?? "-" }}</b><small>{{ row.name }}</small></span><span class="chips"><a v-for="code in row.etfs" :key="code" :href="`/global-etfs/${code}`" @click.prevent="emit('etf',code)">{{ code }}</a></span><span :class="valueTone(row.delta)">{{ row.delta > 0 ? '增加 ▲' : row.delta < 0 ? '減少 ▼' : '持平' }}</span><span :class="valueTone(row.delta)">{{ formatSignedPp(row.delta,1) }}</span></div></template></div>
-        <template #mobile><template v-for="(row,index) in moverRows" :key="row.ticker ?? row.name"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="共同權重變化已遮隱" :source="`global_mover_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.ticker ?? row.name" :tone="row.delta > 0 ? 'increase' : row.delta < 0 ? 'decrease' : 'neutral'"><template #title>{{ row.ticker ?? "-" }} {{ row.name }}</template><template #summary><span :class="valueTone(row.delta)">{{ row.delta > 0 ? '權重增加 ▲' : row.delta < 0 ? '權重減少 ▼' : '權重持平' }} {{ formatSignedPp(row.delta,1) }}</span>｜{{ row.etfs.length }} 檔 ETF</template><p><a v-for="code in row.etfs" :key="code" :href="`/global-etfs/${code}`" class="chip" @click.prevent="emit('etf',code)">{{ code }}</a></p></MobileDataCard></template></template>
+        <div class="global-table"><div class="table-head"><span>標的</span><span>影響 ETF</span><span>方向</span><span>合計變化</span></div><template v-for="(row,index) in moverRows" :key="isMemberLockedResult(row) ? `locked-mover-${index}` : row.ticker ?? row.name"><MemberLockedResult v-if="shouldRenderMemberLock(moverRows,row,isAuthenticated,index)" compact title="共同權重變化已遮隱" :source="`global_mover_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.ticker ?? "-" }}</b><small>{{ row.name }}</small></span><span class="chips"><a v-for="code in row.etfs" :key="code" :href="`/global-etfs/${code}`" @click.prevent="emit('etf',code)">{{ code }}</a></span><span :class="valueTone(row.delta)">{{ row.delta > 0 ? '增加 ▲' : row.delta < 0 ? '減少 ▼' : '持平' }}</span><span :class="valueTone(row.delta)">{{ formatSignedPp(row.delta,1) }}</span></div></template></div>
+        <template #mobile><template v-for="(row,index) in moverRows" :key="isMemberLockedResult(row) ? `locked-mover-mobile-${index}` : row.ticker ?? row.name"><MemberLockedResult v-if="shouldRenderMemberLock(moverRows,row,isAuthenticated,index)" compact title="共同權重變化已遮隱" :source="`global_mover_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.ticker ?? row.name" :tone="row.delta > 0 ? 'increase' : row.delta < 0 ? 'decrease' : 'neutral'"><template #title>{{ row.ticker ?? "-" }} {{ row.name }}</template><template #summary><span :class="valueTone(row.delta)">{{ row.delta > 0 ? '權重增加 ▲' : row.delta < 0 ? '權重減少 ▼' : '權重持平' }} {{ formatSignedPp(row.delta,1) }}</span>｜{{ row.etfs.length }} 檔 ETF</template><p><a v-for="code in row.etfs" :key="code" :href="`/global-etfs/${code}`" class="chip" @click.prevent="emit('etf',code)">{{ code }}</a></p></MobileDataCard></template></template>
       </ResponsiveDataTable>
     </section>
     <SourceDisclosure note="海外 ETF 資料來自各發行商官方公開持股；不同 ETF 公告日期可能不一致。" />

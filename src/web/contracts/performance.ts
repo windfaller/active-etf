@@ -1,3 +1,5 @@
+import type { MemberResult } from "../../domain/memberAccess.js";
+
 export type PerformanceMarket = "tw" | "global";
 export type PerformancePeriod = "d1" | "w1" | "m1" | "m3";
 
@@ -21,7 +23,7 @@ export interface PerformanceSection {
   trackedCount: number;
   availableCount: number;
   unavailableCodes: string[];
-  rows: PerformanceRow[];
+  rows: Array<MemberResult<PerformanceRow>>;
 }
 
 export interface PerformanceResponse {

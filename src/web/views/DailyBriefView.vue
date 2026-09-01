@@ -8,29 +8,32 @@ import MemberLockedResult from "../components/MemberLockedResult.vue";
 import MobileDataCard from "../components/MobileDataCard.vue";
 import { useAuth } from "../composables/useAuth";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
+import type { MarketMemberPreview } from "../contracts/memberPreview";
 import { buildDailyBrief, hasDirectionConsensus } from "../domain/dailyBrief";
-import { shouldMaskMemberResult } from "../domain/memberVisibility";
+import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
 import { buildPullPushPreview } from "../domain/pullPushRadar";
 import { directionLabel, formatLots, formatSigned, formatSignedPp } from "../utils/format";
 
 const props = defineProps<{
-  impacts: StockImpact[];
+  impacts: Array<StockImpact | import("../../domain/memberAccess").MemberLockedResult>;
   sectors: SectorSummaryRow[];
   coverage: EtfCoverageResponse | null;
   selectedDate: string;
   isLoading: boolean;
+  memberPreview?: MarketMemberPreview;
 }>();
 const emit = defineEmits<{ navigate: [path: string]; stock: [stockId: string] }>();
 const { isAuthenticated } = useAuth();
 
-const brief = computed(() => buildDailyBrief(props.impacts, props.sectors, props.coverage));
+const visibleImpacts = computed(() => visibleMemberResults(props.impacts));
+const brief = computed(() => props.memberPreview?.brief ?? buildDailyBrief(visibleImpacts.value, props.sectors, props.coverage));
 const compareOptions = configuredEtfs.filter((row) => row.enabled && ["TWD"].includes(row.currency));
 const compareLeft = ref(compareOptions.find((row) => row.etfCode === "00981A")?.etfCode ?? compareOptions[0]?.etfCode ?? "");
 const compareRight = ref(compareOptions.find((row) => row.etfCode === "00982A")?.etfCode ?? compareOptions[1]?.etfCode ?? "");
 const canQuickCompare = computed(() => Boolean(compareLeft.value && compareRight.value && compareLeft.value !== compareRight.value));
 const quickComparePath = computed(() => `/compare/etfs?type=tw&codes=${compareLeft.value},${compareRight.value}`);
 const issuerByEtf = new Map(configuredEtfs.map((row) => [row.etfCode, row.issuer]));
-const pullPush = computed(() => buildPullPushPreview(props.impacts, props.coverage, props.selectedDate, issuerByEtf));
+const pullPush = computed(() => props.memberPreview?.pullPush ?? buildPullPushPreview(visibleImpacts.value, props.coverage, props.selectedDate, issuerByEtf));
 const freshnessTone = computed(() => brief.value.confidence.level === "high" ? "fresh" : brief.value.confidence.level === "medium" ? "delayed" : "unknown");
 const sampleOnly = computed(() => brief.value.confidence.level === "low");
 
@@ -59,7 +62,7 @@ function directionClass(value: number | null | undefined): "direction-positive" 
             <label><span>第一檔</span><select v-model="compareLeft" aria-label="快速比較第一檔 ETF"><option v-for="option in compareOptions" :key="`left-${option.etfCode}`" :value="option.etfCode">{{ option.etfCode }} {{ option.name }}</option></select></label>
             <b aria-hidden="true">×</b>
             <label><span>第二檔</span><select v-model="compareRight" aria-label="快速比較第二檔 ETF"><option v-for="option in compareOptions" :key="`right-${option.etfCode}`" :value="option.etfCode">{{ option.etfCode }} {{ option.name }}</option></select></label>
-            <a :href="canQuickCompare ? quickComparePath : '#'" :aria-disabled="!canQuickCompare" :class="{ disabled: !canQuickCompare }" @click="canQuickCompare ? emit('navigate', quickComparePath) : $event.preventDefault()"><span>立即比較 {{ compareLeft }} × {{ compareRight }}</span><ArrowRight :size="17" /></a>
+            <a :href="canQuickCompare ? quickComparePath : '#'" :aria-disabled="!canQuickCompare" :class="{ disabled: !canQuickCompare }" @click.prevent="canQuickCompare ? emit('navigate', quickComparePath) : undefined"><span>立即比較 {{ compareLeft }} × {{ compareRight }}</span><ArrowRight :size="17" /></a>
           </div>
           <small v-if="!canQuickCompare" class="quick-compare-warning">請選擇兩檔不同 ETF。</small>
         </section>
@@ -79,8 +82,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <p>中性研究摘要，不構成買賣建議。</p>
       </div>
       <div v-if="brief.insights.length" class="insight-grid">
-        <template v-for="(insight, index) in brief.insights" :key="insight.id">
-          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'after-first')" title="今日重點已遮隱" :source="`daily_brief_${index + 1}`" />
+        <template v-for="(insight, index) in brief.insights" :key="isMemberLockedResult(insight) ? `locked-insight-${index}` : insight.id">
+          <MemberLockedResult v-if="shouldRenderMemberLock(brief.insights, insight, isAuthenticated, index, 'after-first')" title="今日重點已遮隱" :source="`daily_brief_${index + 1}`" />
           <article v-else :class="['brief-insight', insight.tone]">
             <span>0{{ index + 1 }}</span>
             <h3>{{ insight.title }}</h3>
@@ -97,8 +100,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <p>拉力呈現產業題材與市場反應；推力使用規模校正 ETF 與投信方向，只顯示可自動更新的訊號。</p>
       </div>
       <div v-if="pullPush.candidates.length" class="pull-push-grid">
-        <template v-for="(row, index) in pullPush.candidates" :key="row.stockId">
-          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'after-first')" title="拉推訊號已遮隱" :source="`pull_push_${index + 1}`" />
+        <template v-for="(row, index) in pullPush.candidates" :key="isMemberLockedResult(row) ? `locked-pull-push-${index}` : row.stockId">
+          <MemberLockedResult v-if="shouldRenderMemberLock(pullPush.candidates, row, isAuthenticated, index, 'after-first')" title="拉推訊號已遮隱" :source="`pull_push_${index + 1}`" />
           <a v-else :href="`/stocks/tw/${row.stockId}`" @click.prevent="emit('navigate', `/stocks/tw/${row.stockId}`)">
             <header><span :class="row.crossSourceState">{{ row.statusLabel }}</span><small>公開資料觀察</small></header>
             <h3>{{ row.stockId }} {{ row.stockName }}</h3>
@@ -133,8 +136,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
       <div class="consensus-columns">
         <section class="consensus-panel increase">
           <h3><TrendingUp :size="18" /> 共同加碼 <small>{{ brief.additions.length }} 檔</small></h3>
-          <template v-for="(row, index) in brief.additions" :key="row.stockId">
-            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'human-odd')" compact title="共同加碼資料已遮隱" :source="`common_addition_${index + 1}`" />
+          <template v-for="(row, index) in brief.additions" :key="isMemberLockedResult(row) ? `locked-addition-${index}` : row.stockId">
+            <MemberLockedResult v-if="shouldRenderMemberLock(brief.additions, row, isAuthenticated, index, 'human-odd')" compact title="共同加碼資料已遮隱" :source="`common_addition_${index + 1}`" />
             <button v-else type="button" class="consensus-row" @click="emit('stock', row.stockId)">
               <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
               <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.increaseEtfCount }} 檔 ETF 加碼｜{{ hasDirectionConsensus(row, "increase") ? "達共識門檻" : "共同動作" }}</small></span>
@@ -146,8 +149,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         </section>
         <section class="consensus-panel decrease">
           <h3><TrendingDown :size="18" /> 共同減碼 <small>{{ brief.reductions.length }} 檔</small></h3>
-          <template v-for="(row, index) in brief.reductions" :key="row.stockId">
-            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index, 'human-odd')" compact title="共同減碼資料已遮隱" :source="`common_reduction_${index + 1}`" />
+          <template v-for="(row, index) in brief.reductions" :key="isMemberLockedResult(row) ? `locked-reduction-${index}` : row.stockId">
+            <MemberLockedResult v-if="shouldRenderMemberLock(brief.reductions, row, isAuthenticated, index, 'human-odd')" compact title="共同減碼資料已遮隱" :source="`common_reduction_${index + 1}`" />
             <button v-else type="button" class="consensus-row" @click="emit('stock', row.stockId)">
               <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
               <span><b :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</b><small>{{ row.decreaseEtfCount }} 檔 ETF 減碼｜{{ hasDirectionConsensus(row, "decrease") ? "達共識門檻" : "共同動作" }}</small></span>
@@ -169,8 +172,8 @@ function directionClass(value: number | null | undefined): "direction-positive" 
         <MobileDataCard v-for="row in brief.sectors" :key="row.sector" :label="row.sector" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
           <template #title>{{ row.sector }}</template>
           <template #summary><span class="sector-direction-metric" :class="directionClass(row.totalActiveDiffLots)">主動 {{ formatLots(row.totalActiveDiffLots) }} 張</span><span>｜{{ row.etfCount }} 檔 ETF｜{{ row.stockCount }} 檔股票</span><br /><span class="sector-direction-metric" :class="directionClass(row.totalInstitutionalNetLots)">三大法人 {{ formatLots(row.totalInstitutionalNetLots) }} 張</span></template>
-          <p v-if="isAuthenticated">主要標的：{{ row.topStocks.map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
-          <MemberLockedResult v-else compact title="主要標的已遮隱" source="sector_primary_targets" />
+          <p v-if="isAuthenticated && !row.topStocks.some(isMemberLockedResult)">主要標的：{{ visibleMemberResults(row.topStocks).map((stock) => `${stock.stockId} ${stock.stockName}`).join("、") || "-" }}</p>
+          <MemberLockedResult v-else-if="row.topStocks.length" compact title="主要標的已遮隱" source="sector_primary_targets" />
         </MobileDataCard>
       </div>
     </section>

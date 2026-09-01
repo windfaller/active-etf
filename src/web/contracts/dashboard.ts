@@ -1,3 +1,5 @@
+import type { MemberResult } from "../../domain/memberAccess.js";
+
 export type NullableNumber = number | null;
 
 export interface Holding {
@@ -50,23 +52,24 @@ export interface TagMovement {
   totalDiffWeightPoint: number;
   totalCurrentWeight: number;
   movementScore: number;
-  topStocks: Array<{
+  topStocks: Array<MemberResult<{
     stockId: string;
     stockName: string;
     activeDiffLots: number;
     diffWeightPoint: number;
     currentWeight: NullableNumber;
     status: string;
-  }>;
+  }>>;
 }
 
 export interface ChangesResponse {
-  topIncreases: Change[];
-  topDecreases: Change[];
-  topActiveIncreases: Change[];
-  topActiveDecreases: Change[];
-  newHoldings: Change[];
-  exitedHoldings: Change[];
+  topIncreases: Array<MemberResult<Change>>;
+  topDecreases: Array<MemberResult<Change>>;
+  topActiveIncreases: Array<MemberResult<Change>>;
+  topActiveDecreases: Array<MemberResult<Change>>;
+  newHoldings: Array<MemberResult<Change>>;
+  exitedHoldings: Array<MemberResult<Change>>;
+  memberOperationRows?: Array<MemberResult<Change>>;
   tagMovements: TagMovement[];
 }
 
@@ -119,12 +122,12 @@ export interface SectorSummaryRow {
   totalActiveDiffLots: number;
   totalInstitutionalNetLots: NullableNumber;
   totalTurnover: NullableNumber;
-  topStocks: Array<{
+  topStocks: Array<MemberResult<{
     stockId: string;
     stockName: string;
     impactScore: number;
     totalActiveDiffLots: number;
-  }>;
+  }>>;
 }
 
 export interface EtfCoverageRow {
@@ -147,12 +150,12 @@ export interface EtfCoverageResponse {
 }
 
 export interface DashboardResponse {
-  holdings: Holding[];
+  holdings: Array<MemberResult<Holding>>;
   summary: Summary | null;
   changes: ChangesResponse;
-  summaries: Summary[];
+  summaries: Array<MemberResult<Summary>>;
   stockImpact: {
-    impacts: StockImpact[];
+    impacts: Array<MemberResult<StockImpact>>;
     sectorSummary: { sectors: SectorSummaryRow[] };
   };
   coverage: EtfCoverageResponse;

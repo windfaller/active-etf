@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
+  ACTIVE_ETF_PAGE_CLICK_EVENT,
   createEtfComparisonTracker,
+  pageDestination,
   trackAuthEvent,
+  trackPageClick,
   type AnalyticsTarget
 } from "../../src/web/analytics.js";
 
@@ -67,6 +70,46 @@ describe("Active ETF analytics", () => {
         interaction_source: "auth_callback"
       }]);
       expect(JSON.stringify(target.dataLayer)).not.toMatch(/email|uid|token/iu);
+    } finally {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: previousWindow });
+    }
+  });
+
+  it("tracks sanitized internal page destinations without stock or ETF codes", () => {
+    const previousWindow = globalThis.window;
+    const target: AnalyticsTarget = {};
+    Object.defineProperty(globalThis, "window", { configurable: true, value: target });
+    try {
+      expect(trackPageClick("/stocks/tw/2330?from=market")).toBe(true);
+      expect(target.dataLayer).toEqual([{
+        event: ACTIVE_ETF_PAGE_CLICK_EVENT,
+        page_destination: "tw_stock",
+        interaction_source: "internal_navigation"
+      }]);
+      expect(JSON.stringify(target.dataLayer)).not.toMatch(/2330|from=market/u);
+    } finally {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: previousWindow });
+    }
+  });
+
+  it("classifies page destinations without exposing instrument identifiers", () => {
+    expect(pageDestination("/")).toBe("today");
+    expect(pageDestination("/compare/etfs?codes=00981A,00982A")).toBe("etf_compare");
+    expect(pageDestination("/global-etfs/DRAM")).toBe("global_etf");
+    expect(pageDestination("/institutions/BRK")).toBe("institution");
+  });
+
+  it("tracks a verified sign-up callback as a distinct auth event", () => {
+    const previousWindow = globalThis.window;
+    const target: AnalyticsTarget = {};
+    Object.defineProperty(globalThis, "window", { configurable: true, value: target });
+    try {
+      expect(trackAuthEvent("active_etf_sign_up_success", "auth_callback")).toBe(true);
+      expect(target.dataLayer).toEqual([{
+        event: "active_etf_sign_up_success",
+        auth_method: "external_firebase",
+        interaction_source: "auth_callback"
+      }]);
     } finally {
       Object.defineProperty(globalThis, "window", { configurable: true, value: previousWindow });
     }

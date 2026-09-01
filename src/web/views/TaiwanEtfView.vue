@@ -8,7 +8,8 @@ import SourceDisclosure from "../components/SourceDisclosure.vue";
 import { useAuth } from "../composables/useAuth";
 import type { Change, ChangesResponse, Holding, Summary } from "../contracts/dashboard";
 import type { TaiwanEtfPage, TaiwanEtfSection } from "../contracts/navigation";
-import { shouldMaskMemberResult } from "../domain/memberVisibility";
+import type { MemberResult } from "../domain/memberVisibility";
+import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
 import { directionLabel, formatLots, formatMoney, formatNumber, formatSignedPp, formatWeight, valueTone } from "../utils/format";
 
 interface TaiwanEtfOption { etfCode: string; name: string; issuer: string; source: { infoUrl: string } }
@@ -20,9 +21,9 @@ const props = defineProps<{
   selectedDate: string;
   sourceLatestDate: string;
   summary: Summary | null;
-  summaries: Summary[];
+  summaries: Array<MemberResult<Summary>>;
   changes: ChangesResponse;
-  holdings: Holding[];
+  holdings: Array<MemberResult<Holding>>;
   loading: boolean;
 }>();
 const emit = defineEmits<{ select: [code: string]; report: []; premium: []; changes: []; style: [] }>();
@@ -30,15 +31,16 @@ const { isAuthenticated } = useAuth();
 const holdingQuery = ref("");
 const selected = computed(() => props.options.find((row) => row.etfCode === props.selectedCode) ?? props.options[0]);
 const operationRows = computed(() => {
+  if (props.changes.memberOperationRows) return props.changes.memberOperationRows;
   const byStock = new Map<string, Change>();
-  [...props.changes.newHoldings, ...props.changes.exitedHoldings, ...props.changes.topIncreases, ...props.changes.topDecreases, ...props.changes.topActiveIncreases, ...props.changes.topActiveDecreases].forEach((row) => byStock.set(row.stockId, row));
+  visibleMemberResults([...props.changes.newHoldings, ...props.changes.exitedHoldings, ...props.changes.topIncreases, ...props.changes.topDecreases, ...props.changes.topActiveIncreases, ...props.changes.topActiveDecreases]).forEach((row) => byStock.set(row.stockId, row));
   return [...byStock.values()].filter((row) => row.diffShares !== 0 || row.status === "new" || row.status === "exit").sort((a,b) => Math.abs(b.activeDiffLots ?? b.diffLots) - Math.abs(a.activeDiffLots ?? a.diffLots));
 });
 const displayedHoldings = computed(() => {
   const query = holdingQuery.value.trim().toLowerCase();
-  return [...props.holdings].filter((row) => !query || `${row.stockId} ${row.stockName}`.toLowerCase().includes(query)).sort((a,b) => (b.weight ?? 0) - (a.weight ?? 0));
+  return [...props.holdings].filter((row) => isMemberLockedResult(row) || !query || `${row.stockId} ${row.stockName}`.toLowerCase().includes(query));
 });
-const premiumRows = computed(() => [...props.summaries].sort((a,b) => b.tradeDate.localeCompare(a.tradeDate)));
+const premiumRows = computed(() => props.summaries);
 function operationStatus(row: Change): string { if (row.status === "new" || row.prevShares === 0) return "新增"; if (row.status === "exit" || row.currentShares === 0) return "刪除"; return directionLabel(row.activeDiffLots ?? row.diffLots); }
 </script>
 
@@ -60,8 +62,8 @@ function operationStatus(row: Change): string { if (row.status === "new" || row.
       <section class="data-panel">
         <div class="panel-heading"><div><h2><LineChart :size="19" /> 折溢價歷史</h2><p>正值為溢價，負值為折價。</p></div></div>
         <ResponsiveDataTable label="ETF 折溢價歷史" :empty="!loading && !premiumRows.length">
-          <div class="simple-table"><div class="table-head"><span>交易日</span><span>市價</span><span>淨值</span><span>折溢價</span></div><template v-for="(row,index) in premiumRows" :key="row.tradeDate"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="折溢價資料已遮隱" :source="`tw_premium_${index + 1}`" /><div v-else class="table-row"><span>{{ row.tradeDate }}</span><span>{{ formatNumber(row.marketPrice,2) }}</span><span>{{ formatNumber(row.nav,2) }}</span><span :class="valueTone(row.premiumDiscount)">{{ formatSignedPp(row.premiumDiscount) }}</span></div></template></div>
-          <template #mobile><template v-for="(row,index) in premiumRows" :key="row.tradeDate"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="折溢價資料已遮隱" :source="`tw_premium_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.tradeDate" :tone="(row.premiumDiscount ?? 0) > 0 ? 'increase' : (row.premiumDiscount ?? 0) < 0 ? 'decrease' : 'neutral'" :expandable="false"><template #title>{{ row.tradeDate }}</template><template #summary><span :class="valueTone(row.premiumDiscount)">{{ (row.premiumDiscount ?? 0) > 0 ? '溢價' : (row.premiumDiscount ?? 0) < 0 ? '折價' : '持平' }} {{ formatSignedPp(row.premiumDiscount) }}</span><br />市價 {{ formatNumber(row.marketPrice,2) }}｜淨值 {{ formatNumber(row.nav,2) }}</template></MobileDataCard></template></template>
+          <div class="simple-table"><div class="table-head"><span>交易日</span><span>市價</span><span>淨值</span><span>折溢價</span></div><template v-for="(row,index) in premiumRows" :key="isMemberLockedResult(row) ? `premium-locked-${index}` : row.tradeDate"><MemberLockedResult v-if="shouldRenderMemberLock(premiumRows,row,isAuthenticated,index)" compact title="折溢價資料已遮隱" :source="`tw_premium_${index + 1}`" /><div v-else class="table-row"><span>{{ row.tradeDate }}</span><span>{{ formatNumber(row.marketPrice,2) }}</span><span>{{ formatNumber(row.nav,2) }}</span><span :class="valueTone(row.premiumDiscount)">{{ formatSignedPp(row.premiumDiscount) }}</span></div></template></div>
+          <template #mobile><template v-for="(row,index) in premiumRows" :key="isMemberLockedResult(row) ? `premium-mobile-locked-${index}` : row.tradeDate"><MemberLockedResult v-if="shouldRenderMemberLock(premiumRows,row,isAuthenticated,index)" compact title="折溢價資料已遮隱" :source="`tw_premium_mobile_${index + 1}`" /><MobileDataCard v-else :label="row.tradeDate" :tone="(row.premiumDiscount ?? 0) > 0 ? 'increase' : (row.premiumDiscount ?? 0) < 0 ? 'decrease' : 'neutral'" :expandable="false"><template #title>{{ row.tradeDate }}</template><template #summary><span :class="valueTone(row.premiumDiscount)">{{ (row.premiumDiscount ?? 0) > 0 ? '溢價' : (row.premiumDiscount ?? 0) < 0 ? '折價' : '持平' }} {{ formatSignedPp(row.premiumDiscount) }}</span><br />市價 {{ formatNumber(row.marketPrice,2) }}｜淨值 {{ formatNumber(row.nav,2) }}</template></MobileDataCard></template></template>
         </ResponsiveDataTable>
       </section>
     </template>
@@ -76,16 +78,16 @@ function operationStatus(row: Change): string { if (row.status === "new" || row.
       <section id="changes-panel" class="data-panel">
         <div class="panel-heading"><div><h2><BarChart3 :size="19" /> 單檔 ETF 調倉</h2><p>主動淨變動已排除基金規模對持股數量的影響。</p></div></div>
         <ResponsiveDataTable label="單檔 ETF 調倉" :empty="!loading && !operationRows.length">
-          <div class="change-table"><div class="table-head"><span>股票</span><span>操作</span><span>主動淨變動</span><span>表面變動</span><span>權重變動</span><span>目前權重</span></div><template v-for="(row,index) in operationRows" :key="row.stockId"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="調倉資料已遮隱" :source="`tw_operation_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ operationStatus(row) }}</span><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ formatLots(row.activeDiffLots ?? row.diffLots) }} 張</span><span :class="valueTone(row.diffLots)">{{ formatLots(row.diffLots) }} 張</span><span :class="valueTone(row.diffWeightPoint)">{{ formatSignedPp(row.diffWeightPoint) }}</span><span>{{ formatWeight(row.currentWeight) }}</span></div></template></div>
-          <template #mobile><template v-for="(row,index) in operationRows" :key="row.stockId"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="調倉資料已遮隱" :source="`tw_operation_mobile_${index + 1}`" /><MobileDataCard v-else :label="`${row.stockId} ${row.stockName}`" :tone="(row.activeDiffLots ?? row.diffLots) > 0 ? 'increase' : (row.activeDiffLots ?? row.diffLots) < 0 ? 'decrease' : 'neutral'" :expandable="false"><template #title>{{ row.stockId }} {{ row.stockName }}</template><template #summary><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ operationStatus(row) }}｜主動 {{ formatLots(row.activeDiffLots ?? row.diffLots) }} 張</span><br /><span :class="valueTone(row.diffWeightPoint)">權重變化 {{ formatSignedPp(row.diffWeightPoint) }}</span>｜目前 {{ formatWeight(row.currentWeight) }}</template></MobileDataCard></template></template>
+          <div class="change-table"><div class="table-head"><span>股票</span><span>操作</span><span>主動淨變動</span><span>表面變動</span><span>權重變動</span><span>目前權重</span></div><template v-for="(row,index) in operationRows" :key="isMemberLockedResult(row) ? `operation-locked-${index}` : row.stockId"><MemberLockedResult v-if="shouldRenderMemberLock(operationRows,row,isAuthenticated,index)" compact title="調倉資料已遮隱" :source="`tw_operation_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ operationStatus(row) }}</span><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ formatLots(row.activeDiffLots ?? row.diffLots) }} 張</span><span :class="valueTone(row.diffLots)">{{ formatLots(row.diffLots) }} 張</span><span :class="valueTone(row.diffWeightPoint)">{{ formatSignedPp(row.diffWeightPoint) }}</span><span>{{ formatWeight(row.currentWeight) }}</span></div></template></div>
+          <template #mobile><template v-for="(row,index) in operationRows" :key="isMemberLockedResult(row) ? `operation-mobile-locked-${index}` : row.stockId"><MemberLockedResult v-if="shouldRenderMemberLock(operationRows,row,isAuthenticated,index)" compact title="調倉資料已遮隱" :source="`tw_operation_mobile_${index + 1}`" /><MobileDataCard v-else :label="`${row.stockId} ${row.stockName}`" :tone="(row.activeDiffLots ?? row.diffLots) > 0 ? 'increase' : (row.activeDiffLots ?? row.diffLots) < 0 ? 'decrease' : 'neutral'" :expandable="false"><template #title>{{ row.stockId }} {{ row.stockName }}</template><template #summary><span :class="valueTone(row.activeDiffLots ?? row.diffLots)">{{ operationStatus(row) }}｜主動 {{ formatLots(row.activeDiffLots ?? row.diffLots) }} 張</span><br /><span :class="valueTone(row.diffWeightPoint)">權重變化 {{ formatSignedPp(row.diffWeightPoint) }}</span>｜目前 {{ formatWeight(row.currentWeight) }}</template></MobileDataCard></template></template>
         </ResponsiveDataTable>
       </section>
 
       <section v-if="section === 'overview'" class="data-panel">
         <div class="panel-heading"><div><h2><Database :size="19" /> 單檔 ETF 持股</h2><p>依目前權重排序，手機版直接顯示股數與市值。</p></div><label class="holding-search"><Search :size="15" /><input v-model="holdingQuery" type="search" placeholder="搜尋持股" /></label></div>
         <ResponsiveDataTable label="單檔 ETF 持股" :empty="!loading && !displayedHoldings.length">
-          <div class="holdings-table-new"><div class="table-head"><span>股票</span><span>持股張數</span><span>市值</span><span>目前權重</span><span>股數</span></div><template v-for="(row,index) in displayedHoldings" :key="row.stockId"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="持股資料已遮隱" :source="`tw_holding_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span><span>{{ formatNumber(row.lots) }}</span><span>{{ formatMoney(row.marketValue) }}</span><span>{{ formatWeight(row.weight) }}</span><span>{{ formatNumber(row.shares) }}</span></div></template></div>
-          <template #mobile><template v-for="(row,index) in displayedHoldings" :key="row.stockId"><MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated,index)" compact title="持股資料已遮隱" :source="`tw_holding_mobile_${index + 1}`" /><MobileDataCard v-else :label="`${row.stockId} ${row.stockName}`" :expandable="false"><template #title>{{ row.stockId }} {{ row.stockName }}</template><template #summary>權重 {{ formatWeight(row.weight) }}｜{{ formatNumber(row.lots) }} 張｜市值 {{ formatMoney(row.marketValue) }}<br />持股股數 {{ formatNumber(row.shares) }}</template></MobileDataCard></template></template>
+          <div class="holdings-table-new"><div class="table-head"><span>股票</span><span>持股張數</span><span>市值</span><span>目前權重</span><span>股數</span></div><template v-for="(row,index) in displayedHoldings" :key="isMemberLockedResult(row) ? `holding-locked-${index}` : row.stockId"><MemberLockedResult v-if="shouldRenderMemberLock(displayedHoldings,row,isAuthenticated,index)" compact title="持股資料已遮隱" :source="`tw_holding_${index + 1}`" /><div v-else class="table-row"><span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span><span>{{ formatNumber(row.lots) }}</span><span>{{ formatMoney(row.marketValue) }}</span><span>{{ formatWeight(row.weight) }}</span><span>{{ formatNumber(row.shares) }}</span></div></template></div>
+          <template #mobile><template v-for="(row,index) in displayedHoldings" :key="isMemberLockedResult(row) ? `holding-mobile-locked-${index}` : row.stockId"><MemberLockedResult v-if="shouldRenderMemberLock(displayedHoldings,row,isAuthenticated,index)" compact title="持股資料已遮隱" :source="`tw_holding_mobile_${index + 1}`" /><MobileDataCard v-else :label="`${row.stockId} ${row.stockName}`" :expandable="false"><template #title>{{ row.stockId }} {{ row.stockName }}</template><template #summary>權重 {{ formatWeight(row.weight) }}｜{{ formatNumber(row.lots) }} 張｜市值 {{ formatMoney(row.marketValue) }}<br />持股股數 {{ formatNumber(row.shares) }}</template></MobileDataCard></template></template>
         </ResponsiveDataTable>
       </section>
     </template>

@@ -1,11 +1,13 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
 import { findGlobalEtfConfig } from "../config/globalEtfs.js";
+import { MEMBER_LOCKED_RESULT, maskMemberResultsByStableKey } from "../domain/memberAccess.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { compareEtfs } from "../services/intelligence/etfComparisonService.js";
 import { comparisonTypeSchema, optionalDate } from "./intelligenceValidation.js";
-import { badRequest, edgeCachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { badRequest, jsonResponse, notFound, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 300_000;
@@ -44,7 +46,30 @@ export async function getEtfComparison(request: HttpRequest, context: Invocation
         sharedCacheTtlSeconds
       }
     );
-    return withServerTiming(edgeCachedJsonResponse(timed.value, 30, 600), timed.metrics);
+    const access = await memberRequestAccess(request);
+    const value = timed.value;
+    const cards = value.cards.map((card) => ({
+      ...card,
+      topHoldings: maskMemberResultsByStableKey(card.topHoldings ?? [], access.authenticated, (row) => `${card.code}:holding:${row.key}`),
+      sectorExposure: maskMemberResultsByStableKey(card.sectorExposure ?? [], access.authenticated, (row) => `${card.code}:sector:${row.sector}`),
+      ...( "assetComposition" in card && Array.isArray(card.assetComposition)
+        ? { assetComposition: maskMemberResultsByStableKey(card.assetComposition, access.authenticated, (row) => `${card.code}:asset:${row.assetType}`) }
+        : {}),
+      ...( "activeAdjustments" in card && Array.isArray(card.activeAdjustments)
+        ? { activeAdjustments: maskMemberResultsByStableKey(card.activeAdjustments, access.authenticated, (row) => `${card.code}:window:${row.window}`) }
+        : {}),
+      ...(!access.authenticated && "addedHoldings" in card ? { addedHoldings: MEMBER_LOCKED_RESULT, exitedHoldings: MEMBER_LOCKED_RESULT } : {}),
+      ...(!access.authenticated && "weightAdjustmentIntensity" in card ? { weightAdjustmentIntensity: MEMBER_LOCKED_RESULT } : {})
+    }));
+    const pairwiseRows = (value.pairwise ?? []).map((pair) => ({
+      ...pair,
+      common: maskMemberResultsByStableKey(pair.common, access.authenticated, (row) => `${[pair.left, pair.right].sort().join(":")}:common:${row.key}`)
+    }));
+    return withServerTiming(memberJsonResponse({
+      ...value,
+      cards,
+      pairwise: maskMemberResultsByStableKey(pairwiseRows, access.authenticated, (pair) => [pair.left, pair.right].sort().join(":"))
+    }), timed.metrics);
   } catch (error) {
     context.error("ETF comparison failed", error);
     return jsonResponse({ error: "ETF comparison is temporarily unavailable" }, 500);

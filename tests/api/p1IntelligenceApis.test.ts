@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
   compareEtfs: vi.fn(async () => ({ type: "tw", cards: [] })),
   intelligenceSignals: vi.fn(async () => ({ consecutive: [], reversals: [], divergences: [] })),
   etfStyleProfile: vi.fn(async () => ({ etf: { code: "00981A" } })),
-  globalSearch: vi.fn(async () => ({ results: [] }))
+  globalSearch: vi.fn(async () => ({ results: [] })),
+  verifyFirebaseIdToken: vi.fn()
 }));
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
@@ -26,6 +27,7 @@ vi.mock("../../src/services/intelligence/etfComparisonService.js", () => ({ comp
 vi.mock("../../src/services/intelligence/signalIntelligenceService.js", () => ({ intelligenceSignals: mocks.intelligenceSignals }));
 vi.mock("../../src/services/intelligence/styleProfileService.js", () => ({ etfStyleProfile: mocks.etfStyleProfile }));
 vi.mock("../../src/services/intelligence/searchService.js", () => ({ globalSearch: mocks.globalSearch }));
+vi.mock("../../src/services/auth/firebaseTokenVerifier.js", () => ({ verifyFirebaseIdToken: mocks.verifyFirebaseIdToken }));
 
 import { clearEtfComparisonRequestCache, getEtfComparison } from "../../src/api/getEtfComparison.js";
 import { getSearch } from "../../src/api/getSearch.js";
@@ -33,8 +35,10 @@ import { clearSignalsRequestCache, getSignals } from "../../src/api/getSignals.j
 import { getStockEtfs, getStockHistory, getStockInstitutions, getStockOverview, getStocksSearch } from "../../src/api/getStocks.js";
 import { clearStyleProfileRequestCache, getStyleProfile } from "../../src/api/getStyleProfile.js";
 
-function request(query = "", params: Record<string, string> = {}): HttpRequest {
-  return { query: new URLSearchParams(query), params } as unknown as HttpRequest;
+function request(query = "", params: Record<string, string> = {}, cookie?: string): HttpRequest {
+  const headers = new Headers();
+  if (cookie) headers.set("cookie", cookie);
+  return { query: new URLSearchParams(query), params, headers } as unknown as HttpRequest;
 }
 
 const context = { error: vi.fn() } as unknown as InvocationContext;
@@ -42,6 +46,7 @@ const context = { error: vi.fn() } as unknown as InvocationContext;
 describe("P1 intelligence APIs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.verifyFirebaseIdToken.mockResolvedValue({ sub: "member-1" });
     clearEtfComparisonRequestCache();
     clearSignalsRequestCache();
     clearStyleProfileRequestCache();
@@ -69,9 +74,10 @@ describe("P1 intelligence APIs", () => {
     mocks.stockEtfs.mockResolvedValueOnce({ rows: [{ etfCode: "HBMX", dataDate: "2026-07-19" }] } as never);
     mocks.stockInstitutions.mockResolvedValueOnce({ rows: [{ institutionCode: "BRK13F", periodOfReport: "2026-06-30" }] } as never);
 
-    const overview = await getStockOverview(request("", { market: "us", symbol: "MU" }), context);
-    const etfs = await getStockEtfs(request("", { market: "us", symbol: "MU" }), context);
-    const institutions = await getStockInstitutions(request("", { market: "us", symbol: "MU" }), context);
+    const cookie = "active_etf_session=valid-token";
+    const overview = await getStockOverview(request("", { market: "us", symbol: "MU" }, cookie), context);
+    const etfs = await getStockEtfs(request("", { market: "us", symbol: "MU" }, cookie), context);
+    const institutions = await getStockInstitutions(request("", { market: "us", symbol: "MU" }, cookie), context);
     expect(JSON.stringify([overview.jsonBody, etfs.jsonBody, institutions.jsonBody])).not.toContain("DRAM");
     expect(overview.jsonBody).toMatchObject({ overseasEtfExposure: { rows: [{ etfCode: "HBMX" }] }, sec13f: { rows: [{ institutionCode: "BRK13F" }] } });
     expect(etfs.jsonBody).toMatchObject({ rows: [{ etfCode: "HBMX" }] });
@@ -89,6 +95,23 @@ describe("P1 intelligence APIs", () => {
     expect(mocks.stockHistory).toHaveBeenCalledWith(expect.anything(), "tw", "2330", 20, "2026-07-21");
     expect(mocks.stockEtfs).toHaveBeenCalledWith(expect.anything(), "tw", "2330", "2026-07-21");
     expect(mocks.stockInstitutions).toHaveBeenCalledWith(expect.anything(), "tw", "2330", "2026-07-21");
+  });
+
+  it("does not serialize every stock ETF detail row for anonymous callers", async () => {
+    mocks.stockEtfs.mockResolvedValue({
+      rows: ["AAA", "BBB", "CCC", "DDD"].map((etfCode) => ({ etfCode, assetType: "Equity", name: `SECRET_${etfCode}` }))
+    } as never);
+
+    const anonymous = await getStockEtfs(request("", { market: "us", symbol: "MU" }), context);
+    const member = await getStockEtfs(request("", { market: "us", symbol: "MU" }, "active_etf_session=valid-token"), context);
+    const anonymousJson = JSON.stringify(anonymous.jsonBody);
+    const memberJson = JSON.stringify(member.jsonBody);
+
+    expect(anonymousJson).toContain('"memberLocked":true');
+    expect(["SECRET_AAA", "SECRET_BBB", "SECRET_CCC", "SECRET_DDD"].filter((value) => anonymousJson.includes(value)).length).toBeLessThan(4);
+    expect(memberJson).toContain("SECRET_AAA");
+    expect(memberJson).toContain("SECRET_DDD");
+    expect(new Headers(anonymous.headers).get("Cache-Control")).toContain("private, no-store");
   });
 
   it("rejects invalid market, symbol, and history windows before database access", async () => {
@@ -123,7 +146,7 @@ describe("P1 intelligence APIs", () => {
       type: "tw",
       cards: [{ activeAdjustments: [{ increaseHoldingChangeCount: 5, decreaseHoldingChangeCount: 2 }] }]
     } as never);
-    const taiwan = await getEtfComparison(request("type=tw&codes=00981A,00982A"), context);
+    const taiwan = await getEtfComparison(request("type=tw&codes=00981A,00982A", {}, "active_etf_session=valid-token"), context);
     expect(taiwan.jsonBody).toMatchObject({ cards: [{ activeAdjustments: [{ increaseHoldingChangeCount: 5, decreaseHoldingChangeCount: 2 }] }] });
     expect(JSON.stringify(taiwan.jsonBody)).not.toContain('"increaseCount"');
     expect(JSON.stringify(taiwan.jsonBody)).not.toContain('"decreaseCount"');
@@ -143,7 +166,7 @@ describe("P1 intelligence APIs", () => {
         ]
       }
     } as never);
-    const global = await getEtfComparison(request("type=global&codes=DRAM,HBMX"), context);
+    const global = await getEtfComparison(request("type=global&codes=DRAM,HBMX", {}, "active_etf_session=valid-token"), context);
     expect(global.jsonBody).toMatchObject({ dateAlignment: { commonDateOnly: false, commonDate: null, rows: [{ code: "DRAM", sourceAsOf: "2026-07-21" }, { code: "HBMX", sourceAsOf: "2026-07-19" }] } });
   });
 
@@ -173,6 +196,22 @@ describe("P1 intelligence APIs", () => {
     expect(mocks.getDb).toHaveBeenCalledTimes(1);
   });
 
+  it("does not reveal a stable-key locked signal when limit narrows the response to one row", async () => {
+    mocks.intelligenceSignals.mockResolvedValue({
+      kind: "all",
+      consecutive: [{ stock: { symbol: "2330" }, secret: "LOCKED_2330" }, { stock: { symbol: "2317" }, secret: "PUBLIC_2317" }],
+      reversals: [],
+      divergences: []
+    } as never);
+
+    const broad = await getSignals(request("kind=consecutive&window=20&limit=20&date=2026-07-16"), context);
+    const narrowed = await getSignals(request("kind=consecutive&window=20&limit=1&date=2026-07-16"), context);
+
+    expect(JSON.stringify(broad.jsonBody)).not.toContain("LOCKED_2330");
+    expect(JSON.stringify(narrowed.jsonBody)).not.toContain("LOCKED_2330");
+    expect(narrowed.jsonBody).toMatchObject({ consecutive: [{ memberLocked: true }] });
+  });
+
   it("reuses one full signals calculation across kinds and limits", async () => {
     mocks.intelligenceSignals.mockResolvedValueOnce({
       kind: "all",
@@ -182,8 +221,9 @@ describe("P1 intelligence APIs", () => {
     } as never);
     const base = "window=20&date=2026-07-18";
 
-    const consecutive = await getSignals(request(`kind=consecutive&limit=1&${base}`), context);
-    const reversals = await getSignals(request(`kind=reversals&limit=20&${base}`), context);
+    const cookie = "active_etf_session=valid-token";
+    const consecutive = await getSignals(request(`kind=consecutive&limit=1&${base}`, {}, cookie), context);
+    const reversals = await getSignals(request(`kind=reversals&limit=20&${base}`, {}, cookie), context);
 
     expect(consecutive.jsonBody).toMatchObject({ kind: "consecutive", consecutive: [{ stock: { symbol: "2330" } }], reversals: [], divergences: [] });
     expect(reversals.jsonBody).toMatchObject({ kind: "reversals", consecutive: [], reversals: [{ stock: { symbol: "2454" } }], divergences: [] });

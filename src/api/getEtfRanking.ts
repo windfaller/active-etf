@@ -1,8 +1,10 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
+import { maskMemberResults } from "../domain/memberAccess.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 export async function getEtfRanking(request: HttpRequest, _context: InvocationContext) {
   const date = request.query.get("date");
@@ -20,7 +22,8 @@ export async function getEtfRanking(request: HttpRequest, _context: InvocationCo
     return { date, ranking };
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({ ...body, ranking: maskMemberResults(body.ranking, access.authenticated) });
 }
 
 app.http("getEtfRanking", {

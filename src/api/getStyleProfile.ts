@@ -1,10 +1,12 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
+import { MEMBER_LOCKED_RESULT } from "../domain/memberAccess.js";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
 import { etfStyleProfile } from "../services/intelligence/styleProfileService.js";
 import { optionalDate, styleWindowSchema } from "./intelligenceValidation.js";
-import { badRequest, edgeCachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { badRequest, jsonResponse, notFound, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 300_000;
@@ -34,7 +36,14 @@ export async function getStyleProfile(request: HttpRequest, context: InvocationC
         sharedCacheTtlSeconds
       }
     );
-    return withServerTiming(edgeCachedJsonResponse(timed.value, 30, 600), timed.metrics);
+    const access = await memberRequestAccess(request);
+    const value = timed.value;
+    return withServerTiming(memberJsonResponse(access.authenticated ? value : {
+      ...value,
+      adjustmentBreadth: MEMBER_LOCKED_RESULT,
+      stability: MEMBER_LOCKED_RESULT,
+      percentiles: MEMBER_LOCKED_RESULT
+    }), timed.metrics);
   } catch (error) {
     context.error("style profile failed", error);
     return jsonResponse({ error: "style profile is temporarily unavailable" }, 500);

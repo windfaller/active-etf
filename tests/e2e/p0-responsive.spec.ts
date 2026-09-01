@@ -26,16 +26,21 @@ const globalReport: GlobalReport = {
 };
 
 async function mockApis(page: Page, globalReportFixture: GlobalReport = globalReport, authenticated = true) {
+  let sessionAuthenticated = authenticated;
   await page.route("**/app-version.json*", (route) => route.fulfill({ json: { version: "p0-test" } }));
   await page.route("https://www.googletagmanager.com/**", (route) => route.abort());
   await page.route("https://www.forvix.app/**", (route) => route.fulfill({ contentType:"text/html", body:"<!doctype html><title>FORVIX embed fixture</title>" }));
   await page.route("**/api/**", (route) => {
     const url = route.request().url();
-    const headers = { "access-control-allow-origin": "*" };
+    const headers = {
+      "access-control-allow-origin": "http://127.0.0.1:4174",
+      "access-control-allow-credentials": "true",
+      "vary": "Origin"
+    };
     if (url.includes("/auth/session")) {
-      if (route.request().method() === "POST") return route.fulfill({ headers, json:{authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} });
-      if (route.request().method() === "DELETE") return route.fulfill({ headers, json:{authenticated:false,user:null} });
-      return route.fulfill({ headers, json:authenticated ? {authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} : {authenticated:false,user:null} });
+      if (route.request().method() === "POST") sessionAuthenticated = true;
+      if (route.request().method() === "DELETE") sessionAuthenticated = false;
+      return route.fulfill({ headers, json:sessionAuthenticated ? {authenticated:true,user:{uid:"firebase-user-1",email:"member@example.com",emailVerified:true,name:"ETF Member",picture:""}} : {authenticated:false,user:null} });
     }
     if (url.includes("/global-etfs/enabled")) return route.fulfill({ headers, json:{productGroup:"global_etf",enabled:[{etfCode:"DRAM",fundName:"Roundhill Memory ETF",strategyType:"index"},{etfCode:"ARK13F",fundName:"ARK Investment Management 13F Portfolio",strategyType:"13f"}],candidates:[]} });
     if (url.includes("/global-etfs/dates")) return route.fulfill({ headers, json:{dates:["2026-07-21"]} });
@@ -336,6 +341,8 @@ test("homepage does not request the full global report and browser history follo
   await mockApis(page);
   const globalReportRequests: string[] = [];
   const initialApiRequests: string[] = [];
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
   page.on("request", (request) => {
     if (request.url().includes("/global-etfs/daily-report")) globalReportRequests.push(request.url());
     if (request.url().includes("/api/")) initialApiRequests.push(new URL(request.url()).pathname);
@@ -345,6 +352,12 @@ test("homepage does not request the full global report and browser history follo
   await page.waitForTimeout(500);
   expect(globalReportRequests).toHaveLength(0);
   expect(initialApiRequests.filter((path) => path !== "/api/telegram/info")).toEqual(["/api/auth/session", "/api/market/bootstrap"]);
+  await page.getByRole("link", { name: "立即比較 00981A × 00982A" }).click();
+  await expect(page).toHaveURL(/\/compare\/etfs\?type=tw&codes=00981A,00982A$/u);
+  await expect(page.getByRole("heading", { name: "持股重疊、調倉與配置差異" })).toBeVisible();
+  expect(pageErrors).toEqual([]);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "主動 ETF 機構調倉情報" })).toBeVisible();
   await page.getByRole("link", { name: "海外 ETF", exact: true }).click();
   await expect(page).toHaveURL(/\/global-etfs$/u);
   await expect(page.getByRole("heading", { name: "海外 ETF 市場總覽" })).toBeVisible();

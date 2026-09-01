@@ -2,6 +2,8 @@ import { apiBase } from "../apiClient.js";
 
 export const AUTH_APP_BASE = "https://auth-app.gogowinners.me";
 export const AUTH_TOKEN_PARAM = "idToken";
+export const AUTH_ACTION_PARAM = "authAction";
+export type AuthAction = "login" | "sign_up";
 
 export interface AuthUser {
   uid: string;
@@ -19,6 +21,7 @@ export interface AuthSessionResponse {
 export function stripAuthToken(input: string): string {
   const url = new URL(input);
   url.searchParams.delete(AUTH_TOKEN_PARAM);
+  url.searchParams.delete(AUTH_ACTION_PARAM);
   return url.toString();
 }
 
@@ -34,14 +37,33 @@ export function extractAuthToken(input: string): string | null {
   return new URL(input).searchParams.get(AUTH_TOKEN_PARAM);
 }
 
-type AuthCallbackWindow = Window & { __ACTIVE_ETF_AUTH_CALLBACK_TOKEN__?: string };
+export function extractAuthAction(input: string): AuthAction | null {
+  const value = new URL(input).searchParams.get(AUTH_ACTION_PARAM);
+  return value === "login" || value === "sign_up" ? value : null;
+}
+
+type AuthCallbackWindow = Window & {
+  __ACTIVE_ETF_AUTH_CALLBACK_TOKEN__?: string;
+  __ACTIVE_ETF_AUTH_CALLBACK_ACTION__?: AuthAction;
+};
+
+export interface BrowserAuthCallback {
+  idToken: string | null;
+  action: AuthAction | null;
+}
+
+export function consumeBrowserAuthCallback(): BrowserAuthCallback {
+  const target = window as AuthCallbackWindow;
+  const idToken = target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__ ?? extractAuthToken(window.location.href);
+  const action = target.__ACTIVE_ETF_AUTH_CALLBACK_ACTION__ ?? extractAuthAction(window.location.href);
+  delete target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__;
+  delete target.__ACTIVE_ETF_AUTH_CALLBACK_ACTION__;
+  if (extractAuthToken(window.location.href) || new URL(window.location.href).searchParams.has(AUTH_ACTION_PARAM)) clearAuthTokenFromBrowserUrl();
+  return { idToken, action };
+}
 
 export function consumeBrowserAuthToken(): string | null {
-  const target = window as AuthCallbackWindow;
-  const token = target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__ ?? extractAuthToken(window.location.href);
-  delete target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__;
-  if (extractAuthToken(window.location.href)) clearAuthTokenFromBrowserUrl();
-  return token;
+  return consumeBrowserAuthCallback().idToken;
 }
 
 export function clearAuthTokenFromBrowserUrl(): void {
@@ -51,7 +73,7 @@ export function clearAuthTokenFromBrowserUrl(): void {
 async function sessionRequest(init: RequestInit = {}): Promise<AuthSessionResponse> {
   const response = await fetch(`${apiBase}/api/auth/session`, {
     cache: "no-store",
-    credentials: "same-origin",
+    credentials: "include",
     ...init,
     headers: {
       ...(init.body ? { "Content-Type": "application/json" } : {}),

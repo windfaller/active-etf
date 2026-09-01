@@ -1,9 +1,11 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
+import { maskMemberResultsByStableKey } from "../domain/memberAccess.js";
 import { fundPerformanceRankings } from "../services/performance/fundPerformanceService.js";
 import { optionalDate } from "./intelligenceValidation.js";
-import { badRequest, edgeCachedJsonResponse, jsonResponse, withServerTiming } from "./response.js";
+import { badRequest, jsonResponse, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 900_000;
@@ -27,7 +29,14 @@ export async function getFundPerformance(request: HttpRequest, context: Invocati
         sharedCacheTtlSeconds: 3_600
       }
     );
-    return withServerTiming(edgeCachedJsonResponse(timed.value, 300, 1_800), timed.metrics);
+    const access = await memberRequestAccess(request);
+    return withServerTiming(memberJsonResponse({
+      ...timed.value,
+      sections: {
+        tw: { ...timed.value.sections.tw, rows: maskMemberResultsByStableKey(timed.value.sections.tw.rows, access.authenticated, (row) => `tw:${row.etfCode}`) },
+        global: { ...timed.value.sections.global, rows: maskMemberResultsByStableKey(timed.value.sections.global.rows, access.authenticated, (row) => `global:${row.etfCode}`) }
+      }
+    }), timed.metrics);
   } catch (error) {
     context.error("Fund performance ranking failed", error);
     return jsonResponse({ error: "fund performance ranking is temporarily unavailable" }, 500);

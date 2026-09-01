@@ -3,7 +3,9 @@ import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { projectStockImpactForMember } from "./memberProjection.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 export async function getMarketStockImpact(request: HttpRequest, _context: InvocationContext) {
   const date = request.query.get("date");
@@ -19,7 +21,8 @@ export async function getMarketStockImpact(request: HttpRequest, _context: Invoc
     return stockImpactsForDate(db, date, changes);
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse(projectStockImpactForMember(body, access.authenticated));
 }
 
 app.http("getMarketStockImpact", {

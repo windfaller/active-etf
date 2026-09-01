@@ -1,8 +1,10 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
 import type { EtfDailyHolding } from "../models/EtfDailyHolding.js";
+import { maskMemberResults } from "../domain/memberAccess.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 export async function getEtfHoldings(request: HttpRequest, _context: InvocationContext) {
   const etfCode = request.params.etfCode;
@@ -20,7 +22,8 @@ export async function getEtfHoldings(request: HttpRequest, _context: InvocationC
     return { etfCode, date, holdings };
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({ ...body, holdings: maskMemberResults(body.holdings, access.authenticated) });
 }
 
 app.http("getEtfHoldings", {

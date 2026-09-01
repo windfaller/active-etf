@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSignInUrl, extractAuthToken, stripAuthToken } from "../../src/web/auth/authService.js";
+import { buildSignInUrl, extractAuthAction, extractAuthToken, stripAuthToken } from "../../src/web/auth/authService.js";
 
 describe("external auth URL contract", () => {
   it("uses the requested central sign-in route and preserves the current product route", () => {
@@ -10,9 +10,14 @@ describe("external auth URL contract", () => {
   });
 
   it("extracts a one-time callback token and strips it from the visible URL", () => {
-    const input = "https://active-etf.inthewins.com/signals?kind=all&idToken=signed-token#today";
+    const input = "https://active-etf.inthewins.com/signals?kind=all&idToken=signed-token&authAction=sign_up#today";
     expect(extractAuthToken(input)).toBe("signed-token");
+    expect(extractAuthAction(input)).toBe("sign_up");
     expect(stripAuthToken(input)).toBe("https://active-etf.inthewins.com/signals?kind=all#today");
+  });
+
+  it("rejects unknown auth action values", () => {
+    expect(extractAuthAction("https://active-etf.inthewins.com/?authAction=register")).toBeNull();
   });
 
   it("never reflects an old token into a new auth redirect", () => {

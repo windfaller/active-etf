@@ -9,12 +9,20 @@
         try {
           var url = new URL(w.location.href);
           var token = url.searchParams.get('idToken');
-          if (!token) return;
-          Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__', {
-            value: token, writable: true, configurable: true, enumerable: false
-          });
+          var action = url.searchParams.get('authAction');
+          if (token) {
+            Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__', {
+              value: token, writable: true, configurable: true, enumerable: false
+            });
+            if (action === 'login' || action === 'sign_up') {
+              Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_ACTION__', {
+                value: action, writable: true, configurable: true, enumerable: false
+              });
+            }
+          }
           url.searchParams.delete('idToken');
-          w.history.replaceState({}, document.title, url.toString());
+          url.searchParams.delete('authAction');
+          if (token || action) w.history.replaceState({}, document.title, url.toString());
         } catch (_) {}
       })(window);
     </script>

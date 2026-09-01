@@ -2,6 +2,7 @@ import type { Db } from "mongodb";
 import { configuredEtfs } from "../../config/etfs.js";
 import type { EtfDailySummary } from "../../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
+import type { EtfCoverageRow } from "../../web/contracts/dashboard.js";
 import { stockImpactsForDate } from "./stockImpactService.js";
 
 interface LatestSummaryRow {
@@ -17,7 +18,7 @@ function coverageResponse(date: string, latestRows: LatestSummaryRow[], availabl
     const latest = latestByCode.get(etf.etfCode);
     const hasSelectedDate = availableCodes.has(etf.etfCode);
     const latestTradeDate = latest?.latestTradeDate ?? null;
-    const status = hasSelectedDate
+    const status: EtfCoverageRow["status"] = hasSelectedDate
       ? "available"
       : latestTradeDate === null
         ? "missing"

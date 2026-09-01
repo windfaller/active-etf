@@ -1,9 +1,11 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
+import { maskMemberResultsByStableKey } from "../domain/memberAccess.js";
 import { intelligenceSignals } from "../services/intelligence/signalIntelligenceService.js";
 import { limitSchema, optionalDate, signalKindSchema, windowSchema } from "./intelligenceValidation.js";
-import { badRequest, edgeCachedJsonResponse, jsonResponse, withServerTiming } from "./response.js";
+import { badRequest, jsonResponse, withServerTiming } from "./response.js";
 import { getTimedCached } from "./timedRequestCache.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 
 const requestCache = new BoundedRequestCache();
 const requestCacheTtlMilliseconds = 180_000;
@@ -42,7 +44,13 @@ export async function getSignals(request: HttpRequest, context: InvocationContex
       reversals: kind.data === "all" || kind.data === "reversals" ? fullResult.reversals.slice(0, limit.data) : [],
       divergences: kind.data === "all" || kind.data === "divergence" ? fullResult.divergences.slice(0, limit.data) : []
     };
-    return withServerTiming(edgeCachedJsonResponse(result, 30, 600), timed.metrics);
+    const access = await memberRequestAccess(request);
+    return withServerTiming(memberJsonResponse({
+      ...result,
+      consecutive: maskMemberResultsByStableKey(result.consecutive, access.authenticated, (row) => `consecutive:${row.stock.symbol}`),
+      reversals: maskMemberResultsByStableKey(result.reversals, access.authenticated, (row) => `reversal:${row.stock.symbol}`),
+      divergences: maskMemberResultsByStableKey(result.divergences, access.authenticated, (row) => `divergence:${row.stock.symbol}`)
+    }), timed.metrics);
   } catch (error) {
     context.error("signals failed", error);
     return jsonResponse({ error: "signals are temporarily unavailable" }, 500);

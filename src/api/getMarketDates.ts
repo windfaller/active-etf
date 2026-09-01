@@ -4,6 +4,8 @@ import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { marketDashboardForDate } from "../services/market/marketDashboardService.js";
 import { marketDateOverview, safeMarketDateLimit } from "../services/market/marketDatesService.js";
 import { assertTradeDate } from "../utils/date.js";
+import { projectMarketDashboardForMember } from "./memberProjection.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
 import { badRequest, edgeCachedJsonResponse, withServerTiming } from "./response.js";
 
 export async function getMarketDates(request: HttpRequest, _context: InvocationContext) {
@@ -37,7 +39,9 @@ export async function getMarketDashboard(request: HttpRequest, _context: Invocat
   if (!dateParam) return badRequest("date is required");
   const date = assertTradeDate(dateParam);
   const dashboard = await cachedMarketDashboard(date);
-  return withServerTiming(edgeCachedJsonResponse(dashboard), [
+  const access = await memberRequestAccess(request);
+  const projected = projectMarketDashboardForMember(dashboard, access.authenticated);
+  return withServerTiming(memberJsonResponse(projected), [
     { name: "total", duration: Date.now() - startedAt },
     { name: "market-dashboard", duration: Date.now() - startedAt }
   ]);
@@ -57,10 +61,11 @@ export async function getMarketBootstrap(request: HttpRequest, _context: Invocat
     : overview.recommendedDate ?? overview.dates[0] ?? null;
   const dashboardStartedAt = Date.now();
   const dashboard = selectedDate ? await cachedMarketDashboard(selectedDate) : null;
-  return withServerTiming(edgeCachedJsonResponse({
+  const access = await memberRequestAccess(request);
+  return withServerTiming(memberJsonResponse({
     ...overview,
     selectedDate,
-    dashboard
+    dashboard: dashboard ? projectMarketDashboardForMember(dashboard, access.authenticated) : null
   }), [
     { name: "total", duration: Date.now() - startedAt },
     { name: "market-dates", duration: datesDuration },

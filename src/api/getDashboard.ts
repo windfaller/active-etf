@@ -8,7 +8,10 @@ import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
 import { stockImpactsForDate } from "../services/market/stockImpactService.js";
 import { tagMovementsForChanges } from "../services/sector/tagMovementService.js";
 import { assertTradeDate } from "../utils/date.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { maskMemberResults } from "../domain/memberAccess.js";
+import { projectChangeCollectionsForMember, projectStockImpactForMember } from "./memberProjection.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 async function changesResponse(db: Awaited<ReturnType<typeof getDb>>, etfCode: string, date: string, changes: EtfHoldingChange[]) {
   return {
@@ -112,7 +115,14 @@ export async function getDashboard(request: HttpRequest, _context: InvocationCon
     };
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({
+    ...body,
+    holdings: maskMemberResults(body.holdings, access.authenticated),
+    summaries: maskMemberResults(body.summaries, access.authenticated),
+    changes: projectChangeCollectionsForMember(body.changes, access.authenticated),
+    stockImpact: projectStockImpactForMember(body.stockImpact, access.authenticated)
+  });
 }
 
 app.http("getDashboard", {

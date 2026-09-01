@@ -1,3 +1,5 @@
+import type { MemberResult } from "../../domain/memberAccess.js";
+
 export interface GlobalHolding {
   ticker?: string;
   sourceTicker?: string;
@@ -37,6 +39,21 @@ export interface GlobalCommonHolding {
   etfs: Array<{ etfCode: string; weightPercent?: number }>;
 }
 
+export interface GlobalCommonWebRow {
+  ticker?: string;
+  name: string;
+  etfs: Array<{ code: string; weight: number }>;
+  total: number;
+  max: number;
+}
+
+export interface GlobalCommonWeightChange {
+  ticker?: string;
+  name: string;
+  etfs: string[];
+  delta: number;
+}
+
 export interface GlobalReportSection {
   etfCode: string;
   fundName: string;
@@ -48,10 +65,10 @@ export interface GlobalReportSection {
   sourceUrl: string;
   sourceStatus: string;
   rowCount: number;
-  topHoldings: GlobalHolding[];
-  newPositions?: GlobalChange[];
-  exitedPositions?: GlobalChange[];
-  weightChanges: GlobalChange[];
+  topHoldings: Array<MemberResult<GlobalHolding>>;
+  newPositions?: Array<MemberResult<GlobalChange>>;
+  exitedPositions?: Array<MemberResult<GlobalChange>>;
+  weightChanges: Array<MemberResult<GlobalChange>>;
   takeaway?: string;
 }
 
@@ -74,8 +91,9 @@ export interface GlobalReport {
   totalCount: number;
   highlights: string[];
   statusRows: Array<{ etfCode: string; sourceAsOf: string; rowCount: number; sourceStatus: string }>;
-  commonHoldings?: GlobalCommonHolding[];
-  globalMovers?: GlobalChange[];
+  commonHoldings?: Array<MemberResult<GlobalCommonWebRow>>;
+  commonWeightChanges?: Array<MemberResult<GlobalCommonWeightChange>>;
+  globalMovers?: Array<MemberResult<GlobalChange>>;
   sections: GlobalReportSection[];
   adContext: { tags: string[] };
   demoMode?: boolean;

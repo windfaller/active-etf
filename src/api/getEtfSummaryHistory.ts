@@ -1,8 +1,10 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { getDb } from "../db/mongo.js";
 import type { EtfDailySummary } from "../models/EtfDailySummary.js";
+import { maskMemberResults } from "../domain/memberAccess.js";
 import { getOrSetDailyCache } from "../services/cache/dailyDataCache.js";
-import { badRequest, jsonResponse } from "./response.js";
+import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+import { badRequest } from "./response.js";
 
 export async function getEtfSummaryHistory(request: HttpRequest, _context: InvocationContext) {
   const etfCode = request.params.etfCode;
@@ -22,7 +24,8 @@ export async function getEtfSummaryHistory(request: HttpRequest, _context: Invoc
     return { etfCode, summaries };
   });
 
-  return jsonResponse(body);
+  const access = await memberRequestAccess(request);
+  return memberJsonResponse({ ...body, summaries: maskMemberResults(body.summaries, access.authenticated) });
 }
 
 app.http("getEtfSummaryHistory", {

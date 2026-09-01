@@ -1,8 +1,7 @@
 import { app, type Cookie, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
+import { MEMBER_SESSION_COOKIE_NAME, memberSessionToken } from "../services/auth/memberSession.js";
 import { verifyFirebaseIdToken, type FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
 import { jsonResponse } from "./response.js";
-
-const SESSION_COOKIE_NAME = "active_etf_session";
 
 export interface AuthenticatedUser {
   uid: string;
@@ -30,20 +29,6 @@ function safeUser(claims: FirebaseIdTokenClaims): AuthenticatedUser {
   };
 }
 
-function parseCookies(request: HttpRequest): Record<string, string> {
-  const raw = request.headers.get("cookie") ?? "";
-  return Object.fromEntries(raw.split(";").map((part) => {
-    const separator = part.indexOf("=");
-    if (separator < 0) return [part.trim(), ""];
-    const value = part.slice(separator + 1).trim();
-    try {
-      return [part.slice(0, separator).trim(), decodeURIComponent(value)];
-    } catch {
-      return [part.slice(0, separator).trim(), ""];
-    }
-  }).filter(([key]) => Boolean(key)));
-}
-
 function isSecureRequest(request: HttpRequest): boolean {
   const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   return forwardedProto === "https" || request.url.startsWith("https://");
@@ -52,7 +37,7 @@ function isSecureRequest(request: HttpRequest): boolean {
 function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number): Cookie {
   const maxAge = Math.max(0, Math.min(3_600, expiresAt - Math.floor(Date.now() / 1000)));
   return {
-    name: SESSION_COOKIE_NAME,
+    name: MEMBER_SESSION_COOKIE_NAME,
     value: encodeURIComponent(idToken),
     path: "/",
     httpOnly: true,
@@ -64,7 +49,7 @@ function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number)
 
 function expiredSessionCookie(request: HttpRequest): Cookie {
   return {
-    name: SESSION_COOKIE_NAME,
+    name: MEMBER_SESSION_COOKIE_NAME,
     value: "",
     path: "/",
     httpOnly: true,
@@ -103,7 +88,7 @@ async function establishSession(request: HttpRequest, context: InvocationContext
 }
 
 async function readSession(request: HttpRequest): Promise<HttpResponseInit> {
-  const idToken = parseCookies(request)[SESSION_COOKIE_NAME];
+  const idToken = memberSessionToken(request);
   if (!idToken) return jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders());
 
   try {

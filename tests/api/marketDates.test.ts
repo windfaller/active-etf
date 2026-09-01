@@ -69,9 +69,8 @@ describe("GET /api/market/dates", () => {
         coverage: { availableCount: 22 }
       }
     });
-    expect(new Headers(response.headers).get("Cache-Control")).toBe(
-      "public, max-age=30, s-maxage=180, stale-while-revalidate=360"
-    );
+    expect(new Headers(response.headers).get("Cache-Control")).toContain("private, no-store");
+    expect(new Headers(response.headers).get("Vary")).toContain("Cookie");
     expect(new Headers(response.headers).get("Server-Timing")).toContain("market-dashboard;dur=");
   });
 

@@ -7,11 +7,12 @@ import MobileDataCard from "../components/MobileDataCard.vue";
 import ResponsiveDataTable from "../components/ResponsiveDataTable.vue";
 import { useAuth } from "../composables/useAuth";
 import type { EtfCoverageResponse, SectorSummaryRow, StockImpact } from "../contracts/dashboard";
-import { shouldMaskMemberResult } from "../domain/memberVisibility";
+import type { MemberResult } from "../domain/memberVisibility";
+import { isMemberLockedResult, shouldRenderMemberLock, visibleMemberResults } from "../domain/memberVisibility";
 import { directionLabel, formatLots, formatMoney, formatSignedPp, valueTone } from "../utils/format";
 
 const props = defineProps<{
-  impacts: StockImpact[];
+  impacts: Array<MemberResult<StockImpact>>;
   sectors: SectorSummaryRow[];
   coverage: EtfCoverageResponse | null;
   selectedDate: string;
@@ -24,7 +25,7 @@ const query = ref("");
 const displayed = computed(() => {
   const normalized = query.value.trim().toLowerCase();
   if (!normalized) return props.impacts;
-  return props.impacts.filter((row) => `${row.stockId} ${row.stockName} ${row.sector} ${row.themeTags.join(" ")} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`.toLowerCase().includes(normalized));
+  return props.impacts.filter((row) => isMemberLockedResult(row) || `${row.stockId} ${row.stockName} ${row.sector} ${row.themeTags.join(" ")} ${row.etfs.map((etf) => etf.etfCode).join(" ")}`.toLowerCase().includes(normalized));
 });
 const leadSectors = computed(() => [...props.sectors].filter((row) => row.sector !== "其他").sort((a,b) => Math.abs(b.totalActiveDiffLots) - Math.abs(a.totalActiveDiffLots)).slice(0,6));
 function institutionLots(row: StockImpact): number | null { const value = row.institutional?.totalNetShares; return value === null || value === undefined ? null : value / 1000; }
@@ -43,8 +44,8 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
     <section class="market-sector-grid" aria-label="重點產業方向">
       <article v-for="row in leadSectors" :key="row.sector" :class="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'">
         <header><span>{{ row.sector }}</span><strong :class="valueTone(row.totalActiveDiffLots)">{{ formatLots(row.totalActiveDiffLots) }} 張</strong><small>{{ row.etfCount }} 檔 ETF · {{ row.stockCount }} 檔股</small></header>
-        <div v-if="isAuthenticated && row.topStocks.length" class="sector-stock-list">
-          <button v-for="stock in row.topStocks.slice(0,3)" :key="stock.stockId" type="button" @click="emit('stock', stock.stockId)">
+        <div v-if="isAuthenticated && visibleMemberResults(row.topStocks).length" class="sector-stock-list">
+          <button v-for="stock in visibleMemberResults(row.topStocks).slice(0,3)" :key="stock.stockId" type="button" @click="emit('stock', stock.stockId)">
             <span><b>{{ stock.stockId }}</b> {{ stock.stockName }}</span>
             <strong :class="valueTone(stock.totalActiveDiffLots)">{{ formatLots(stock.totalActiveDiffLots) }}</strong>
           </button>
@@ -61,8 +62,8 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
       <ResponsiveDataTable label="台灣個股影響排名" :empty="!loading && !displayed.length" empty-text="此日期尚無跨 ETF 異動資料。">
         <div class="desktop-table impact-grid">
           <div class="table-head"><span>股票</span><span>產業</span><span>主動淨變動</span><span>權重變動</span><span>三大法人</span><span>影響 ETF</span><span>主要來源</span></div>
-          <template v-for="(row, index) in displayed" :key="row.stockId">
-            <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_${index + 1}`" />
+          <template v-for="(row, index) in displayed" :key="isMemberLockedResult(row) ? `locked-${index}` : row.stockId">
+            <MemberLockedResult v-if="shouldRenderMemberLock(displayed, row, isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_${index + 1}`" />
             <div v-else :id="`market-stock-${row.stockId}`" class="table-row" :class="{ focused: focusStockId === row.stockId }" role="button" tabindex="0" @click="emit('stock', row.stockId)" @keydown.enter.prevent="emit('stock', row.stockId)">
               <span class="stock"><b>{{ row.stockId }}</b><small>{{ row.stockName }}</small></span>
               <span><b>{{ row.sector || "其他" }}</b><small>{{ row.themeTags.slice(0,2).join("、") || "-" }}</small></span>
@@ -75,8 +76,8 @@ function institutionLotsLabel(row: StockImpact): string { const lots = instituti
           </template>
         </div>
         <template #mobile>
-          <template v-for="(row, index) in displayed" :key="row.stockId">
-          <MemberLockedResult v-if="shouldMaskMemberResult(isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_mobile_${index + 1}`" />
+          <template v-for="(row, index) in displayed" :key="isMemberLockedResult(row) ? `locked-mobile-${index}` : row.stockId">
+          <MemberLockedResult v-if="shouldRenderMemberLock(displayed, row, isAuthenticated, index)" compact title="個股影響資料已遮隱" :source="`market_ranking_mobile_${index + 1}`" />
           <MobileDataCard v-else :id="`market-stock-${row.stockId}`" class="market-impact-card" :class="{ 'is-focused': focusStockId === row.stockId }" :label="`${row.stockId} ${row.stockName}`" :tone="row.totalActiveDiffLots > 0 ? 'increase' : row.totalActiveDiffLots < 0 ? 'decrease' : 'neutral'" :expandable="false">
             <template #title>{{ row.stockId }} {{ row.stockName }}</template>
             <template #summary>
