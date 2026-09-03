@@ -739,7 +739,10 @@ Notes:
 
 ## 復華 holdings and summary
 
-Official product page: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`
+Official product pages:
+
+- `00991A`: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF23`
+- `00409A`: `https://www.fhtrust.com.tw/ETF/etf_detail/ETF26`
 
 The official page loads `/js/etf_detail.js`, which calls shared API helpers from `/js/util_footer.js`. The verified API helpers map to:
 
@@ -751,20 +754,21 @@ getETFPcf -> GET /api/ETFPcf
 Holdings URL:
 
 ```txt
-https://www.fhtrust.com.tw/api/assets?fundID=ETF23&qDate=YYYY/MM/DD
+https://www.fhtrust.com.tw/api/assets?fundID={fundID}&qDate=YYYY/MM/DD
 ```
 
 PCF URL:
 
 ```txt
-https://www.fhtrust.com.tw/api/ETFPcf?fundID=ETF23&pcfDate=YYYYMMDD
+https://www.fhtrust.com.tw/api/ETFPcf?fundID={fundID}&pcfDate=YYYYMMDD
 ```
 
-Confirmed product:
+Confirmed products:
 
 - `00991A`: `fundID` `ETF23`
+- `00409A`: `fundID` `ETF26`
 
-Status: verified primary JSON source for 復華 00991A holdings and summary. `qDate=2026/05/15` returned a full `detail[]` list with 52 rows including 50 stock holdings and other asset rows. If a requested `qDate` is not published yet, `/api/assets` returns a 200 JSON shell with null `dDate` and null `detail`, so the provider retries previous dates.
+Status: verified primary JSON source for 復華 holdings and summary. `00991A` with `qDate=2026/05/15` returned a full `detail[]` list with 52 rows including 50 stock holdings and other asset rows. `00409A` with `qDate=2026/09/02` returned 50 global and Taiwan stock rows plus one ETF component, NAV `9.6`, total units `1,827,448,000`, and fund size `17,536,640,814`. If a requested `qDate` is not published yet, `/api/assets` returns a 200 JSON shell with null `dDate` and null `detail`, so the provider retries previous dates.
 
 Important date rule: `/api/assets` is the holdings snapshot date. `/api/ETFPcf` is the PCF announcement date and can be the next business day for the same asset snapshot. For example, assets `qDate=2026/05/15` match PCF `pcfDate=20260518`, whose NAV and total units mirror the 2026/05/15 assets row.
 
@@ -776,9 +780,9 @@ assets.result[0].pcf_FundNav -> etf_daily_summary.fundSize
 assets.result[0].pcf_FundQissue -> etf_daily_summary.totalUnits
 assets.result[0].pcf_Fundpnav -> etf_daily_summary.nav
 assets.result[0].result item "股票" / fundSize * 100 -> etf_daily_summary.stockRatio
-assets.result[0].result item "扣除應付買入證券款後現金餘額(NTD)" / fundSize * 100 -> etf_daily_summary.cashRatio
+single-currency cash result / fundSize, or summed detail currency weights -> etf_daily_summary.cashRatio
 pcf.result[0].qDiff -> etf_daily_summary.netCreationUnits
-detail[].stockid -> etf_daily_holdings.stockId
+detail[].stockid for `ftype` `股票` or `ETF` -> etf_daily_holdings.stockId
 detail[].stockname -> etf_daily_holdings.stockName
 detail[].qshare -> etf_daily_holdings.shares
 detail[].prate_addaccint -> etf_daily_holdings.weight

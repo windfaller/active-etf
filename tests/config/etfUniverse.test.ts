@@ -5,6 +5,7 @@ import { allianzEtfs } from "../../src/providers/allianz/types.js";
 import { ctbcEtfs } from "../../src/providers/ctbc/types.js";
 import { firstEtfs } from "../../src/providers/first/types.js";
 import { fubonEtfs } from "../../src/providers/fubon/types.js";
+import { fhEtfs } from "../../src/providers/fh/types.js";
 import { kgiEtfs } from "../../src/providers/kgi/types.js";
 import { sinopacEtfs } from "../../src/providers/sinopac/types.js";
 
@@ -49,6 +50,12 @@ describe("configured active ETF universe", () => {
           source: expect.objectContaining({ providerId: "first" })
         }),
         expect.objectContaining({
+          etfCode: "00409A",
+          fundCode: "ETF26",
+          enabled: true,
+          source: expect.objectContaining({ providerId: "fh" })
+        }),
+        expect.objectContaining({
           etfCode: "00410A",
           fundCode: "E5",
           enabled: true,
@@ -67,6 +74,7 @@ describe("configured active ETF universe", () => {
     expect(ctbcEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00406A", fundCode: "E0038" })]));
     expect(kgiEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00407A", fundCode: "J024" })]));
     expect(firstEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00408A", fundCode: "183" })]));
+    expect(fhEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00409A", fundCode: "ETF26" })]));
     expect(sinopacEtfs).toEqual(expect.arrayContaining([expect.objectContaining({ etfCode: "00410A", fundCode: "E5" })]));
   });
 });

@@ -6,7 +6,10 @@ import { detectFhTradeDate } from "./parser.js";
 import { fhEtfs } from "./types.js";
 
 const fhBaseUrl = "https://www.fhtrust.com.tw";
-const fhDetailUrl = `${fhBaseUrl}/ETF/etf_detail/ETF23`;
+
+function fhDetailUrl(fundId: string): string {
+  return `${fhBaseUrl}/ETF/etf_detail/${fundId}`;
+}
 
 function fundIdForEtf(etfCode: string): string {
   const etf = fhEtfs.find((item) => item.etfCode === etfCode);
@@ -33,7 +36,7 @@ function nextBusinessDay(date: string): string {
   return candidate;
 }
 
-async function fetchFhJson(path: string, params: Record<string, string>): Promise<SourceFetchResult> {
+async function fetchFhJson(path: string, params: Record<string, string>, referer: string): Promise<SourceFetchResult> {
   const url = new URL(path, fhBaseUrl);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -43,7 +46,7 @@ async function fetchFhJson(path: string, params: Record<string, string>): Promis
     url: url.toString(),
     method: "GET",
     headers: {
-      ...defaultCrawlerHeaders(fhDetailUrl),
+      ...defaultCrawlerHeaders(referer),
       Accept: "application/json, text/javascript, */*; q=0.01",
       "Content-Type": "application/json",
       "X-Requested-With": "XMLHttpRequest"
@@ -53,10 +56,11 @@ async function fetchFhJson(path: string, params: Record<string, string>): Promis
 
 async function requestFhAssets(etfCode: string, queryDate: string): Promise<RawHoldingResponse> {
   const fundID = fundIdForEtf(etfCode);
+  const referer = fhDetailUrl(fundID);
   const assets = await fetchFhJson("/api/assets", {
     fundID,
     qDate: toFhDate(queryDate)
-  });
+  }, referer);
 
   let tradeDate: string;
   try {
@@ -73,7 +77,7 @@ async function requestFhAssets(etfCode: string, queryDate: string): Promise<RawH
   const pcf = await fetchFhJson("/api/ETFPcf", {
     fundID,
     pcfDate: toFhPcfDate(nextBusinessDay(tradeDate))
-  });
+  }, referer);
 
   const rawBody = JSON.stringify({
     assets: JSON.parse(assets.rawBody),

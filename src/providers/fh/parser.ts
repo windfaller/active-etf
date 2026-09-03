@@ -6,6 +6,7 @@ const fhAssetDetailSchema = z.object({
   stockid: z.string().nullable(),
   stockname: z.string().nullable(),
   qshare: z.string().nullable(),
+  qshareCur: z.string().nullable().optional(),
   mvalue: z.string().nullable(),
   prate_addaccint: z.string().nullable()
 });
@@ -108,8 +109,31 @@ function parseCombined(rawBody: string): { assets: FhAssetsRow; pcf: FhPcfRow | 
 }
 
 function assetValue(row: FhAssetsRow, labelPattern: RegExp): number | null {
-  const item = row.result?.find((entry) => labelPattern.test(entry.itemName ?? ""));
-  return parseNumber(item?.tot_mvalue);
+  const values = (row.result ?? [])
+    .filter((entry) => labelPattern.test(entry.itemName ?? ""))
+    .map((entry) => parseNumber(entry.tot_mvalue))
+    .filter((value): value is number => value !== null);
+
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function cashRatio(row: FhAssetsRow, fundSize: number | null): number | null {
+  const cashRows = (row.detail ?? []).filter((entry) => /扣除應付買入證券款後現金餘額/u.test(entry.stockname ?? ""));
+  const hasForeignCurrencyCash = cashRows.some((entry) => {
+    const currency = entry.qshareCur?.trim().toUpperCase();
+    return currency && !["NTD", "TWD"].includes(currency) && parseNumber(entry.mvalue) !== 0;
+  });
+
+  if (hasForeignCurrencyCash) {
+    const weights = cashRows
+      .map((entry) => parseNumber(entry.prate_addaccint))
+      .filter((value): value is number => value !== null);
+    if (weights.length) return round(weights.reduce((sum, value) => sum + value, 0));
+  }
+
+  const cashValue =
+    assetValue(row, /扣除應付買入證券款後現金餘額/u) ?? assetValue(row, /現金/u);
+  return fundSize !== null && cashValue !== null ? round((cashValue / fundSize) * 100) : null;
 }
 
 export function detectFhTradeDate(rawBody: string): string {
@@ -120,7 +144,7 @@ export function parseFhHoldings(rawBody: string): ParsedFhHolding[] {
   const { assets } = parseCombined(rawBody);
 
   return (assets.detail ?? [])
-    .filter((row) => row.ftype === "股票" && /^\d{4}$/u.test(row.stockid?.trim() ?? ""))
+    .filter((row) => ["股票", "ETF"].includes(row.ftype ?? "") && Boolean(row.stockid?.trim()))
     .map((row) => {
       const shares = parseNumber(row.qshare) ?? 0;
 
@@ -140,8 +164,6 @@ export function parseFhSummary(rawBody: string): ParsedFhSummary {
   const { assets, pcf } = parseCombined(rawBody);
   const fundSize = parseNumber(assets.pcf_FundNav);
   const stockValue = assetValue(assets, /^股票$/u);
-  const otherAssetValue =
-    assetValue(assets, /扣除應付買入證券款後現金餘額/u) ?? assetValue(assets, /現金/u);
 
   return {
     tradeDate: toIsoDate(assets.dDate),
@@ -149,7 +171,7 @@ export function parseFhSummary(rawBody: string): ParsedFhSummary {
     totalUnits: parseNumber(assets.pcf_FundQissue),
     fundSize,
     netCreationUnits: parseNumber(pcf?.qDiff),
-    cashRatio: fundSize !== null && otherAssetValue !== null ? round((otherAssetValue / fundSize) * 100) : null,
+    cashRatio: cashRatio(assets, fundSize),
     stockRatio: fundSize !== null && stockValue !== null ? round((stockValue / fundSize) * 100) : null
   };
 }

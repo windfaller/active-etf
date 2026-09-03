@@ -60,6 +60,76 @@ const rawBody = JSON.stringify({
   }
 });
 
+const globalRawBody = JSON.stringify({
+  assets: {
+    result: [
+      {
+        fundID: "ETF26",
+        twNameFull: "復華全球未來50主動式ETF基金",
+        etf002: "00409A",
+        dDate: "2026/09/02",
+        pcf_FundNav: "17,536,640,814",
+        pcf_FundQissue: "1,827,448,000",
+        pcf_Fundpnav: "9.6",
+        result: [
+          { ftype: "股票", itemName: "股票", tot_mvalue: "15,775,027,015" },
+          { ftype: "ETF", itemName: "ETF", tot_mvalue: "204,532,116" },
+          { ftype: "其他資產", itemName: "扣除應付買入證券款後現金餘額(NTD)", tot_mvalue: "1,178,715,351" },
+          { ftype: "其他資產", itemName: "扣除應付買入證券款後現金餘額(USD)", tot_mvalue: "-12,808,373" }
+        ],
+        detail: [
+          {
+            ftype: "股票",
+            stockid: "PLTR US",
+            stockname: "帕蘭提爾科技公司",
+            qshare: "122,000",
+            qshareCur: "USD",
+            mvalue: "656,237,917",
+            prate_addaccint: "3.742%"
+          },
+          {
+            ftype: "股票",
+            stockid: "2383",
+            stockname: "台光電子",
+            qshare: "99,000",
+            qshareCur: "NTD",
+            mvalue: "539,055,000",
+            prate_addaccint: "3.074%"
+          },
+          {
+            ftype: "ETF",
+            stockid: "GDX US",
+            stockname: "VanEck黃金礦業交易所交易基金",
+            qshare: "66,000",
+            qshareCur: "USD",
+            mvalue: "204,532,116",
+            prate_addaccint: "1.166%"
+          },
+          {
+            ftype: "其他資產",
+            stockid: "",
+            stockname: "扣除應付買入證券款後現金餘額(NTD)",
+            qshare: "0",
+            qshareCur: "NTD",
+            mvalue: "1,178,715,351",
+            prate_addaccint: "6.720%"
+          },
+          {
+            ftype: "其他資產",
+            stockid: "",
+            stockname: "扣除應付買入證券款後現金餘額(USD)",
+            qshare: "0",
+            qshareCur: "USD",
+            mvalue: "-12,808,373",
+            prate_addaccint: "-2.320%"
+          }
+        ]
+      }
+    ]
+  },
+  pcf: null
+});
+
 const fetchResult = {
   url: "https://www.fhtrust.com.tw/api/assets?fundID=ETF23&qDate=2026%2F05%2F15",
   method: "GET" as const,
@@ -105,6 +175,21 @@ describe("Fuh Hwa provider parser", () => {
       netCreationUnits: 152000000,
       cashRatio: 2.0502,
       stockRatio: 94.7287
+    });
+  });
+
+  it("keeps global equity and ETF tickers and sums multi-currency cash weights", () => {
+    expect(parseFhHoldings(globalRawBody)).toEqual([
+      expect.objectContaining({ stockId: "PLTR US", shares: 122_000, weight: 3.742 }),
+      expect.objectContaining({ stockId: "2383", shares: 99_000, weight: 3.074 }),
+      expect.objectContaining({ stockId: "GDX US", shares: 66_000, weight: 1.166 })
+    ]);
+    expect(parseFhSummary(globalRawBody)).toMatchObject({
+      tradeDate: "2026-09-02",
+      nav: 9.6,
+      totalUnits: 1_827_448_000,
+      fundSize: 17_536_640_814,
+      cashRatio: 4.4
     });
   });
 

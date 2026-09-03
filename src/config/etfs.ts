@@ -470,6 +470,22 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00409A",
+    fundCode: "ETF26",
+    name: "主動復華全球50",
+    issuer: "復華投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "fh",
+      infoUrl: "https://www.fhtrust.com.tw/ETF/etf_detail/ETF26",
+      pcfUrl: "https://www.fhtrust.com.tw/api/assets?fundID=ETF26"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00994A",
     fundCode: "182",
     name: "主動第一金台股優",

@@ -46,7 +46,7 @@ describe("market date service", () => {
     expect(overview.coverage.map((row) => [row.date, row.availableCount])).toEqual([
       ["2026-07-21", 4],
       ["2026-07-20", 22],
-      ["2026-07-17", 29]
+      ["2026-07-17", enabledCodes.length]
     ]);
   });
 
