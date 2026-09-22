@@ -1,0 +1,25 @@
+[
+  {
+    "health": {
+      "status": "ok",
+      "service": "active-etf-member-mcp",
+      "version": "0.2.0",
+      "storage": "mongodb"
+    }
+  },
+  {
+    "publicRoutes": "five locales, skill downloads, OAuth discovery, anonymous rejection passed"
+  },
+  {
+    "oauth": "DCR, PKCE authorization redirect, consent metadata, secure login cookie passed; real member identity not tested"
+  },
+  {
+    "tokenExchange": "Live endpoint issued valid access grant; durable record verified"
+  },
+  {
+    "failure": "Error: Streamable HTTP error: Error POSTing to endpoint: {\"error\":\"invalid_token\"}"
+  },
+  {
+    "isolation": "The same cloud-issued token is accepted by the deployed build handler against the same production MongoDB; only the SWA HTTP path rejects it"
+  }
+]

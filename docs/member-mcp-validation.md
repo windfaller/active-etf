@@ -1,6 +1,22 @@
 # Member MCP validation — 2026-09-22
 
-Status: implemented locally; platform acceptance is incomplete. No production deployment, public directory submission or Git push was performed.
+Status: deployed to the existing Azure Static Web App; standard authenticated MCP calls are BLOCKED by the managed API gateway. No public directory submission.
+
+## Current deployed evidence — 2026-09-22
+
+- Application commit: `502601180519a451491dc8a242f3319d65c186a0`. GitHub Actions run [35688039014](https://github.com/windfaller/active-etf/actions/runs/35688039014) succeeded, including existing production route checks. Live app-version matches.
+- Existing resource: `tw-active-etf`, resource group `active-etf`, Free SKU; no new cloud resource.
+- Canonical origin is `https://active-etf.inthewins.com`; the chicoo.co hostname redirects. MCP_PUBLIC_ORIGIN was explicitly set without changing legacy PUBLIC_BASE_URL.
+- All 15 language routes and five Skill downloads returned HTTP 200. Live browser verified overview, Skill navigation and correct URL, with no horizontal overflow at 1280px.
+- MCP health reports MongoDB. Static and dynamic OAuth metadata agree; anonymous requests receive 401 and the correct discovery challenge. DCR, PKCE authorization redirect, consent metadata and secure login nonce cookie passed.
+- Real OAuth token exchange passed using a uniquely named, short-lived test authorization code inserted directly into storage. This does NOT verify a real Firebase member login or platform consent.
+- The issued access token exists in the same production database. The exact deployed handler accepts it when invoked directly, but the SWA public HTTP path returns 401 invalid_token. Therefore standard MCP initialize/list/call did NOT pass remotely.
+- Microsoft confirms that managed SWA Functions overwrite Authorization for internal proxy authentication: [Azure issue 34](https://github.com/Azure/static-web-apps/issues/34#issuecomment-634117706). The official issue also identifies bring-your-own Functions as the alternative. No custom-header workaround or anonymous access was added.
+- Temporary fixture access/refresh tokens, consent/client records and usage were cleaned up. No real member quota was consumed.
+- Latest local verification: full suite 291 passed with real Mongo tests; isolated release 286 passed plus 4 opt-in tests skipped; latest targeted rerun 16/16 passed. Functions and frontend builds succeeded.
+- Recommended next architecture: keep the five-language website on SWA; deploy this native MCP handler to a separate Azure Function with standard bearer forwarding and the same MongoDB/Redis. New resource/cost and endpoint must be agreed before that separate deployment.
+
+## Earlier local validation (historical)
 
 ## Passed
 
@@ -38,11 +54,9 @@ Reached Plugins → Connectors → New Connector → Custom and submitted a priv
 
 ## Remaining acceptance gates
 
-1. Confirm the correct stable MCP origin. The prior planning document's `mcp.active-etf.inthewins.com` is a proposal, not an approved or working production endpoint. No default production URL is hardcoded.
-2. Restore the browser connection and complete the pending developer-mode decision.
-3. Complete real free-member login, OAuth consent and token exchange on both platforms.
-4. In each platform, run usage → one holdings query → identical query → usage. Verify successful sourced output and exactly one point charged across retries. Connect the same member on the second platform and verify the shared balance.
-5. Check revoke/reconnect and a bounded invalid-input case, then remove or disconnect the temporary test connector as appropriate. Restore ChatGPT developer mode if it was temporarily enabled.
-6. Only after those pass, decide the separate stable-host deployment scope. Do not submit either public directory listing during this task.
+1. Resolve the managed SWA Authorization-header limitation with a separately hosted MCP Function or a supported gateway. The deployed /api/mcp URL is not accepted as working yet.
+2. Complete real member sign-in, OAuth consent and tool calls on both ChatGPT and Grok after the endpoint is fixed. ChatGPT developer-mode confirmation and the disconnected Grok browser remain outstanding.
+3. Verify usage → one holdings query → identical query → usage and shared cross-platform quota, then revoke/reconnect.
+4. Do not publish either platform directory listing; that is outside the current request.
 
-The temporary HTTPS tunnel was stopped after browser disconnection. The preview service remains on loopback port 7075. Desktop layout was additionally inspected at 1000px width; the 1280px DOM had no horizontal overflow. The local portal labels the endpoint as a test URL. No live production origin is configured.
+The prior temporary HTTPS tunnel is stopped. This document supersedes the earlier local-only deployment status. Details from the live server smoke test are in member-mcp-swa-smoke.json.
