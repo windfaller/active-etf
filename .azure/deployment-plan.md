@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — authenticated member Skill download and five-language manual installation flow; public Skill remains hidden.
+Status: Deployed and verified — member-only Skill download and manual installation guide; awaiting user-performed installation/OAuth acceptance.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -49,3 +49,5 @@ Onboarding deployment proof: SWA run 35695991079 succeeded; Function deployment 
 
 ## Manual Skill installation — 2026-09-22
 User requests implementation and then manual installation/acceptance by the user. Scope: five-language agent selector, Codex Skill placement and native MCP/OAuth commands, web connector route, zero-point verification prompt and clearly self-reported checklist. GET /api/agent/skill is member-session protected; no tokens embedded. Public Skill URLs remain 404. Validation: clean npm ci/functions:build/web:build passed; 15 MCP tests passed, 4 opt-in Mongo skipped. New download test verifies anonymous denial, five locales, no-store/noindex, no embedded session secret, no quota cost, invalid locale and post-logout denial. All five generated Skill files passed skill-creator quick_validate.py. Codex commands checked against installed CLI help and official docs. Existing subscription/resources/roles/settings unchanged; application-only Azure Deploy recipe. Do not install into the user agent or complete their OAuth on their behalf; user will follow the deployed page.
+
+Manual installation deployment proof: SWA run 35698522821 succeeded; Function deployment 1bff023e-0fef-400a-964a-85a4a63966c2 succeeded, release 2f279f0. Live member Skill download tests passed for all five locales, anonymous/invalidated sessions rejected and fixture records cleaned. Existing seven-tool, OAuth/refresh/revoke and shared quota tests passed. Browser verified disabled signed-out download, Codex commands and copy feedback, ChatGPT/Grok switching and unchecked manual checklist. Public Skill still hidden. User installation and OAuth intentionally left to the user.
