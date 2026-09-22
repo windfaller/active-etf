@@ -2,6 +2,7 @@ import { z } from "zod";
 import { agentLocales, skillMarkdown, type AgentLocale } from "../shared/agentCopy.js";
 import { AgentError, hash, secret, type AgentStorage } from "./core.js";
 import type { FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
+import { installationGuide } from "../shared/agentBootstrap.js";
 export const SCOPE = "active_etf:read";
 interface Grant {
   member: string;
@@ -302,6 +303,23 @@ export function createAuth(options: AuthOptions) {
           setCookie("etf_agent_session", token, ttl),
         );
         return response;
+      }
+      if (method === "POST" && path === "/api/agent/install-link") {
+        const s = await csrf(req);
+        if (options.allowedMembers && !options.allowedMembers.has(s.member))
+          throw new AgentError("beta_access_required", 403);
+        const { locale } = z.object({locale:z.enum(agentLocales)}).parse(await requestBody(req));
+        await store.rate("install-link:" + s.member, 20, 3600_000);
+        const ticket = secret();
+        await store.put("install_guide", hash(ticket), {locale}, 1800_000);
+        return json({url:origin + "/api/agent/install-guide?ticket=" + ticket, expiresAt:Date.now()+1800_000});
+      }
+      if (method === "GET" && path === "/api/agent/install-guide") {
+        const ticket = new URL(req.url).searchParams.get("ticket") ?? "";
+        if (!/^[A-Za-z0-9_-]{43}$/.test(ticket)) throw new AgentError("installation_link_expired", 404);
+        const guide = await store.get<{locale:AgentLocale}>("install_guide", hash(ticket));
+        if (!guide) throw new AgentError("installation_link_expired", 404);
+        return new Response(installationGuide(guide.locale), {headers:{"Content-Type":"text/markdown; charset=utf-8", "X-Robots-Tag":"noindex, nofollow"}});
       }
       if (method === "GET" && path === "/api/agent/skill") {
         const s = await identity(req);

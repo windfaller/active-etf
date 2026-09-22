@@ -102,6 +102,30 @@ async function flow() {
   return { body, cookie, csrf };
 }
 describe("OAuth + MCP boundary", () => {
+  it("issues expiring installation links without granting MCP or session access", async () => {
+    expect((await post("/api/agent/install-link", {locale:"en"}, {Origin:origin})).status).toBe(401);
+    const {cookie,csrf} = await flow();
+    expect((await post("/api/agent/install-link", {locale:"en"}, {Origin:origin,Cookie:cookie})).status).toBe(403);
+    const response = await post("/api/agent/install-link", {locale:"zh-TW"}, {Origin:origin,Cookie:cookie,"X-CSRF-Token":csrf});
+    expect(response.status).toBe(200);
+    const link = await response.json();
+    expect(link.expiresAt - Date.now()).toBeGreaterThan(1790_000);
+    const ticket = new URL(link.url).searchParams.get("ticket")!;
+    const guide = await fetch(link.url);
+    expect(guide.status).toBe(200);
+    expect(guide.headers.get("cache-control")).toBe("no-store");
+    expect(guide.headers.get("x-robots-tag")).toContain("noindex");
+    const body = await guide.text();
+    expect(body).toContain("name: active-etf-research");
+    expect(body).toContain("codex mcp add active-etf");
+    for (const value of [ticket, csrf, cookie.split("=")[1], "member-one"]) expect(body).not.toContain(value);
+    expect((await post("/mcp", {}, {Authorization:"Bearer " + ticket})).status).toBe(401);
+    expect((await fetch(origin + "/api/agent/skill", {headers:{Cookie:"etf_agent_session="+ticket}})).status).toBe(401);
+    expect((await store.usage("member-one")).used).toBe(0);
+    await store.put("install_guide", hash(ticket), {locale:"zh-TW"}, -1);
+    expect((await fetch(link.url)).status).toBe(404);
+    expect((await fetch(origin + "/api/agent/install-guide?ticket=invalid")).status).toBe(404);
+  });
   it("serves localized Skill downloads only to active member sessions without spending quota", async () => {
     expect((await fetch(origin + "/api/agent/skill?lang=en")).status).toBe(401);
     const { cookie, csrf } = await flow();

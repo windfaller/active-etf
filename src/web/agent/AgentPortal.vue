@@ -483,7 +483,7 @@ onMounted(() => {
         </template>
         <section v-if="!loading && !request" class="agent-next" aria-labelledby="next-title">
           <h2 id="next-title">{{ next.title }}</h2>
-          <AgentInstall :locale="locale" :authenticated="authenticated" :endpoint="endpoint" />
+          <AgentInstall :locale="locale" :authenticated="authenticated" :endpoint="endpoint" :csrf-token="csrfToken" />
           <div class="agent-endpoint">
             <label for="account-mcp-endpoint">{{ t.endpoint }}</label>
             <div><input id="account-mcp-endpoint" readonly :value="endpoint" />
@@ -521,6 +521,8 @@ onMounted(() => {
 <style>
 .agent-shell {
   --agent-ink: #173f49;
+  --agent-surface: #ffffff;
+  --agent-code-bg: #eff6f5;
   --agent-muted: #596d73;
   --agent-line: #d9e5e5;
   --agent-accent: #087c72;
@@ -877,6 +879,8 @@ onMounted(() => {
 }
 [data-theme="dark"] .agent-shell {
   --agent-ink: #dceeed;
+  --agent-surface: #12282d;
+  --agent-code-bg: #19363c;
   --agent-muted: #acbfbe;
   --agent-line: #345151;
   --agent-accent: #52c6b6;
