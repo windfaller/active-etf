@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — member portal next-step guidance, UI-only update; Skill remains hidden.
+Status: Deployed and verified — member portal next-step guidance in five languages; Skill remains hidden.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -44,3 +44,5 @@ Custom-domain deployment proof: SWA run 35695044832 succeeded; Function deployme
 
 ## Member portal onboarding — 2026-09-22
 User requested next steps and basic examples on the member page. Add five-language connection instructions, endpoint copy, ChatGPT/Grok help and three copyable prompts; correct signed-in heading. Hide onboarding during active OAuth consent. Validation proof: clean snapshot npm ci, functions:build and web:build passed; five localized connect pages generated and Skill files absent; git diff --check passed. Existing custom domain, settings, RBAC and infrastructure unchanged; no infrastructure provisioning or token/quota changes. Apply Azure Deploy application-only recipe to existing SWA and Function.
+
+Onboarding deployment proof: SWA run 35695991079 succeeded; Function deployment 98a8cfa1-0760-4a34-9020-222755929a44 succeeded. Both live origins serve 7387c1d. Browser verified Traditional Chinese three-step guide, canonical URL, three example cards and successful copy feedback. Five locale copy structures checked; Skill URL still 404. Browser used signed-out state; real authenticated account/ChatGPT/Grok acceptance remains separate and pending.

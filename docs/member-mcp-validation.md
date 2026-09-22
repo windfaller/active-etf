@@ -91,3 +91,7 @@ Reached Plugins → Connectors → New Connector → Custom and submitted a priv
 4. Do not publish either platform directory listing; that is outside the current request.
 
 The prior temporary HTTPS tunnel is stopped. This document supersedes the earlier local-only deployment status. Details from the live server smoke test are in member-mcp-swa-smoke.json.
+
+## Member portal onboarding — 2026-09-22
+
+Release 7387c1d deployed to SWA (run 35695991079) and Function (98a8cfa1-0760-4a34-9020-222755929a44), both successful and live version verified. Functions/frontend builds passed. All five locales contain three steps, labels and prompts. Live browser verified the Traditional Chinese connection page, canonical URL and all three example cards; clicking the holdings example showed successful copy feedback. This was a signed-out UI check, not a completed member login test. Skill remains 404.

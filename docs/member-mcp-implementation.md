@@ -71,3 +71,7 @@ OAuth uses mandatory S256 PKCE, resource-bound opaque access tokens, one-use cod
 The five-language localization covers the new portal, Skill guide and authorization UI, not every legacy market/legal page. Skills are generated at `/skills/{locale}/active-etf-research/SKILL.md`; an English source artifact is in `skills/active-etf-research`. A Skill does not automatically authorize MCP.
 
 See `member-mcp-validation.md` for observed deployment and platform acceptance evidence. No public connector-directory submission is authorized by this deployment task.
+
+## Member portal onboarding
+
+The five-language `/mcp/connect` page includes a three-step connection guide, a copyable canonical MCP URL, ChatGPT/Grok setup notes, and copyable usage (0 points), holdings (1 point) and comparison (2 points) prompts. The guide is also visible before sign-in so members can understand the flow, but it is omitted during an active OAuth consent request. Prompts are pasted into the connected AI chat; the portal does not itself execute research tools. Copying does not consume quota. Signed-in members see the appropriate next-step message instead of the signed-out notice. Public Skill pages and downloads remain hidden.
