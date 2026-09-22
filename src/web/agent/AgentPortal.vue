@@ -48,7 +48,7 @@ const authorization = ref<{
   clientName: string;
   redirectOrigin: string;
 } | null>(null);
-const gateway = (import.meta.env.VITE_MCP_PUBLIC_ORIGIN ?? "").replace(
+const gateway = (import.meta.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-mcp.inthewins.com").replace(
   /\/$/,
   "",
 );

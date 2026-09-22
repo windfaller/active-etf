@@ -9,6 +9,8 @@ The Skill helps your AI choose the right tools, check dates, and turn observatio
 
 The first release covers supported Taiwan-listed ETFs, including Taiwan-listed funds investing overseas. It does not yet cover US-listed ETFs or 13F portfolios.
 
+MCP endpoint: `https://active-etf-mcp.inthewins.com/api/mcp`. Connect through OAuth; member portal: `https://active-etf-mcp.inthewins.com/en/mcp/connect`.
+
 ## How the Skill works
 
 1. Identify the ETF or stock and the observation period.

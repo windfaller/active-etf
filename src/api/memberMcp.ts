@@ -25,8 +25,7 @@ function getApplication() {
     application = (async () => {
       const origin = (
         process.env.MCP_PUBLIC_ORIGIN ??
-        process.env.PUBLIC_BASE_URL ??
-        "https://active-etf.inthewins.com"
+        "https://active-etf-mcp.inthewins.com"
       ).replace(/\/$/, "");
       if (new URL(origin).origin !== origin || !origin.startsWith("https://"))
         throw Error("Invalid MCP origin");

@@ -1,24 +1,24 @@
 # Current deployment
 
-The public website stays on Azure Static Web Apps. Standard MCP is hosted separately at https://active-etf-member-mcp.azurewebsites.net/api/mcp because SWA managed Functions overwrite Authorization. The standalone Function serves its OAuth endpoints and consent UI on the same origin. Public Skill pages/downloads are disabled by default (`VITE_MCP_SKILL_PUBLIC` must remain unset/false until acceptance). The main-site entry is removed.
+The public website stays on Azure Static Web Apps. Standard MCP is hosted separately at https://active-etf-mcp.inthewins.com/api/mcp because SWA managed Functions overwrite Authorization. The standalone Function serves its OAuth endpoints and consent UI on the same origin. Public Skill pages/downloads are disabled by default (`VITE_MCP_SKILL_PUBLIC` must remain unset/false until acceptance). The main-site entry is removed.
 
 ## Repeatable independent deployment
 
 1. Build a clean Git snapshot: `npm ci`, `npm run functions:build`; run tests.
-2. Build the consent UI with `VITE_AGENT_SITE_ORIGIN` and `VITE_MCP_PUBLIC_ORIGIN` both set to the Function origin, plus `GITHUB_SHA` set to the release commit.
+2. Build the consent UI with `VITE_AGENT_SITE_ORIGIN` and `VITE_MCP_PUBLIC_ORIGIN` both set to `https://active-etf-mcp.inthewins.com`, plus `GITHUB_SHA` set to the release commit.
 3. Run `node scripts/package-member-mcp.mjs <fresh-output-directory>` and install production dependencies there with `npm ci --omit=dev --ignore-scripts`.
 4. Apply `infra/member-mcp/main.bicep` only after validate/what-if. On existing deployments, preserve runtime app settings: the base template does not contain MongoDB/Redis credentials; re-run the configuration script after applying infrastructure.
 5. Run `python3 scripts/configure-member-mcp.py` to copy only the necessary existing SWA connection settings to the Function, without logging values.
 6. ZIP the output directory contents and upload with `az functionapp deployment source config-zip --resource-group active-etf --name active-etf-member-mcp --src <zip> --build-remote false`.
 7. Verify live app-version, protocol/auth/quota and Skill 404s. SWA CI deploys the website only; it does not automatically update this independent Function.
 
-# Free member MCP on Azure Static Web Apps
+# Free member MCP runtime
 
 ## Runtime and routes
 
-The deployed implementation uses the existing managed Azure Functions API in Static Web App `tw-active-etf` (resource group `active-etf`). The frontend and API deploy together through the existing GitHub Actions workflow. No separate Cloud Run, App Service or MCP directory listing is needed.
+The market frontend remains on Static Web App `tw-active-etf`. MCP and OAuth run on the independent Flex Consumption Function `active-etf-member-mcp`, in resource group `active-etf`. SWA CI and the standalone Function package are separate deployments.
 
-The canonical origin is `https://active-etf.inthewins.com`, with MCP at `/api/mcp`. Live HTTP verification showed that the older `active-etf.chicoo.co` hostname redirects there even though the existing `PUBLIC_BASE_URL` setting still uses the older name. `MCP_PUBLIC_ORIGIN` explicitly selects the canonical OAuth origin; it must not be inferred from request Host headers. The old website setting is left untouched.
+The canonical MCP/OAuth origin is `https://active-etf-mcp.inthewins.com`, with MCP at `/api/mcp` and the member test portal at `/zh-TW/mcp/connect`. The market website remains `https://active-etf.inthewins.com`. `MCP_PUBLIC_ORIGIN` explicitly selects the MCP origin and must not be inferred from Host headers or the market website PUBLIC_BASE_URL. Existing clients must use the new MCP URL and reconnect through OAuth; tokens are resource-bound.
 
 - MCP: `/api/mcp`
 - Runtime config: `/api/agent/config`
@@ -29,7 +29,7 @@ The canonical origin is `https://active-etf.inthewins.com`, with MCP at `/api/mc
 - Challenge-advertised discovery: `/api/.well-known/oauth-protected-resource/mcp`
 - Guide, Skill, and consent UI: `/{en|zh-TW|zh-CN|ja|ko}/mcp`, `/mcp/skill`, `/mcp/connect`
 
-The SDK transport is stateless Streamable HTTP with JSON responses. It does not require a persistent SSE connection. Research calls in the Functions adapter have a 15-second provider budget; MongoDB ledger commands and CAS retries are bounded. The SWA gateway has a 45-second request ceiling. Timed-out research reads cannot proceed to the charging step.
+The SDK transport is stateless Streamable HTTP with JSON responses. It does not require a persistent SSE connection. Research calls in the Functions adapter have a 15-second provider budget; MongoDB ledger commands and CAS retries are bounded. Timed-out research reads cannot proceed to the charging step.
 
 ## Persistence and quota
 
@@ -49,7 +49,7 @@ A versioned per-member/day MongoDB document atomically reserves and charges quot
 
 Existing Redis is optional and caches public research payloads for five minutes under `active-etf:mcp:v1:research:`. Authorization and authoritative quota always remain in MongoDB; a Redis outage falls back to the provider and cannot bypass either. Anonymous OAuth abuse controls currently use a conservative shared ingress bucket; tune trusted client-IP handling before a broad public launch. Elasticsearch is not needed for this release.
 
-The old `store.ts` SQLite adapter and `mcp:start` are local prototype/test utilities only. They are not imported by the Functions execution path. Local SQLite requires Node 24; the deployed Functions use Node 20 and MongoDB.
+The old `store.ts` SQLite adapter and `mcp:start` are local prototype/test utilities only. They are not imported by the Functions execution path. Local SQLite requires Node 24; the independent Function uses Node 24 and MongoDB.
 
 ## OAuth and membership
 

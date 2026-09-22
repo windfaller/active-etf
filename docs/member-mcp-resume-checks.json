@@ -1,0 +1,399 @@
+{
+  "date": "2026-09-22",
+  "checks": [
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/app-version.json",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "version": {
+        "version": "18c979236c756a8835a6dc3c5ce952df2d8488f5"
+      }
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/en/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/en/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/en/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/en/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/skills/en/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-TW/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-TW/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-TW/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-TW/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/skills/zh-TW/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-CN/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-CN/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-CN/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/zh-CN/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/skills/zh-CN/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ja/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ja/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ja/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ja/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/skills/ja/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ko/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ko/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ko/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/ko/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/skills/ko/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/app-version.json",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "version": {
+        "version": "18c9792"
+      }
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/en/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/en/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/en/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/en/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/skills/en/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-TW/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-TW/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-TW/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-TW/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/skills/zh-TW/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-CN/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-CN/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-CN/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/zh-CN/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/skills/zh-CN/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ja/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ja/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ja/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ja/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/skills/ja/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ko/mcp/connect",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ko/mcp/skill",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ko/mcp/skill/",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/ko/mcp/skill/index.html",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf-member-mcp.azurewebsites.net",
+      "path": "/skills/ko/active-etf-research/SKILL.md",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/.well-known/oauth-authorization-server",
+      "status": 302,
+      "expected": 302,
+      "passed": true,
+      "location": "https://active-etf-member-mcp.azurewebsites.net/.well-known/oauth-authorization-server"
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/.well-known/oauth-protected-resource",
+      "status": 302,
+      "expected": 302,
+      "passed": true,
+      "location": "https://active-etf-member-mcp.azurewebsites.net/.well-known/oauth-protected-resource"
+    },
+    {
+      "origin": "https://active-etf.inthewins.com",
+      "path": "/.well-known/oauth-protected-resource/api/mcp",
+      "status": 302,
+      "expected": 302,
+      "passed": true,
+      "location": "https://active-etf-member-mcp.azurewebsites.net/.well-known/oauth-protected-resource/api/mcp"
+    }
+  ]
+}

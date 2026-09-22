@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated for final website discovery update; independent Function deployed and protocol-validated; public Skill remains hidden. User approved the separate Function deployment on 2026-09-22.
+Status: Validated — canonical MCP domain app-package/settings update; custom hostname verified, clean build and MCP tests passed.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -28,3 +28,14 @@ Independent Function deployment is additive; retain existing main-site code and 
 Independent Function infra provisioning Succeeded; deployment dcd5ff9a-0881-46e1-af15-ec544ef1df01 succeeded. All seven tools passed real HTTP Bearer calls, real provider output, 9-point exact accounting, duplicate query zero charge, second-client shared balance, refresh/revoke. Live storage role confirmed; disabled storage public blobs/shared keys confirmed. Main site 20 Skill route/download variants returned 404. Real user identity/ChatGPT/Grok acceptance not completed; no Skill publication.
 
 Final website update: isolated frontend build passed; generated discovery redirect points to the independent Function and Skill 404 gate remains enabled.
+
+## User-requested pause — 2026-09-22
+User requested pause before going out. Independent serverless MCP core tests passed and public Skill remains hidden. Final SWA synchronization run 35690619468 and final Function package upload were already submitted before the pause. Do not start additional work; on explicit resume, first inspect these in-flight deployment outcomes, verify version 18c9792 and Skill 404s, then continue real-member/platform acceptance. No public Skill release or directory publication authorized before acceptance.
+
+## Explicit resume — 2026-09-22
+User requested continuation. Final SWA run 35690619468 succeeded and both live origins report release 18c9792. All 55 version, localized connection, hidden Skill and discovery redirect checks passed; evidence in docs/member-mcp-resume-checks.json. Edge verified the member portal and correct GoGoWinners callback, but disconnected during the Google login attempt before any authenticated callback. ChatGPT developer mode is still off; action-time confirmation is pending. Grok connector endpoint and real tool calls remain unverified. Resume with browser reconnection, member login and private connector acceptance; do not publish Skill or platform listings.
+
+## Canonical MCP domain update — 2026-09-22
+User configured and requested https://active-etf-mcp.inthewins.com. Scope: existing Function and SWA MCP_PUBLIC_ORIGIN, canonical frontend links/discovery, generated Skill instructions and deployment documentation. Keep Skill hidden; no infrastructure/RBAC changes. Validation: existing subscription Enabled, Function Running, custom hostname bound and HTTPS returns 200; initial metadata still advertised Azure hostname. Build clean release excluding unrelated workspace edits, validate protocol tests and generated pages before deploying. Infrastructure/template/what-if steps are not applicable to this app-package/settings-only update; original validated infrastructure and roles remain unchanged.
+
+Validation Proof (custom domain, 2026-09-22): npm ci, npm run functions:build, npm run test:mcp (14 passed, 4 opt-in Mongo skipped), VITE_AGENT_SITE_ORIGIN/VITE_MCP_PUBLIC_ORIGIN custom-domain web build passed. Generated five-locale canonical links, OAuth issuer, absence of old hostname in JS and Skill omission asserted. Same subscription/resource group/Function, no RBAC or infrastructure changes; app settings mutation is limited to MCP_PUBLIC_ORIGIN. Azure Deploy application-only recipe follows this validated proof.

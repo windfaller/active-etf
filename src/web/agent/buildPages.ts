@@ -75,7 +75,7 @@ export function agentPagesPlugin(): Plugin {
           ["/.well-known/oauth-protected-resource", protectedResource],
           ["/.well-known/oauth-protected-resource/api/mcp", protectedResource],
         ] as const;
-        const gatewayOrigin = (process.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-member-mcp.azurewebsites.net").replace(/\/$/, "");
+        const gatewayOrigin = (process.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-mcp.inthewins.com").replace(/\/$/, "");
         const discoveryRoutes = discovery.map(([path, data], i) => {
           if (site !== gatewayOrigin) return {route: path, redirect: gatewayOrigin + path, statusCode: 302, headers: {"cache-control": "no-store"}};
           const target = `/mcp-discovery-${i}.json`;

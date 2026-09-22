@@ -4,7 +4,7 @@ Status: independent Azure Function deployed and all seven MCP tools passed live 
 
 ## Independent Function acceptance — 2026-09-22
 
-- Endpoint: `https://active-etf-member-mcp.azurewebsites.net/api/mcp`.
+- Current canonical endpoint: `https://active-etf-mcp.inthewins.com/api/mcp`. The initial acceptance below used the Azure default hostname; see custom-domain verification for the current origin.
 - Resource `active-etf-member-mcp` in existing `active-etf` resource group. Flex Consumption FC1, East Asia, Node 24, 512 MB, maximum two on-demand instances, no always-ready instances. HTTPS only. This is serverless usage billing; storage, telemetry and network can incur separate charges.
 - Official TypeScript Functions base template adapted to the existing resource group. Storage shared-key access and public blobs disabled. User-assigned identity has Storage Blob Data Owner on the new storage and Monitoring Metrics Publisher on new Insights; no new user-level role grants.
 - Deployment ID `dcd5ff9a-0881-46e1-af15-ec544ef1df01`; Functions health 200 with MongoDB. Initial package build `abf95bf` uses an isolated HTTP entry; no market timers registered.
@@ -15,7 +15,15 @@ Status: independent Azure Function deployed and all seven MCP tools passed live 
 - Isolated regression suite: 288 passed, four opt-in real-Mongo tests skipped. Standalone-only registration and forbidden file/path checks passed.
 - Detailed live evidence: `member-mcp-independent-smoke.json`.
 
-## Current deployed evidence — 2026-09-22
+## Resumed deployment verification — 2026-09-22
+
+- Final SWA run [35690619468](https://github.com/windfaller/active-etf/actions/runs/35690619468) succeeded. SWA and independent Function both serve release `18c9792` (SWA reports the full commit).
+- All 55 public HTTP checks passed: two version endpoints, ten localized connection pages, forty hidden Skill page/download variants, and three SWA discovery redirects to the independent Function. Evidence: `member-mcp-resume-checks.json`.
+- Edge rendered the independent Traditional Chinese connection portal with all five language choices and no Skill navigation. Free-member login navigated to GoGoWinners with the Function callback. Google login was attempted, but Edge disconnected before an authenticated callback could be observed. Do not count this as successful member login.
+- ChatGPT developer mode remains off. Action-time confirmation was requested again at the visible security control; it was not enabled. Grok's page opened, but browser control disconnected before connector inspection or endpoint update. The existing private connector still requires inspection before retrying.
+- No public Skill release or platform directory publication. Remaining acceptance is real-member OAuth and actual tool calls in both platforms, including shared quota and repeat-query accounting.
+
+## Earlier SWA-only evidence (historical) — 2026-09-22
 
 - Application commit: `502601180519a451491dc8a242f3319d65c186a0`. GitHub Actions run [35688039014](https://github.com/windfaller/active-etf/actions/runs/35688039014) succeeded, including existing production route checks. Live app-version matches.
 - Existing resource: `tw-active-etf`, resource group `active-etf`, Free SKU; no new cloud resource.
