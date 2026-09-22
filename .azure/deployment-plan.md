@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Deployed and verified — canonical MCP domain active-etf-mcp.inthewins.com; Skill remains hidden; real-member/platform acceptance still pending.
+Status: Validated — member portal next-step guidance, UI-only update; Skill remains hidden.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -41,3 +41,6 @@ User configured and requested https://active-etf-mcp.inthewins.com. Scope: exist
 Validation Proof (custom domain, 2026-09-22): npm ci, npm run functions:build, npm run test:mcp (14 passed, 4 opt-in Mongo skipped), VITE_AGENT_SITE_ORIGIN/VITE_MCP_PUBLIC_ORIGIN custom-domain web build passed. Generated five-locale canonical links, OAuth issuer, absence of old hostname in JS and Skill omission asserted. Same subscription/resource group/Function, no RBAC or infrastructure changes; app settings mutation is limited to MCP_PUBLIC_ORIGIN. Azure Deploy application-only recipe follows this validated proof.
 
 Custom-domain deployment proof: SWA run 35695044832 succeeded; Function deployment 3040c5ce-cf7a-4023-874e-bb7de496116b succeeded. Both serve 0d74b6f. 63 public/callback checks plus all seven authenticated MCP tools, PKCE/replay, shared quota/deduplication and refresh/revoke passed on the custom domain. Isolated test fixtures cleaned; no real user quota used. No infrastructure or role mutation. See docs/member-mcp-custom-domain-{checks,smoke}.json.
+
+## Member portal onboarding — 2026-09-22
+User requested next steps and basic examples on the member page. Add five-language connection instructions, endpoint copy, ChatGPT/Grok help and three copyable prompts; correct signed-in heading. Hide onboarding during active OAuth consent. Validation proof: clean snapshot npm ci, functions:build and web:build passed; five localized connect pages generated and Skill files absent; git diff --check passed. Existing custom domain, settings, RBAC and infrastructure unchanged; no infrastructure provisioning or token/quota changes. Apply Azure Deploy application-only recipe to existing SWA and Function.

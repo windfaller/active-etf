@@ -22,6 +22,8 @@ import {
   skillMarkdown,
 } from "../../shared/agentCopy";
 import { consumeBrowserAuthCallback } from "../auth/authService";
+import { agentOnboarding } from "../../shared/agentOnboarding";
+const next = computed(() => agentOnboarding[locale.value]);
 const parts = window.location.pathname.split("/").filter(Boolean);
 const locale = ref(agentLocale(parts[0])),
   t = computed(() => agentCopy[locale.value]);
@@ -286,7 +288,7 @@ onMounted(() => {
       <section v-else class="agent-title">
         <Plug :size="30" />
         <h1>{{ request ? t.consentTitle : t.account }}</h1>
-        <p class="agent-intro">{{ request ? t.loginNotice : t.signedOut }}</p>
+        <p class="agent-intro">{{ request ? t.loginNotice : authenticated ? next.signedIn : t.signedOut }}</p>
       </section>
       <p v-if="error" class="agent-alert" role="alert">
         {{ error }}
@@ -478,6 +480,31 @@ onMounted(() => {
             </div>
           </template>
         </template>
+        <section v-if="!loading && !request" class="agent-next" aria-labelledby="next-title">
+          <h2 id="next-title">{{ next.title }}</h2>
+          <ol><li v-for="step in next.steps" :key="step">{{ step }}</li></ol>
+          <div class="agent-endpoint">
+            <label for="account-mcp-endpoint">{{ t.endpoint }}</label>
+            <div><input id="account-mcp-endpoint" readonly :value="endpoint" />
+              <button class="agent-button" :disabled="!endpoint" @click="copy(endpoint, 'account-endpoint')">
+                <Copy :size="16" />{{ copied === 'account-endpoint' ? t.copied : t.copy }}
+              </button>
+            </div>
+          </div>
+          <p>{{ next.note }}</p>
+          <details><summary>ChatGPT</summary><p>{{ t.chatgpt }}</p><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT ↗</a></details>
+          <details><summary>Grok</summary><p>{{ t.grok }}</p><a href="https://grok.com/connectors" target="_blank" rel="noopener noreferrer">Grok Connectors ↗</a></details>
+          <h3>{{ next.examples }}</h3>
+          <div class="agent-prompts">
+            <article v-for="(prompt, index) in next.prompts" :key="index">
+              <div><b>{{ next.labels[index] }}</b><p>{{ prompt }}</p></div>
+              <button class="agent-button" :aria-label="t.copy + ': ' + next.labels[index]" @click="copy(prompt, 'starter-' + index)">
+                <Copy :size="16" />{{ copied === 'starter-' + index ? t.copied : t.copy }}
+              </button>
+            </article>
+          </div>
+          <p class="agent-caption">{{ next.hint }}</p>
+        </section>
         <p class="agent-caption">{{ t.privacyNote }}</p>
       </section>
     </main>
@@ -824,6 +851,10 @@ onMounted(() => {
   background: #eaf5f2;
   color: #16685d;
 }
+.agent-next { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--agent-line); }
+.agent-next li { margin-bottom: 12px; }
+.agent-next details { margin: 16px 0; }
+.agent-next summary { cursor: pointer; font-weight: 700; }
 .agent-account {
   max-width: 760px;
 }
