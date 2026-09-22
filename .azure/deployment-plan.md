@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Deployed and verified — member portal next-step guidance in five languages; Skill remains hidden.
+Status: Validated — authenticated member Skill download and five-language manual installation flow; public Skill remains hidden.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -46,3 +46,6 @@ Custom-domain deployment proof: SWA run 35695044832 succeeded; Function deployme
 User requested next steps and basic examples on the member page. Add five-language connection instructions, endpoint copy, ChatGPT/Grok help and three copyable prompts; correct signed-in heading. Hide onboarding during active OAuth consent. Validation proof: clean snapshot npm ci, functions:build and web:build passed; five localized connect pages generated and Skill files absent; git diff --check passed. Existing custom domain, settings, RBAC and infrastructure unchanged; no infrastructure provisioning or token/quota changes. Apply Azure Deploy application-only recipe to existing SWA and Function.
 
 Onboarding deployment proof: SWA run 35695991079 succeeded; Function deployment 98a8cfa1-0760-4a34-9020-222755929a44 succeeded. Both live origins serve 7387c1d. Browser verified Traditional Chinese three-step guide, canonical URL, three example cards and successful copy feedback. Five locale copy structures checked; Skill URL still 404. Browser used signed-out state; real authenticated account/ChatGPT/Grok acceptance remains separate and pending.
+
+## Manual Skill installation — 2026-09-22
+User requests implementation and then manual installation/acceptance by the user. Scope: five-language agent selector, Codex Skill placement and native MCP/OAuth commands, web connector route, zero-point verification prompt and clearly self-reported checklist. GET /api/agent/skill is member-session protected; no tokens embedded. Public Skill URLs remain 404. Validation: clean npm ci/functions:build/web:build passed; 15 MCP tests passed, 4 opt-in Mongo skipped. New download test verifies anonymous denial, five locales, no-store/noindex, no embedded session secret, no quota cost, invalid locale and post-logout denial. All five generated Skill files passed skill-creator quick_validate.py. Codex commands checked against installed CLI help and official docs. Existing subscription/resources/roles/settings unchanged; application-only Azure Deploy recipe. Do not install into the user agent or complete their OAuth on their behalf; user will follow the deployed page.

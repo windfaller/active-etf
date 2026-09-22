@@ -102,6 +102,25 @@ async function flow() {
   return { body, cookie, csrf };
 }
 describe("OAuth + MCP boundary", () => {
+  it("serves localized Skill downloads only to active member sessions without spending quota", async () => {
+    expect((await fetch(origin + "/api/agent/skill?lang=en")).status).toBe(401);
+    const { cookie, csrf } = await flow();
+    for (const lang of ["en", "zh-TW", "zh-CN", "ja", "ko"]) {
+      const r = await fetch(origin + "/api/agent/skill?lang=" + lang, {headers: {Cookie: cookie}});
+      expect(r.status).toBe(200);
+      expect(r.headers.get("content-disposition")).toContain('filename="SKILL.md"');
+      expect(r.headers.get("cache-control")).toBe("no-store");
+      expect(r.headers.get("x-robots-tag")).toContain("noindex");
+      const body = await r.text();
+      expect(body).toContain("name: active-etf-research");
+      expect(body).toContain("https://active-etf-mcp.inthewins.com/api/mcp");
+      expect(body).not.toContain(cookie.split("=")[1]);
+    }
+    expect((await store.usage("member-one")).used).toBe(0);
+    expect((await fetch(origin + "/api/agent/skill?lang=../en", {headers:{Cookie:cookie}})).status).toBe(400);
+    await fetch(origin + "/api/agent/session", {method:"DELETE",headers:{Cookie:cookie,Origin:origin,"X-CSRF-Token":csrf}});
+    expect((await fetch(origin + "/api/agent/skill?lang=en", {headers:{Cookie:cookie}})).status).toBe(401);
+  });
   it("challenges anonymous callers with discoverable OAuth metadata", async () => {
     const r = await post("/mcp", {});
     expect(r.status).toBe(401);

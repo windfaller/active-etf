@@ -22,6 +22,7 @@ import {
   skillMarkdown,
 } from "../../shared/agentCopy";
 import { consumeBrowserAuthCallback } from "../auth/authService";
+import AgentInstall from "./AgentInstall.vue";
 import { agentOnboarding } from "../../shared/agentOnboarding";
 const next = computed(() => agentOnboarding[locale.value]);
 const parts = window.location.pathname.split("/").filter(Boolean);
@@ -482,7 +483,7 @@ onMounted(() => {
         </template>
         <section v-if="!loading && !request" class="agent-next" aria-labelledby="next-title">
           <h2 id="next-title">{{ next.title }}</h2>
-          <ol><li v-for="step in next.steps" :key="step">{{ step }}</li></ol>
+          <AgentInstall :locale="locale" :authenticated="authenticated" :endpoint="endpoint" />
           <div class="agent-endpoint">
             <label for="account-mcp-endpoint">{{ t.endpoint }}</label>
             <div><input id="account-mcp-endpoint" readonly :value="endpoint" />
@@ -492,8 +493,7 @@ onMounted(() => {
             </div>
           </div>
           <p>{{ next.note }}</p>
-          <details><summary>ChatGPT</summary><p>{{ t.chatgpt }}</p><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT ↗</a></details>
-          <details><summary>Grok</summary><p>{{ t.grok }}</p><a href="https://grok.com/connectors" target="_blank" rel="noopener noreferrer">Grok Connectors ↗</a></details>
+
           <h3>{{ next.examples }}</h3>
           <div class="agent-prompts">
             <article v-for="(prompt, index) in next.prompts" :key="index">

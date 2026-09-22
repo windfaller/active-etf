@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { agentLocales, skillMarkdown, type AgentLocale } from "../shared/agentCopy.js";
 import { AgentError, hash, secret, type AgentStorage } from "./core.js";
 import type { FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
 export const SCOPE = "active_etf:read";
@@ -301,6 +302,17 @@ export function createAuth(options: AuthOptions) {
           setCookie("etf_agent_session", token, ttl),
         );
         return response;
+      }
+      if (method === "GET" && path === "/api/agent/skill") {
+        const s = await identity(req);
+        if (!s) throw new AgentError("sign_in_required", 401);
+        if (options.allowedMembers && !options.allowedMembers.has(s.member))
+          throw new AgentError("beta_access_required", 403);
+        const lang = new URL(req.url).searchParams.get("lang") ?? "en";
+        if (!agentLocales.includes(lang as AgentLocale)) throw new AgentError("invalid_locale");
+        return new Response(skillMarkdown(lang as AgentLocale), {
+          headers: { "Content-Type": "text/markdown; charset=utf-8", "Content-Disposition": 'attachment; filename="SKILL.md"', "X-Robots-Tag": "noindex, nofollow" },
+        });
       }
       if (method === "GET" && path === "/api/agent/session") {
         const s = await identity(req);

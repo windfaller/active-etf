@@ -9,7 +9,8 @@ The Skill helps your AI choose the right tools, check dates, and turn observatio
 
 The first release covers supported Taiwan-listed ETFs, including Taiwan-listed funds investing overseas. It does not yet cover US-listed ETFs or 13F portfolios.
 
-MCP endpoint: `https://active-etf-mcp.inthewins.com/api/mcp`. Connect through OAuth; member portal: `https://active-etf-mcp.inthewins.com/en/mcp/connect`.
+MCP server URL: https://active-etf-mcp.inthewins.com/api/mcp
+Connections & usage: https://active-etf-mcp.inthewins.com/en/mcp/connect
 
 ## How the Skill works
 
@@ -33,7 +34,9 @@ Failed or empty queries do not consume points. Repeating the same query within 1
 
 Tool arguments: search_market_entities({query}); get_etf_snapshot({code}); get_etf_changes({code, days:1..30}); compare_etfs({codes:[2..3 distinct codes]}); get_stock_context({symbol}); build_research_brief({codes:[1..3 distinct codes]}); get_my_plan_usage({}).
 
-On invalid_token, ask the user to reconnect through OAuth. On quota_exceeded, report resetsAt and stop retries. On request_in_progress or rate_limited, do not loop. Keep missing observations explicit. Repeated queries within the cache window return the prior snapshot. Never ask users to paste tokens in chat.
+Connection setup: This Skill requires a separately configured OAuth MCP client. If tools are unavailable, guide the user to add the MCP URL in their client and complete browser authorization. For Codex CLI, use `codex mcp add active-etf --url https://active-etf-mcp.inthewins.com/api/mcp` and, when authentication is needed, `codex mcp login active-etf`. Keep existing client settings. After connecting, call get_my_plan_usage({}) as a zero-point check. Let the client manage token storage and refresh; never place credentials in this Skill or chat.
+
+On invalid_token, let the client refresh first; if that fails, ask the user to reconnect through OAuth. On quota_exceeded, report resetsAt and stop retries. On request_in_progress or rate_limited, do not loop. Keep missing observations explicit. Repeated queries within the cache window return the prior snapshot. Never ask users to paste tokens in chat.
 
 ## Try asking
 
