@@ -7,11 +7,15 @@ import { initializeTrackingConsent, installImpliedTrackingConsent } from "./cons
 import "./styles.css";
 
 initializeColorMode();
-initializeTrackingConsent();
-installImpliedTrackingConsent(trackFeatureInteraction);
-trackInitialPageView(window.location.pathname);
 
-createApp(App).mount("#app");
+if (/^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/(?:skill|connect))?\/?$/.test(window.location.pathname)) {
+  void import("./agent/AgentPortal.vue").then(({default: AgentPortal}) => createApp(AgentPortal).mount("#app"));
+} else {
+  initializeTrackingConsent();
+  installImpliedTrackingConsent(trackFeatureInteraction);
+  trackInitialPageView(window.location.pathname);
+  createApp(App).mount("#app");
+}
 
 const idleWindow = window as Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;

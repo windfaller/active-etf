@@ -26,3 +26,5 @@ import "../api/postGlobalEtfJobs.js";
 import "../api/postTelegramWebhook.js";
 import "../api/postWarmup.js";
 import "./syncGlobalEtfHoldings.js";
+
+import "../api/memberMcp.js";

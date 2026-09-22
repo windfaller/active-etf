@@ -1,5 +1,6 @@
 import { defineConfig, type ViteDevServer, type Plugin } from "vite";
 import vue from "@vitejs/plugin-vue";
+import { agentPagesPlugin } from "./src/web/agent/buildPages";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
@@ -285,7 +286,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion)
   },
-  plugins: [vue(), appVersionPlugin(), staticSeoPlugin()],
+  plugins: [vue(), appVersionPlugin(), staticSeoPlugin(), agentPagesPlugin()],
   server: {
     port: 5173,
     strictPort: false,

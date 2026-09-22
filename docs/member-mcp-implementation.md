@@ -1,0 +1,59 @@
+# Free member MCP on Azure Static Web Apps
+
+## Runtime and routes
+
+The deployed implementation uses the existing managed Azure Functions API in Static Web App `tw-active-etf` (resource group `active-etf`). The frontend and API deploy together through the existing GitHub Actions workflow. No separate Cloud Run, App Service or MCP directory listing is needed.
+
+The canonical origin is `https://active-etf.inthewins.com`, with MCP at `/api/mcp`. Live HTTP verification showed that the older `active-etf.chicoo.co` hostname redirects there even though the existing `PUBLIC_BASE_URL` setting still uses the older name. `MCP_PUBLIC_ORIGIN` explicitly selects the canonical OAuth origin; it must not be inferred from request Host headers. The old website setting is left untouched.
+
+- MCP: `/api/mcp`
+- Runtime config: `/api/agent/config`
+- Health: `/api/mcp-health`
+- OAuth: `/api/oauth/{register,authorize,token,revoke}`
+- Browser session/consent: `/api/agent/*`
+- Public discovery: `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/api/mcp`
+- Challenge-advertised discovery: `/api/.well-known/oauth-protected-resource/mcp`
+- Guide, Skill, and consent UI: `/{en|zh-TW|zh-CN|ja|ko}/mcp`, `/mcp/skill`, `/mcp/connect`
+
+The SDK transport is stateless Streamable HTTP with JSON responses. It does not require a persistent SSE connection. Research calls in the Functions adapter have a 15-second provider budget; MongoDB ledger commands and CAS retries are bounded. The SWA gateway has a 45-second request ceiling. Timed-out research reads cannot proceed to the charging step.
+
+## Persistence and quota
+
+Existing `MONGODB_URI` and `MONGODB_DB_NAME` are reused. Dedicated `member_mcp_records` and `member_mcp_usage` collections have TTL indexes. Every free member gets 20 research points per Taipei day, shared across all clients.
+
+| Tool | Points |
+| --- | ---: |
+| search_market_entities | 0 |
+| get_my_plan_usage | 0 |
+| get_etf_snapshot | 1 |
+| get_etf_changes | 1 |
+| compare_etfs | 2 |
+| get_stock_context | 2 |
+| build_research_brief | 3 |
+
+A versioned per-member/day MongoDB document atomically reserves and charges quota using compare-and-swap. This works across Function instances without requiring replica-set transactions. Two pending operations and 20 calls/minute are allowed. Empty or failed reads do not charge. Matching normalized arguments return the same member-specific snapshot within ten minutes without another charge. Cache results are stored separately so large holdings never inflate the ledger document. Research history is bounded to 30 days; comparisons to three supported Taiwan-listed ETFs.
+
+Existing Redis is optional and caches public research payloads for five minutes under `active-etf:mcp:v1:research:`. Authorization and authoritative quota always remain in MongoDB; a Redis outage falls back to the provider and cannot bypass either. Anonymous OAuth abuse controls currently use a conservative shared ingress bucket; tune trusted client-IP handling before a broad public launch. Elasticsearch is not needed for this release.
+
+The old `store.ts` SQLite adapter and `mcp:start` are local prototype/test utilities only. They are not imported by the Functions execution path. Local SQLite requires Node 24; the deployed Functions use Node 20 and MongoDB.
+
+## OAuth and membership
+
+The existing GoGoWinners/Firebase sign-in is verified server-side. One-time login state and an HttpOnly cookie bind the callback to its initiating browser. Session mutations require the canonical Origin and CSRF token. A named client and exact registered return origin are displayed before consent.
+
+OAuth uses mandatory S256 PKCE, resource-bound opaque access tokens, one-use codes, rotating refresh tokens, replay-family revocation, and user-triggered grant revocation. Access tokens last one hour; refresh tokens last 30 days. AI clients receive dedicated access tokens, never the Firebase login token. Secrets are hashed for lookup; tokens and callback credentials must not be logged.
+
+`MCP_BETA_MEMBER_IDS` optionally restricts use to specified Firebase subjects. No test identity verifier or fixture login bypass exists in the production adapter. OAuth registration does not by itself establish a member identity.
+
+## Build and verification
+
+- `npm run functions:build`
+- `npm run web:build`
+- `npm run test:mcp`
+- `MCP_INTEGRATION=1 npm run test:mcp` runs real MongoDB checks against fresh, uniquely named temporary collections, then removes only those test collections.
+
+`src/mcp/handler.ts` is the shared Web Request/Response implementation. `src/api/memberMcp.ts` adapts Azure Functions HTTP and cookies. `src/mcp/server.ts` is the local Express adapter. Public OAuth discovery is generated with the same canonical origin during the frontend build. Its correctness is checked through the deployed gateway.
+
+The five-language localization covers the new portal, Skill guide and authorization UI, not every legacy market/legal page. Skills are generated at `/skills/{locale}/active-etf-research/SKILL.md`; an English source artifact is in `skills/active-etf-research`. A Skill does not automatically authorize MCP.
+
+See `member-mcp-validation.md` for observed deployment and platform acceptance evidence. No public connector-directory submission is authorized by this deployment task.
