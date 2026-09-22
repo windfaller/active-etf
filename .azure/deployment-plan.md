@@ -1,38 +1,30 @@
-# Azure Deployment Plan — member MCP integration
+# Azure Deployment Plan — independent member MCP
 
-Status: Deployed — authenticated MCP acceptance blocked by SWA managed Authorization-header rewriting — user explicitly requested migration to Static Web Apps and deployment testing.
+Status: Validated for final website discovery update; independent Function deployed and protocol-validated; public Skill remains hidden. User approved the separate Function deployment on 2026-09-22.
 
-## 1. Scope
-Integrate free-member MCP and five-language guide into the existing `tw-active-etf` Static Web App and its managed Functions API. No new Azure resource, no SKU changes, no directory publication. Preserve unrelated dirty working-tree changes.
+## Scope and authorization
+Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
 
-## 2. Existing target
-Subscription e4c458d1-80eb-419b-9680-0dc8682a9df4; resource group active-etf; resource tw-active-etf; East Asia. Repository windfaller/active-etf. Confirm live target before deployment. Live HTTP proves chicoo.co redirects to inthewins.com despite a stale PUBLIC_BASE_URL. Configure MCP_PUBLIC_ORIGIN=https://active-etf.inthewins.com; leave legacy PUBLIC_BASE_URL unchanged.
+## Azure context
+Existing subscription e4c458d1-80eb-419b-9680-0dc8682a9df4; resource group active-etf; prefer East Asia if Function plan supported. New consumption-based Function, storage and required hosting resources only. No always-ready capacity. Confirm available regions/SKUs via CLI before provisioning.
 
-## 3. Architecture
-Native Functions HTTP adapter, stateless MCP JSON responses at /api/mcp. MongoDB provides durable auth and atomic member quota. Optional existing Redis provides cache optimization without becoming the quota authority. Existing static frontend hosts guide, consent and OAuth discovery. External Firebase membership is verified as before. No SQLite dependency in the deployed execution path.
+## Recipe
+Azure CLI, with portable deployment/package scripts. First deploy hidden public pages through existing SWA CI. Then independently package the native MCP Functions entry point plus private OAuth consent UI, excluding existing timers and market API registration. All OAuth endpoints and cookies share the independent Function origin. Reuse original MongoDB scope for quotas.
 
-## 4. Recipe
-Existing-resource deployment through the existing GitHub Actions SWA workflow; Azure CLI sets the explicit MCP canonical origin. Build an isolated release snapshot from Git HEAD plus only this task's changes; commit only the isolated task changes while preserving unrelated primary working files. Inspect deployment method and API runtime before uploading.
+## Acceptance
+- Build and regression tests; source isolation before deploy.
+- SWA public Skill routes and downloads unavailable; navigation removed.
+- Live independent Function discovery, standard bearer authentication, seven tools, real data and exact-once quota.
+- OAuth code/refresh/revoke verification separated from real member login and ChatGPT/Grok acceptance.
+- Keep Skill publication disabled until acceptance is explicitly recorded.
 
-## 5. Implementation
-- [x] Native HTTP application and async persistent storage
-- [x] Functions routes, OAuth discovery and same-origin frontend
-- [x] Atomic MongoDB quota/auth integration tests
-- [x] Isolated release build and regression checks
+## Validation Proof
+Phase A: isolated release web build and Functions build passed; 12 MCP protocol tests passed, four opt-in database tests skipped. Generated-output assertions passed: all five Skill routes return configured 404, Skill files/downloads omitted and Skill links absent. Existing deployment context and scope unchanged. Phase B: official TypeScript HTTP template downloaded through azd into an isolated temporary directory; existing resource group bound as existing. Bicep compilation succeeded (only template conditional-null warnings for disabled VNet branches). ARM validation Succeeded; what-if Succeeded with only new Function/storage/identity/monitoring resources, existing SWA and Logic App Ignore. Two template role assignments use the new identity whose ID is resolved during deployment; statically verified Blob Data Owner on the new storage and Metrics Publisher on new Insights only. Functions build passed; 14 protocol/isolation tests passed, four opt-in Mongo tests skipped. East Asia supports Node 24; 512 MB, maximum 2 instances, no always-ready capacity. Subscription Enabled; existing resource group location southeastasia preserved, resources deploy eastasia. Prior SWA deployment 5026011 succeeded but authenticated MCP requests failed due to managed gateway Authorization rewriting.
 
-## 6. Validation and deployment
-- [x] Local build and existing/new tests
-- [x] Real database adapter test with uniquely named disposable test records
-- [x] Azure context and existing configuration presence (no secret output)
-- [x] Record validation proof; then execute deployment
-- [ ] Verify deployed version, discovery, protocol, authentication and quota
-- [ ] Attempt target-platform verification; record any user-login gates distinctly
+## Rollback
+Independent Function deployment is additive; retain existing main-site code and settings. Revert new code if existing site regresses. No destructive database migration or removal of user resources.
 
-## 7. Validation Proof
-2026-09-22: Isolated release npm ci, Functions TypeScript build, Vue/Vite build and 286 regression tests passed (4 opt-in Mongo tests skipped there). Primary suite with real Mongo integration: 291 tests passed. Existing Azure Free resource and remote main c3de854 confirmed. No provisioning or Bicep change. Local Functions Core Tools did not open its listener; deployed Functions verification is required before acceptance. Previous production app-version: c3de85473647f3062d35fada1886e616682ab6f9.
+## Live proof
+Independent Function infra provisioning Succeeded; deployment dcd5ff9a-0881-46e1-af15-ec544ef1df01 succeeded. All seven tools passed real HTTP Bearer calls, real provider output, 9-point exact accounting, duplicate query zero charge, second-client shared balance, refresh/revoke. Live storage role confirmed; disabled storage public blobs/shared keys confirmed. Main site 20 Skill route/download variants returned 404. Real user identity/ChatGPT/Grok acceptance not completed; no Skill publication.
 
-## 8. Rollback
-Preserve the prior deployed artifact/version information. No destructive database migration: dedicated MCP collections/indexes only. Restore previous application deployment if existing site checks regress.
-
-## Live result
-GitHub Actions 35688039014 succeeded; live version 502601180519a451491dc8a242f3319d65c186a0. Existing production checks and five-language pages passed. OAuth token exchange passed using a short-lived fixture code, but public MCP calls return 401 while the same token passes the same build directly. See docs/member-mcp-validation.md. Separate Function hosting is the proposed next change, not yet provisioned.
+Final website update: isolated frontend build passed; generated discovery redirect points to the independent Function and Skill 404 gate remains enabled.

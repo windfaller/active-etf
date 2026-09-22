@@ -1,3 +1,17 @@
+# Current deployment
+
+The public website stays on Azure Static Web Apps. Standard MCP is hosted separately at https://active-etf-member-mcp.azurewebsites.net/api/mcp because SWA managed Functions overwrite Authorization. The standalone Function serves its OAuth endpoints and consent UI on the same origin. Public Skill pages/downloads are disabled by default (`VITE_MCP_SKILL_PUBLIC` must remain unset/false until acceptance). The main-site entry is removed.
+
+## Repeatable independent deployment
+
+1. Build a clean Git snapshot: `npm ci`, `npm run functions:build`; run tests.
+2. Build the consent UI with `VITE_AGENT_SITE_ORIGIN` and `VITE_MCP_PUBLIC_ORIGIN` both set to the Function origin, plus `GITHUB_SHA` set to the release commit.
+3. Run `node scripts/package-member-mcp.mjs <fresh-output-directory>` and install production dependencies there with `npm ci --omit=dev --ignore-scripts`.
+4. Apply `infra/member-mcp/main.bicep` only after validate/what-if. On existing deployments, preserve runtime app settings: the base template does not contain MongoDB/Redis credentials; re-run the configuration script after applying infrastructure.
+5. Run `python3 scripts/configure-member-mcp.py` to copy only the necessary existing SWA connection settings to the Function, without logging values.
+6. ZIP the output directory contents and upload with `az functionapp deployment source config-zip --resource-group active-etf --name active-etf-member-mcp --src <zip> --build-remote false`.
+7. Verify live app-version, protocol/auth/quota and Skill 404s. SWA CI deploys the website only; it does not automatically update this independent Function.
+
 # Free member MCP on Azure Static Web Apps
 
 ## Runtime and routes

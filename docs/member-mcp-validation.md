@@ -1,6 +1,19 @@
 # Member MCP validation — 2026-09-22
 
-Status: deployed to the existing Azure Static Web App; standard authenticated MCP calls are BLOCKED by the managed API gateway. No public directory submission.
+Status: independent Azure Function deployed and all seven MCP tools passed live protocol tests. Real member login and ChatGPT/Grok acceptance remain incomplete. All public Skill pages/downloads are hidden per user instruction; no directory publication.
+
+## Independent Function acceptance — 2026-09-22
+
+- Endpoint: `https://active-etf-member-mcp.azurewebsites.net/api/mcp`.
+- Resource `active-etf-member-mcp` in existing `active-etf` resource group. Flex Consumption FC1, East Asia, Node 24, 512 MB, maximum two on-demand instances, no always-ready instances. HTTPS only. This is serverless usage billing; storage, telemetry and network can incur separate charges.
+- Official TypeScript Functions base template adapted to the existing resource group. Storage shared-key access and public blobs disabled. User-assigned identity has Storage Blob Data Owner on the new storage and Monitoring Metrics Publisher on new Insights; no new user-level role grants.
+- Deployment ID `dcd5ff9a-0881-46e1-af15-ec544ef1df01`; Functions health 200 with MongoDB. Initial package build `abf95bf` uses an isolated HTTP entry; no market timers registered.
+- Live standard Bearer initialize, tools/list and all seven tool calls passed against real research data (latest fixture ETF snapshots dated 2026-09-21). Initial full query sequence charged exactly 9 points; repeated snapshot charged zero; a second SDK client saw the same 9 used / 11 remaining balance. No real member quota was consumed.
+- Live PKCE code exchange, replay rejection, refresh rotation and revocation passed. Test authorization codes were seeded directly for a unique fixture identity, then fixture records removed. This is not a real Firebase login or platform consent test.
+- Browser verified the independent account page and navigation into GoGoWinners login with the correct Function callback. No authenticated member session available; real login callback not completed.
+- All five Skill routes and all five downloads return 404 on the Function. On SWA, 20 exact/trailing-slash/index/download URL checks returned 404; the main-site footer entry was removed. Publication defaults false and stays false.
+- Isolated regression suite: 288 passed, four opt-in real-Mongo tests skipped. Standalone-only registration and forbidden file/path checks passed.
+- Detailed live evidence: `member-mcp-independent-smoke.json`.
 
 ## Current deployed evidence — 2026-09-22
 
@@ -54,7 +67,7 @@ Reached Plugins → Connectors → New Connector → Custom and submitted a priv
 
 ## Remaining acceptance gates
 
-1. Resolve the managed SWA Authorization-header limitation with a separately hosted MCP Function or a supported gateway. The deployed /api/mcp URL is not accepted as working yet.
+1. Independent Function resolves the managed SWA Authorization-header limitation; use the Function endpoint, not the former SWA /api/mcp URL.
 2. Complete real member sign-in, OAuth consent and tool calls on both ChatGPT and Grok after the endpoint is fixed. ChatGPT developer-mode confirmation and the disconnected Grok browser remain outstanding.
 3. Verify usage → one holdings query → identical query → usage and shared cross-platform quota, then revoke/reconnect.
 4. Do not publish either platform directory listing; that is outside the current request.

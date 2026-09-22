@@ -5,7 +5,8 @@ GROUP = 'active-etf'
 APP = 'active-etf-member-mcp'
 def az(*args):
     return subprocess.check_output(['az', *args, '--subscription', SUBSCRIPTION, '--output', 'json'], text=True)
-host = json.loads(az('functionapp','show','--resource-group',GROUP,'--name',APP))['defaultHostName']
+app = json.loads(az('functionapp','show','--resource-group',GROUP,'--name',APP))
+host = app.get('properties', app)['defaultHostName']
 source = json.loads(az('staticwebapp','appsettings','list','--resource-group',GROUP,'--name','tw-active-etf'))['properties']
 keys = ['MONGODB_URI','MONGODB_DB_NAME','REDIS_GOGOWINNERS_HOST','REDIS_GOGOWINNERS_PORT','REDIS_GOGOWINNERS_KEY','REDIS_DAILY_CACHE_TTL_SECONDS']
 settings = {key:source[key] for key in keys if key in source}
