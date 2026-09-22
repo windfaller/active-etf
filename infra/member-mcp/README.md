@@ -1,0 +1,2 @@
+# Member MCP infrastructure
+Derived from Azure-Samples/functions-quickstart-typescript-azd (downloaded 2026-09-22). Retains its Flex Consumption, managed identity, private deployment blob, RBAC and monitoring modules. Uses the existing active-etf resource group, Node 24, 512 MB, maximum 2 instances, no always-ready instances, no user-level storage role grants. This is a native HTTP MCP server; it does not use Azure MCP trigger queues. Secrets are applied separately from existing SWA settings and never placed in this template.

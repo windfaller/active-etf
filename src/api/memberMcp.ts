@@ -103,7 +103,7 @@ export async function memberMcp(
     };
   }
 }
-for (const [name, route] of [
+if (process.env.MCP_STANDALONE !== "true") for (const [name, route] of [
   ["memberMcp", "mcp"],
   ["memberMcpOAuth", "oauth/{*path}"],
   ["memberMcpAccount", "agent/{*path}"],
