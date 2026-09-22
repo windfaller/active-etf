@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — canonical MCP domain app-package/settings update; custom hostname verified, clean build and MCP tests passed.
+Status: Deployed and verified — canonical MCP domain active-etf-mcp.inthewins.com; Skill remains hidden; real-member/platform acceptance still pending.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -39,3 +39,5 @@ User requested continuation. Final SWA run 35690619468 succeeded and both live o
 User configured and requested https://active-etf-mcp.inthewins.com. Scope: existing Function and SWA MCP_PUBLIC_ORIGIN, canonical frontend links/discovery, generated Skill instructions and deployment documentation. Keep Skill hidden; no infrastructure/RBAC changes. Validation: existing subscription Enabled, Function Running, custom hostname bound and HTTPS returns 200; initial metadata still advertised Azure hostname. Build clean release excluding unrelated workspace edits, validate protocol tests and generated pages before deploying. Infrastructure/template/what-if steps are not applicable to this app-package/settings-only update; original validated infrastructure and roles remain unchanged.
 
 Validation Proof (custom domain, 2026-09-22): npm ci, npm run functions:build, npm run test:mcp (14 passed, 4 opt-in Mongo skipped), VITE_AGENT_SITE_ORIGIN/VITE_MCP_PUBLIC_ORIGIN custom-domain web build passed. Generated five-locale canonical links, OAuth issuer, absence of old hostname in JS and Skill omission asserted. Same subscription/resource group/Function, no RBAC or infrastructure changes; app settings mutation is limited to MCP_PUBLIC_ORIGIN. Azure Deploy application-only recipe follows this validated proof.
+
+Custom-domain deployment proof: SWA run 35695044832 succeeded; Function deployment 3040c5ce-cf7a-4023-874e-bb7de496116b succeeded. Both serve 0d74b6f. 63 public/callback checks plus all seven authenticated MCP tools, PKCE/replay, shared quota/deduplication and refresh/revoke passed on the custom domain. Isolated test fixtures cleaned; no real user quota used. No infrastructure or role mutation. See docs/member-mcp-custom-domain-{checks,smoke}.json.

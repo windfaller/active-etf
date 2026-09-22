@@ -2,6 +2,16 @@
 
 Status: independent Azure Function deployed and all seven MCP tools passed live protocol tests. Real member login and ChatGPT/Grok acceptance remain incomplete. All public Skill pages/downloads are hidden per user instruction; no directory publication.
 
+## Custom-domain acceptance — 2026-09-22
+
+- Canonical MCP: `https://active-etf-mcp.inthewins.com/api/mcp`; member test portal: `https://active-etf-mcp.inthewins.com/zh-TW/mcp/connect`.
+- Application release `0d74b6f67d9a117ea53334006e6fe39540e1d530`; [SWA deployment 35695044832](https://github.com/windfaller/active-etf/actions/runs/35695044832) succeeded. Function deployment `3040c5ce-cf7a-4023-874e-bb7de496116b` succeeded. Both live version endpoints match this release.
+- Function and SWA `MCP_PUBLIC_ORIGIN` updated. Frontend fallback, CI build setting, static canonical links, root/API OAuth metadata, challenge discovery, resource binding, login callback, deployment configuration script and all localized Skill source instructions use the custom domain. Existing clients must update their MCP URL and reconnect through OAuth.
+- 63 live checks passed: versions, ten localized connection pages, forty Skill 404 variants, three SWA discovery redirects, two runtime configs, five OAuth metadata endpoints and login callback origin. Browser confirmed the Traditional Chinese portal with five language options and no Skill link.
+- Standard SDK client passed seven live tools through the custom domain, real PKCE exchange and code replay rejection, shared 9 used / 11 remaining quota, identical-query zero charge, refresh rotation and revocation. Used a unique seeded fixture authorization code; fixture records were cleaned up. This does not prove real Firebase login or ChatGPT/Grok acceptance.
+- Evidence: `member-mcp-custom-domain-checks.json`, `member-mcp-custom-domain-smoke.json`. Earlier evidence files retain their historical URLs; they are not current configuration.
+- Clean Functions/frontend builds and 14 targeted MCP tests passed (four opt-in Mongo tests skipped); live tests exercised Mongo-backed quota. Skill remains hidden and no platform listing was published.
+
 ## Independent Function acceptance — 2026-09-22
 
 - Current canonical endpoint: `https://active-etf-mcp.inthewins.com/api/mcp`. The initial acceptance below used the Azure default hostname; see custom-domain verification for the current origin.

@@ -1,0 +1,143 @@
+{
+  "origin": "https://active-etf-mcp.inthewins.com",
+  "checks": [
+    {
+      "name": "Function health",
+      "result": "MongoDB"
+    },
+    {
+      "name": "OAuth discovery and anonymous protection",
+      "result": "correct independent origin"
+    },
+    {
+      "name": "Hidden Skill and consent routes",
+      "result": "all five locales"
+    },
+    {
+      "name": "Live PKCE code exchange and replay rejection",
+      "result": "fixture authorization code; real identity login not tested"
+    },
+    {
+      "name": "Standard Bearer MCP initialize and tools/list",
+      "result": [
+        "search_market_entities",
+        "get_my_plan_usage",
+        "get_etf_snapshot",
+        "get_etf_changes",
+        "compare_etfs",
+        "get_stock_context",
+        "build_research_brief"
+      ]
+    },
+    {
+      "name": "search_market_entities",
+      "result": {
+        "charged": 0,
+        "keys": [
+          "market",
+          "results",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "get_etf_snapshot",
+      "result": {
+        "charged": 1,
+        "sourceAsOf": "2026-09-21",
+        "keys": [
+          "code",
+          "name",
+          "sourceAsOf",
+          "holdings",
+          "summary",
+          "source",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "get_etf_changes",
+      "result": {
+        "charged": 1,
+        "sourceAsOf": "2026-09-21",
+        "keys": [
+          "code",
+          "period",
+          "sourceAsOf",
+          "observedDates",
+          "changes",
+          "source",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "compare_etfs",
+      "result": {
+        "charged": 2,
+        "sourceAsOf": "2026-09-21",
+        "keys": [
+          "generatedAt",
+          "sourceAsOf",
+          "type",
+          "coverage",
+          "confidence",
+          "cards",
+          "pairwise",
+          "methodology",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "get_stock_context",
+      "result": {
+        "charged": 2,
+        "sourceAsOf": "2026-09-21",
+        "keys": [
+          "generatedAt",
+          "sourceAsOf",
+          "coverage",
+          "confidence",
+          "rows",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "build_research_brief",
+      "result": {
+        "charged": 3,
+        "keys": [
+          "funds",
+          "methodology",
+          "disclaimer",
+          "hasData",
+          "pointsCharged"
+        ]
+      }
+    },
+    {
+      "name": "Cross-client durable quota and retry deduplication",
+      "result": {
+        "plan": "free",
+        "dailyLimit": 20,
+        "used": 9,
+        "reserved": 0,
+        "remaining": 11,
+        "resetsAt": "2026-09-22T16:00:00.000Z",
+        "timezone": "Asia/Taipei"
+      }
+    },
+    {
+      "name": "Refresh rotation and grant revocation",
+      "result": "revoked token rejected"
+    }
+  ]
+}
