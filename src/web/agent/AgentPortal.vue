@@ -23,6 +23,11 @@ import {
 } from "../../shared/agentCopy";
 import { consumeBrowserAuthCallback } from "../auth/authService";
 import AgentInstall from "./AgentInstall.vue";
+import { recoveryAction, recoveryCopy } from "../../shared/agentRecovery";
+const errorCode = ref("");
+const recovery = computed(() => recoveryAction(errorCode.value));
+const recoveryText = computed(() => recoveryCopy[locale.value]);
+const diagnosticCode = computed(() => ["authorization_expired", "invalid_client_or_redirect", "invalid_request", "invalid_login_state", "invalid_identity", "sign_in_required", "invalid_csrf", "beta_access_required", "rate_limited", "temporarily_unavailable"].includes(errorCode.value) ? errorCode.value : "connection_failed");
 import { agentOnboarding } from "../../shared/agentOnboarding";
 const next = computed(() => agentOnboarding[locale.value]);
 const parts = window.location.pathname.split("/").filter(Boolean);
@@ -73,6 +78,7 @@ async function call(path: string, body?: unknown, method = "POST") {
     method: body === undefined ? "GET" : method,
     credentials: "same-origin",
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
     headers:
       body === undefined
         ? {}
@@ -88,15 +94,16 @@ async function call(path: string, body?: unknown, method = "POST") {
 }
 function message(e: unknown) {
   const code = e instanceof Error ? e.message : "";
-  return code === "authorization_expired"
-    ? t.value.expired
-    : code === "beta_access_required"
-      ? t.value.restricted
-      : t.value.error;
+  errorCode.value = code;
+  const action = recoveryAction(code);
+  if (action === "restart") authorization.value = null;
+  return action === "none" ? t.value.restricted : recoveryText.value[action];
 }
+
 async function load() {
   loading.value = true;
   error.value = "";
+  authorization.value = null;
   try {
     const config = await call("/api/agent/config");
     if (typeof config.mcpUrl !== "string") throw new Error("unconfigured");
@@ -292,8 +299,12 @@ onMounted(() => {
         <p class="agent-intro">{{ request ? t.loginNotice : authenticated ? next.signedIn : t.signedOut }}</p>
       </section>
       <p v-if="error" class="agent-alert" role="alert">
-        {{ error }}
-        <button v-if="page === 'connect'" @click="load">{{ t.retry }}</button>
+        {{ error }} <code>{{ diagnosticCode }}</code>
+        <template v-if="page === 'connect'">
+          <button v-if="recovery === 'retry'" :disabled="loading || busy" @click="load">{{ t.retry }}</button>
+          <button v-else-if="recovery === 'signIn'" :disabled="busy" @click="signIn">{{ t.signIn }}</button>
+          <a v-else-if="recovery === 'restart'" :href="base + '/connect'">{{ recoveryText.home }}</a>
+        </template>
       </p>
       <p v-if="notice" class="agent-notice" role="status">{{ notice }}</p>
 
@@ -434,13 +445,13 @@ onMounted(() => {
             <p>{{ t.consentText }}</p></template
           >
           <button
-            v-if="!authenticated"
+            v-if="!authenticated && !(error && recovery !== 'retry')"
             class="agent-button primary"
             @click="signIn"
           >
             {{ t.signIn }}<ArrowRight :size="18" />
           </button>
-          <template v-else>
+          <template v-else-if="authenticated">
             <div v-if="usage" class="agent-balance">
               <span>{{ t.balance }}</span
               ><strong
@@ -460,13 +471,13 @@ onMounted(() => {
             <div v-if="authorization" class="agent-actions">
               <button
                 class="agent-button primary"
-                :disabled="busy"
+                :disabled="busy || !!error"
                 @click="consent(true)"
               >
                 {{ t.allow }}</button
               ><button
                 class="agent-button"
-                :disabled="busy"
+                :disabled="busy || !!error"
                 @click="consent(false)"
               >
                 {{ t.deny }}
