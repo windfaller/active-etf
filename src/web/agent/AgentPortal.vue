@@ -26,6 +26,7 @@ const parts = window.location.pathname.split("/").filter(Boolean);
 const locale = ref(agentLocale(parts[0])),
   t = computed(() => agentCopy[locale.value]);
 const page = parts[2] ?? "overview";
+const skillPublic = import.meta.env.VITE_MCP_SKILL_PUBLIC === "true";
 const request = new URLSearchParams(window.location.search).get("request");
 const base = computed(() => `/${locale.value}/mcp`);
 const busy = ref(false),
@@ -229,7 +230,7 @@ onMounted(() => {
           :aria-current="page === 'overview' ? 'page' : undefined"
           >{{ t.overview }}</a
         ><a
-          :href="base + '/skill'"
+          v-if="skillPublic" :href="base + '/skill'"
           :aria-current="page === 'skill' ? 'page' : undefined"
           >{{ t.skill }}</a
         ><a
@@ -258,7 +259,7 @@ onMounted(() => {
           <div class="agent-actions">
             <a class="agent-button primary" href="#connect"
               >{{ t.start }}<ArrowRight :size="18" /></a
-            ><a class="agent-button" :href="base + '/skill'"
+            ><a class="agent-button" v-if="skillPublic" :href="base + '/skill'"
               >{{ t.guide }}<BookOpen :size="18"
             /></a>
           </div>
@@ -274,7 +275,7 @@ onMounted(() => {
           </div>
         </aside>
       </section>
-      <section v-else-if="page === 'skill'" class="agent-title">
+      <section v-else-if="skillPublic && page === 'skill'" class="agent-title">
         <BookOpen :size="30" />
         <h1>{{ t.skillTitle }}</h1>
         <p class="agent-intro">{{ t.skillIntro }}</p>
@@ -372,7 +373,7 @@ onMounted(() => {
           <p class="agent-caption">{{ t.notLive }}</p>
         </section>
       </template>
-      <template v-else-if="page === 'skill'">
+      <template v-else-if="skillPublic && page === 'skill'">
         <section class="agent-section agent-workflow">
           <h2>{{ t.workflow }}</h2>
           <ol>

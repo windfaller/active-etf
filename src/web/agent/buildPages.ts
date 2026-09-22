@@ -11,6 +11,8 @@ export function agentPagesPlugin(): Plugin {
       order: "post",
       sequential: true,
       handler() {
+        const skillPublic = process.env.VITE_MCP_SKILL_PUBLIC === "true";
+        const pages = skillPublic ? ["", "/skill", "/connect"] : ["", "/connect"];
         const root = resolve("dist"),
           base = readFileSync(resolve(root, "index.html"), "utf8");
         const site = (
@@ -18,7 +20,7 @@ export function agentPagesPlugin(): Plugin {
         ).replace(/\/$/, "");
         for (const lang of agentLocales) {
           const t = agentCopy[lang];
-          for (const page of ["", "/skill", "/connect"]) {
+          for (const page of pages) {
             const path = `/${lang}/mcp${page}`,
               title =
                 page === "/skill"
@@ -27,7 +29,7 @@ export function agentPagesPlugin(): Plugin {
                     ? t.account
                     : t.title;
             const head = `<!-- SEO_HEAD_START --><title>${escape(title)} · ${escape(t.brand)}</title><meta name="description" content="${escape(page === "/skill" ? t.skillIntro : t.intro)}"><meta name="robots" content="${page === "/connect" ? "noindex, nofollow" : "index, follow"}"><link rel="canonical" href="${site}${path}">${agentLocales.map((l) => `<link rel="alternate" hreflang="${l}" href="${site}/${l}/mcp${page}">`).join("")}<link rel="alternate" hreflang="x-default" href="${site}/en/mcp${page}"><!-- SEO_HEAD_END -->`;
-            const body = `<!-- SEO_BODY_START --><main class="static-seo-shell"><h1>${escape(title)}</h1><p>${escape(page === "/skill" ? t.skillIntro : t.intro)}</p><a href="/${lang}/mcp">${escape(t.overview)}</a> · <a href="/${lang}/mcp/skill">${escape(t.skill)}</a></main><!-- SEO_BODY_END -->`;
+            const body = `<!-- SEO_BODY_START --><main class="static-seo-shell"><h1>${escape(title)}</h1><p>${escape(page === "/skill" ? t.skillIntro : t.intro)}</p><a href="/${lang}/mcp">${escape(t.overview)}</a>${skillPublic ? ` · <a href="/${lang}/mcp/skill">${escape(t.skill)}</a>` : ""}</main><!-- SEO_BODY_END -->`;
             const html = base
               .replace(/<html[^>]*>/, '<html lang="' + lang + '">')
               .replace(
@@ -42,9 +44,11 @@ export function agentPagesPlugin(): Plugin {
             mkdirSync(dir, { recursive: true });
             writeFileSync(resolve(dir, "index.html"), html);
           }
+          if (skillPublic) {
           const dest = resolve(root, "skills", lang, "active-etf-research");
           mkdirSync(dest, { recursive: true });
           writeFileSync(resolve(dest, "SKILL.md"), skillMarkdown(lang));
+          }
         }
         const configPath = resolve(root, "staticwebapp.config.json"),
           config = JSON.parse(readFileSync(configPath, "utf8"));
@@ -85,9 +89,13 @@ export function agentPagesPlugin(): Plugin {
         });
         config.platform = { ...config.platform, apiRuntime: "node:20" };
         config.routes = [
+          ...(!skillPublic ? [
+            ...agentLocales.map(lang => ({route: `/${lang}/mcp/skill*`, statusCode: 404, headers: {"cache-control": "no-store", "x-robots-tag": "noindex"}})),
+            {route: "/skills/*", statusCode: 404, headers: {"cache-control": "no-store", "x-robots-tag": "noindex"}},
+          ] : []),
           ...discoveryRoutes,
           ...agentLocales.flatMap((lang) =>
-            ["", "/skill", "/connect"].map((page) => ({
+            pages.map((page) => ({
               route: `/${lang}/mcp${page}`,
               rewrite: `/${lang}/mcp${page}/index.html`,
               headers: { "cache-control": "no-cache, must-revalidate" },
