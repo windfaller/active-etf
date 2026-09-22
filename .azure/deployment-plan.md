@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — one-prompt member bootstrap and theme contrast fixes; public Skill remains hidden.
+Status: Deployed and verified — one-prompt member bootstrap and theme contrast fixes; public Skill remains hidden.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -54,3 +54,5 @@ Manual installation deployment proof: SWA run 35698522821 succeeded; Function de
 
 ## One-prompt bootstrap and theme contrast — 2026-09-22
 User requested moomoo-style install prompt and readable dark/light colors. Read the referenced moomoo install document as design reference only. Implement member+CSRF-protected POST /api/agent/install-link issuing a 30-minute instruction-only URL; its GET guide includes the Skill payload and native MCP/OAuth setup instructions, with no user identifiers or OAuth secrets. Agent can fetch it without browser cookies; it cannot grant member/API access. Manual controls collapsed by default, one main copy action in five locales. Theme surface/code/text variables explicitly paired. Validation proof: clean dependency install, Functions and frontend builds passed; 16 MCP tests passed, 4 opt-in Mongo skipped. New tests cover anonymous/CSRF rejection, bootstrap content, TTL expiry, zero quota, and rejection when used as MCP/session credentials. Local UI fixture verified generated prompt/copy, collapsed advanced controls and dark/light screenshots with readable command fields. No actual user installation/OAuth performed. Infrastructure/settings/RBAC unchanged; existing Azure application deployment recipe.
+
+One-prompt deployment proof: SWA run 35700408435 succeeded; Function deployment ca017967-3558-4d16-995f-24a549f0f216 succeeded. Both origins serve eb0f9fc57de5d81e6b487df49004e15911397522. Live five-language cookie-free bootstrap guides, ticket isolation, existing member downloads, all seven MCP tools, quota/deduplication, PKCE and refresh/revoke passed; isolated fixtures cleaned. Browser verified live quick-install card and collapsed advanced controls. See docs/member-mcp-quick-install-smoke.json. Real user installation/OAuth remains for user acceptance.
