@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — OAuth recovery guidance and native-client installation rules.
+Status: Deployed and verified — OAuth recovery guidance and native-client installation rules.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -61,3 +61,5 @@ One-prompt deployment proof: SWA run 35700408435 succeeded; Function deployment 
 User reports Grok's first authorization page repeatedly showing Retry; exact upstream cause is unconfirmed. Scope: distinguish unusable authorization links, invalid browser login state and transient connection failures in five languages; cap portal fetch waits at 20 seconds; display only allowlisted diagnostic codes; disable consent while an error is present. Skill/bootstrap instructions require native OAuth discovery and a fresh client-owned URL, never fabricated URLs or repeated refresh of failed links. No OAuth security validation weakened, no credential or infra/settings/RBAC changes.
 
 Validation proof: isolated HEAD snapshot plus only these changes, npm ci, functions:build, web:build passed; test:mcp 18 passed and 4 opt-in Mongo skipped. Browser fixture verified expired authorization has restart instructions without Retry; invalid login state offers sign-in; transient failure retains Retry. Azure account e4c458d1-80eb-419b-9680-0dc8682a9df4 Enabled and existing Function in East Asia confirmed. Apply existing Azure CLI application-only deployment recipe; original infrastructure/template/role proof remains applicable. Real Grok failure not reproduced; do not claim its cause is resolved.
+
+Recovery deployment proof: SWA run 35734763818 succeeded; Function deployment 66e10370-8625-4030-999c-03287c9e958d succeeded. Both origins serve release 1c6e531. Live five-locale guide/download boundaries and native OAuth instructions passed; test records cleaned. Browser verified the production expired authorization page has clear restart instructions, an allowlisted code, and no Retry button. See docs/member-mcp-recovery-smoke.json. Grok original first-attempt cause remains unknown; real end-to-end Grok acceptance is not claimed.

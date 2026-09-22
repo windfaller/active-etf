@@ -1,0 +1,29 @@
+{
+  "origin": "https://active-etf-mcp.inthewins.com",
+  "checks": [
+    {
+      "name": "One-prompt bootstrap live boundary",
+      "result": "five localized cookie-free guides, 30-minute TTL, no-store/noindex, complete Skill and canonical MCP; no member secrets; tickets rejected as MCP/session credentials"
+    },
+    {
+      "name": "Member Skill download access boundary",
+      "result": "five locales, no-store, no credentials; anonymous and invalidated sessions rejected"
+    },
+    {
+      "name": "Function health",
+      "result": "ok"
+    },
+    {
+      "name": "Release https://active-etf-mcp.inthewins.com",
+      "result": "1c6e531"
+    },
+    {
+      "name": "Release https://active-etf.inthewins.com",
+      "result": "1c6e5316d0e96316ac2f5f7d7a69ee5f741e0868"
+    },
+    {
+      "name": "Unusable authorization link",
+      "result": "explicit authorization_expired, not a retryable network failure"
+    }
+  ]
+}
