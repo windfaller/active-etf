@@ -55,7 +55,7 @@ includesAll(compare, ["ETF 多檔比較工具", "https://active-etf.inthewins.co
 includesAll(reversals, ["方向反轉訊號", "https://active-etf.inthewins.com/signals/reversals"]);
 includesAll(style, ["00981A 主動統一台股增長經理人風格", "https://active-etf.inthewins.com/etf/00981A/style"]);
 includesAll(methodology, ["情報指標方法論與限制", "https://active-etf.inthewins.com/methodology"]);
-includesAll(privacy, ["<h1>隱私政策</h1>", "https://active-etf.inthewins.com/privacy", "選用成效分析"]);
+includesAll(privacy, ["<h1>隱私政策</h1>", "https://active-etf.inthewins.com/privacy", "進站匿名量測"]);
 includesAll(terms, ["<h1>服務條款</h1>", "https://active-etf.inthewins.com/terms", "研究資訊限制"]);
 assert.match(privacy, /<script type="module"[^>]*src="\/assets\/index-[^"]+\.js"><\/script>/u);
 assert.match(terms, /<script type="module"[^>]*src="\/assets\/index-[^"]+\.js"><\/script>/u);
