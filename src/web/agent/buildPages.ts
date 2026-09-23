@@ -2,6 +2,7 @@ import type { Plugin } from "vite";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { agentCopy, agentLocales, skillMarkdown } from "../../shared/agentCopy";
+import { claudeInstall } from "../../shared/claudeInstall.js";
 const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export function agentPagesPlugin(): Plugin {
@@ -21,6 +22,7 @@ export function agentPagesPlugin(): Plugin {
         const gatewayOrigin = (process.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-mcp.inthewins.com").replace(/\/$/, "");
         for (const lang of agentLocales) {
           const t = agentCopy[lang];
+          const claude = claudeInstall[lang];
           for (const page of pages) {
             const path = `/${lang}/mcp${page}`,
               title =
@@ -35,9 +37,9 @@ export function agentPagesPlugin(): Plugin {
             const alternate = agentLocales.map(l => '<link rel="alternate" hreflang="'+l+'" href="'+site+'/'+l+'/mcp'+page+'">').join("");
             const head = '<!-- SEO_HEAD_START --><title>'+escape(title)+' · '+escape(t.brand)+'</title><meta name="description" content="'+escape(description)+'"><meta name="robots" content="'+(page === "/connect" ? "noindex, nofollow" : "index, follow")+'"><link rel="canonical" href="'+canonical+'">'+alternate+'<link rel="alternate" hreflang="x-default" href="'+site+'/en/mcp'+page+'"><meta property="og:type" content="website"><meta property="og:site_name" content="'+escape(t.brand)+'"><meta property="og:title" content="'+escape(title)+' · '+escape(t.brand)+'"><meta property="og:description" content="'+escape(description)+'"><meta property="og:url" content="'+canonical+'"><meta name="twitter:card" content="summary"><script type="application/ld+json">'+structuredData+'</script><!-- SEO_HEAD_END -->';
             const details = page === "/skill"
-              ? "<h2>"+escape(t.workflow)+"</h2><ol>"+[t.step1,t.step2,t.step3,t.step4].map(step=>"<li>"+escape(step)+"</li>").join("")+"</ol><h2>"+escape(t.install)+"</h2><p>"+escape(t.installText)+"</p><p>"+escape(t.installChat)+"</p><p>"+escape(t.installGrok)+"</p><a href=\""+site+"/skills/"+lang+"/active-etf-research/SKILL.md\">"+escape(t.download)+"</a><h2>"+escape(t.prompts)+"</h2><ul>"+[t.prompt1,t.prompt2,t.prompt3].map(prompt=>"<li>"+escape(prompt)+"</li>").join("")+"</ul><h2>"+escape(t.limits)+"</h2><p>"+escape(t.limitsText)+"</p><p>"+escape(t.scope)+"</p>"
+              ? "<h2>"+escape(t.workflow)+"</h2><ol>"+[t.step1,t.step2,t.step3,t.step4].map(step=>"<li>"+escape(step)+"</li>").join("")+"</ol><h2>"+escape(t.install)+"</h2><p>"+escape(t.installText)+"</p><p>"+escape(t.installChat)+"</p><p>"+escape(t.installGrok)+"</p><h3>"+escape(claude.platform)+"</h3><p>"+escape(claude.guide)+"</p><p>"+escape(claude.codeSave)+"</p><p>"+escape(claude.webSkill)+"</p><a href=\""+site+"/skills/"+lang+"/active-etf-research/SKILL.md\">"+escape(t.download)+"</a><h2>"+escape(t.prompts)+"</h2><ul>"+[t.prompt1,t.prompt2,t.prompt3].map(prompt=>"<li>"+escape(prompt)+"</li>").join("")+"</ul><h2>"+escape(t.limits)+"</h2><p>"+escape(t.limitsText)+"</p><p>"+escape(t.scope)+"</p>"
               : page === "/connect" ? ""
-              : "<p>"+escape(t.scope)+"</p><h2>"+escape(t.quotaTitle)+"</h2><p>"+escape(t.quota)+"</p><h2>"+escape(t.tools)+"</h2><p>"+[t.search,t.snapshot,t.changes,t.comparison,t.stock,t.brief].map(escape).join(" · ")+"</p><p>"+escape(t.platformCosts)+"</p>";
+              : "<p>"+escape(t.scope)+"</p><h2>"+escape(t.quotaTitle)+"</h2><p>"+escape(t.quota)+"</p><h2>"+escape(t.tools)+"</h2><p>"+[t.search,t.snapshot,t.changes,t.comparison,t.stock,t.brief].map(escape).join(" · ")+"</p><h2>"+escape(claude.platform)+"</h2><p>"+escape(claude.guide)+"</p><p>"+escape(t.platformCosts)+"</p>";
             const body = '<!-- SEO_BODY_START --><main class="static-seo-shell"><h1>'+escape(title)+'</h1><p>'+escape(description)+'</p>'+details+'<nav><a href="/'+lang+'/mcp">'+escape(t.overview)+'</a>'+(skillPublic ? ' · <a href="/'+lang+'/mcp/skill">'+escape(t.skill)+'</a>' : "")+'</nav></main><!-- SEO_BODY_END -->';
             const html = base
               .replace(/<html[^>]*>/, '<html lang="' + lang + '">')

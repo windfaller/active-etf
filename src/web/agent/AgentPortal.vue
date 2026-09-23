@@ -23,6 +23,7 @@ import {
 } from "../../shared/agentCopy";
 import { consumeBrowserAuthCallback } from "../auth/authService";
 import AgentInstall from "./AgentInstall.vue";
+import { claudeInstall } from "../../shared/claudeInstall";
 import { recoveryAction, recoveryCopy } from "../../shared/agentRecovery";
 const errorCode = ref("");
 const recovery = computed(() => recoveryAction(errorCode.value));
@@ -33,6 +34,7 @@ const next = computed(() => agentOnboarding[locale.value]);
 const parts = window.location.pathname.split("/").filter(Boolean);
 const locale = ref(agentLocale(parts[0])),
   t = computed(() => agentCopy[locale.value]);
+const claude = computed(() => claudeInstall[locale.value]);
 const page = parts[2] ?? "overview";
 const skillPublic = import.meta.env.VITE_MCP_SKILL_PUBLIC === "true";
 const request = new URLSearchParams(window.location.search).get("request");
@@ -364,6 +366,11 @@ onMounted(() => {
           </div>
           <div class="agent-platforms">
             <article>
+              <h3>Claude</h3>
+              <p>{{ claude.guide }}</p>
+              <a :href="gatewayLink">{{ t.start }} <ArrowUpRight :size="16" /></a>
+            </article>
+            <article>
               <h3>ChatGPT</h3>
               <p>{{ t.chatgpt }}</p>
               <a
@@ -404,6 +411,11 @@ onMounted(() => {
           <p>{{ t.installText }}</p>
           <p>{{ t.installChat }}</p>
           <p>{{ t.installGrok }}</p>
+          <h3>{{ claude.platform }}</h3>
+          <p>{{ claude.guide }}</p>
+          <p>{{ claude.codeSave }}</p>
+          <p>{{ claude.webSkill }}</p>
+          <a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener noreferrer">{{ claude.codeReference }} ↗</a>
           <div class="agent-actions">
             <button class="agent-button primary" @click="download">
               <Download :size="18" />{{ t.download }}</button

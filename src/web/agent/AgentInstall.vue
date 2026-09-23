@@ -3,10 +3,12 @@ import { computed, ref, watch } from 'vue';
 import { agentCopy, type AgentLocale } from '../../shared/agentCopy';
 import { quickInstall } from '../../shared/agentBootstrap';
 import { agentInstall, installCommands, oauthReuse } from '../../shared/agentInstall';
+import { claudeCommands, claudeInstall } from '../../shared/claudeInstall';
 const props = defineProps<{locale: AgentLocale; authenticated: boolean; endpoint: string; csrfToken: string}>();
 const t = computed(() => agentCopy[props.locale]);
 const text = computed(() => agentInstall[props.locale]);
 const quick = computed(() => quickInstall[props.locale]);
+const claude = computed(() => claudeInstall[props.locale]);
 const installPrompt = ref('');
 watch(() => props.authenticated, () => { installPrompt.value = ''; });
 const platform = ref('codex');
@@ -57,6 +59,8 @@ async function downloadSkill() {
     <label for="install-platform">{{ text.choose }}</label>
     <select id="install-platform" v-model="platform" @change="checks = [false,false,false]">
       <option value="codex">{{ text.local }}</option>
+      <option value="claude-code">{{ claude.code }}</option>
+      <option value="claude">{{ claude.web }}</option>
       <option value="chatgpt">ChatGPT · {{ text.web }}</option>
       <option value="grok">Grok · {{ text.web }}</option>
     </select>
@@ -74,15 +78,27 @@ async function downloadSkill() {
       <div class="install-command"><pre><code>{{ installCommands.login }}</code></pre><button class="agent-button" @click="copy(installCommands.login,'login')">{{ copied === 'login' ? t.copied : t.copy }}</button></div>
       <a href="https://developers.openai.com/codex/mcp/" target="_blank" rel="noopener noreferrer">{{ text.reference }} ↗</a>
     </template>
+    <template v-else-if="platform === 'claude-code'">
+      <h3>{{ text.steps[0] }}</h3><p>{{ claude.codeSave }}</p>
+      <div class="install-command"><pre><code>{{ claudeCommands.folder }}</code></pre><button class="agent-button" @click="copy(claudeCommands.folder,'claude-folder')">{{ copied === 'claude-folder' ? t.copied : t.copy }}</button></div>
+      <button class="agent-button primary" :disabled="!authenticated || busy" @click="downloadSkill">{{ busy ? t.loading : text.download }}</button>
+      <p v-if="!authenticated">{{ text.login }}</p>
+      <h3>{{ text.steps[1] }}</h3><p>{{ claude.codeSetup }}</p>
+      <div v-for="key in ['inspect','add'] as const" :key="key" class="install-command"><pre><code>{{ claudeCommands[key] }}</code></pre><button class="agent-button" @click="copy(claudeCommands[key],'claude-'+key)">{{ copied === 'claude-'+key ? t.copied : t.copy }}</button></div>
+      <h3>{{ text.steps[2] }}</h3><p>{{ claude.codeOauth }}</p>
+      <div class="install-command"><pre><code>{{ claudeCommands.login }}</code></pre><button class="agent-button" @click="copy(claudeCommands.login,'claude-login')">{{ copied === 'claude-login' ? t.copied : t.copy }}</button></div>
+      <a href="https://code.claude.com/docs/en/mcp" target="_blank" rel="noopener noreferrer">{{ claude.codeReference }} ↗</a>
+    </template>
     <template v-else>
       <h3>{{ t.platforms }}</h3><p>{{ text.webNote }}</p>
-      <p>{{ platform === 'chatgpt' ? t.chatgpt : t.grok }}</p>
+      <p v-if="platform === 'claude'">{{ claude.webSetup }}</p><p v-else>{{ platform === 'chatgpt' ? t.chatgpt : t.grok }}</p>
       <div class="install-command"><pre><code>{{ endpoint }}</code></pre><button class="agent-button" :disabled="!endpoint" @click="copy(endpoint,'url')">{{ copied === 'url' ? t.copied : t.copy }}</button></div>
-      <a :href="platform === 'chatgpt' ? 'https://chatgpt.com/' : 'https://grok.com/connectors'" target="_blank" rel="noopener noreferrer">{{ platform === 'chatgpt' ? 'ChatGPT' : 'Grok Connectors' }} ↗</a>
+      <p v-if="platform === 'claude'">{{ claude.webOrg }}</p><p v-if="platform === 'claude'">{{ claude.webSkill }}</p>
+      <a :href="platform === 'claude' ? 'https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp' : platform === 'chatgpt' ? 'https://chatgpt.com/' : 'https://grok.com/connectors'" target="_blank" rel="noopener noreferrer">{{ platform === 'claude' ? claude.webReference : platform === 'chatgpt' ? 'ChatGPT' : 'Grok Connectors' }} ↗</a>
       <h3>{{ text.steps[2] }}</h3><p>{{ t.loginNotice }}</p><p>{{ t.consentText }}</p><p>{{ oauthReuse[locale] }}</p>
     </template>
     <h3>{{ text.steps[3] }}</h3><p>{{ text.verify }}</p>
-    <div class="install-command"><pre><code>{{ platform === 'codex' ? '$active-etf-research ' : '' }}{{ t.usage }} — get_my_plan_usage({})</code></pre><button class="agent-button" @click="copy((platform === 'codex' ? '$active-etf-research ' : '') + t.usage + ' — get_my_plan_usage({})','verify')">{{ copied === 'verify' ? t.copied : t.copy }}</button></div>
+    <div class="install-command"><pre><code>{{ platform === 'codex' ? '$active-etf-research ' : platform === 'claude-code' ? '/active-etf-research ' : '' }}{{ t.usage }} — get_my_plan_usage({})</code></pre><button class="agent-button" @click="copy((platform === 'codex' ? '$active-etf-research ' : platform === 'claude-code' ? '/active-etf-research ' : '') + t.usage + ' — get_my_plan_usage({})','verify')">{{ copied === 'verify' ? t.copied : t.copy }}</button></div>
     <fieldset><legend>{{ text.checkTitle }}</legend><label v-for="(label,index) in text.checklist" :key="index"><input v-model="checks[index]" type="checkbox" />{{ label }}</label></fieldset>
     <p class="agent-caption">{{ text.trouble }}</p>
     </details>
