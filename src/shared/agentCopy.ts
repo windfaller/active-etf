@@ -121,7 +121,7 @@ const en = {
   platformCosts:
     "Our research allowance is free. Your AI platform may have separate subscription or API charges.",
   notLive:
-    "Connection testing is in progress. Public directory approval is not claimed.",
+    "Available through a custom MCP connection. This service is not listed in the public ChatGPT or Grok directories.",
 };
 export type AgentCopy = { [K in keyof typeof en]: string };
 export const agentCopy: Record<AgentLocale, AgentCopy> = {
@@ -224,7 +224,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     privacyNote:
       "服務儲存會員識別、授權用戶端、雜湊憑證與用量。查詢結果快取 10 分鐘，用量總計最多保留 90 天；不要求取得完整聊天對話。",
     platformCosts: "本站研究額度免費；AI 平台的訂閱或 API 可能另有費用。",
-    notLive: "連接測試進行中，目前未宣稱通過公開目錄審核。",
+    notLive: "可透過自訂 MCP 連接使用；目前尚未上架 ChatGPT 或 Grok 的公開目錄。",
   },
   "zh-CN": {
     brand: "ETF 持仓雷达",
@@ -324,7 +324,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     privacyNote:
       "服务存储会员标识、授权客户端、哈希凭证与用量。查询结果缓存 10 分钟，用量总计最多保留 90 天；不要求获取完整聊天记录。",
     platformCosts: "本站研究额度免费；AI 平台订阅或 API 可能另行收费。",
-    notLive: "连接测试进行中，目前未宣称通过公开目录审核。",
+    notLive: "可通过自定义 MCP 连接使用；目前尚未上架 ChatGPT 或 Grok 的公开目录。",
   },
   ja: {
     brand: "ETF 保有銘柄レーダー",
@@ -433,7 +433,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
       "会員識別子、認可クライアント、ハッシュ化した認証情報、利用数を保存します。結果のキャッシュは 10 分、利用集計は最大 90 日です。会話全文は要求しません。",
     platformCosts:
       "当サービスのリサーチ枠は無料です。AI プラットフォームの利用料や API 料金は別途発生する場合があります。",
-    notLive: "接続テスト中です。公開ディレクトリの承認取得を意味しません。",
+    notLive: "カスタム MCP 接続で利用できます。ChatGPT や Grok の公開ディレクトリには未掲載です。",
   },
   ko: {
     brand: "ETF 보유종목 레이더",
@@ -542,7 +542,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     platformCosts:
       "리서치 이용 한도는 무료입니다. AI 플랫폼 구독료 또는 API 요금은 별도일 수 있습니다.",
     notLive:
-      "연결 테스트 중입니다. 공개 디렉터리 승인을 받았다는 의미는 아닙니다.",
+      "사용자 지정 MCP 연결로 이용할 수 있습니다. ChatGPT 및 Grok 공개 디렉터리에는 등록되지 않았습니다.",
   },
 };
 export const agentToolRows = [

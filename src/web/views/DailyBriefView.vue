@@ -74,6 +74,18 @@ function directionClass(value: number | null | undefined): "direction-positive" 
       <div class="hero-radar" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
     </header>
 
+    <section class="member-mcp-promo" aria-label="免費會員 AI 研究工具">
+      <div>
+        <span>免費會員 · AI 研究工具</span>
+        <h2>把 ETF 持股研究帶進你的 AI</h2>
+        <p>連接會員 MCP，查詢持股、調倉與跨 ETF 比較；搭配 Skill 引導 AI 標示資料日期和缺漏。每日免費 20 點，瀏覽網站不扣點。</p>
+      </div>
+      <div class="member-mcp-promo-actions">
+        <a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp">了解免費會員 MCP <ArrowRight :size="16" /></a>
+        <a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill">查看 Skill 說明</a>
+      </div>
+    </section>
+
     <CoverageStatus :coverage="coverage" :sample-count="impacts.length" />
 
     <section class="brief-section">
@@ -189,6 +201,7 @@ function directionClass(value: number | null | undefined): "direction-positive" 
 
 <style scoped>
 .daily-brief-view { display:grid; gap:18px; }
+.member-mcp-promo{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 28px;border:1px solid #a9d6d0;border-radius:14px;background:#e9f7f4;color:#153e47}.member-mcp-promo span{color:#08776d;font-size:12px;font-weight:850;letter-spacing:.08em}.member-mcp-promo h2{margin:5px 0 7px;font-size:24px;line-height:1.3}.member-mcp-promo p{max-width:720px;margin:0;color:#34535c;line-height:1.65}.member-mcp-promo-actions{display:grid;gap:8px;flex-shrink:0}.member-mcp-promo-actions a{display:flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 16px;border:1px solid #08776d;border-radius:9px;background:#08776d;color:#fff;font-weight:800;text-decoration:none}.member-mcp-promo-actions a+a{background:transparent;color:#08685f}.member-mcp-promo-actions a:hover{filter:brightness(.94)}
 .brief-hero { position:relative; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr); min-height:330px; overflow:hidden; padding:42px; border-radius:18px; background:linear-gradient(125deg,#071f36 0%,#0a3345 58%,#075b5c 100%); color:white; box-shadow:0 18px 50px rgba(7,31,54,.16); }
 .hero-copy { position:relative; z-index:2; align-self:center; max-width:760px; }
 .eyebrow,.section-kicker { color:#30d4bf; font-size:12px; font-weight:850; letter-spacing:.14em; }
@@ -222,5 +235,6 @@ function directionClass(value: number | null | undefined): "direction-positive" 
 .advanced-entry { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }.advanced-entry button{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;cursor:pointer}.advanced-entry button:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry button:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry span{display:grid;gap:4px}.advanced-entry small{color:#65727c;line-height:1.4}
 @media (max-width:960px){.brief-hero{grid-template-columns:1fr}.hero-radar{position:absolute;right:-60px;bottom:-80px;opacity:.65}.insight-grid,.sector-direction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.advanced-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.consensus-columns{grid-template-columns:1fr}.pull-push-grid{grid-template-columns:1fr}}
 @media (max-width:760px){.daily-brief-view{gap:12px}.brief-hero{min-height:0;padding:24px 16px;border-radius:14px}.brief-hero h1{font-size:36px}.brief-hero p{font-size:15px}.quick-compare-controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.quick-compare-controls>a{grid-column:1 / -1}.brief-section{padding:18px 14px}.brief-heading{display:grid}.brief-heading>p{text-align:left}.insight-grid,.sector-direction-grid,.advanced-entry{grid-template-columns:1fr}.brief-insight{min-height:0}.consensus-row{grid-template-columns:1fr 1fr 18px}.consensus-row>span:nth-child(3){grid-column:1 / 3}.advanced-entry button{min-height:78px}}
+@media (max-width:760px){.member-mcp-promo{display:grid;padding:20px 16px}.member-mcp-promo h2{font-size:21px}.member-mcp-promo-actions{grid-template-columns:1fr 1fr}.member-mcp-promo-actions a{padding:9px;font-size:12px;text-align:center}}
 .advanced-entry a{display:grid;grid-template-columns:24px 1fr 18px;align-items:center;gap:10px;min-height:92px;padding:16px;border:1px solid #dce4e8;border-radius:12px;background:#fff;color:#33414c;text-align:left;text-decoration:none}.advanced-entry a:hover{border-color:#87a1b9;box-shadow:0 8px 24px rgba(38,61,82,.08)}.advanced-entry a:focus-visible{outline:3px solid rgba(52,89,134,.3)}.advanced-entry a span{display:grid;gap:4px}.advanced-entry a small{color:#65727c;line-height:1.4}@media(max-width:760px){.advanced-entry a{min-height:78px}}
 </style>

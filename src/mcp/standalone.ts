@@ -4,7 +4,7 @@ import { resolve, extname } from "node:path";
 import { memberMcp } from "../api/memberMcp.js";
 
 const root = resolve(process.cwd(), "public-agent");
-const mime: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json" };
+const mime: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".md": "text/markdown; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".xml": "application/xml; charset=utf-8" };
 export async function standaloneMcp(request: HttpRequest): Promise<HttpResponseInit> {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) return memberMcp(request);
@@ -15,12 +15,14 @@ export async function standaloneMcp(request: HttpRequest): Promise<HttpResponseI
     return memberMcp(new HttpRequest({method: request.method, url: url.toString(), headers: Object.fromEntries(request.headers)}));
   }
   let file = "";
-  if (/^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/connect)?\/?$/.test(url.pathname)) file = url.pathname.replace(/\/$/, "") + "/index.html";
-  else if (/^\/assets\/[A-Za-z0-9_.-]+$/.test(url.pathname) || ["/favicon.svg", "/app-version.json"].includes(url.pathname)) file = url.pathname;
+  if (/^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/(?:skill|connect))?\/?$/.test(url.pathname)) file = url.pathname.replace(/\/$/, "") + "/index.html";
+  else if (/^\/skills\/(en|zh-TW|zh-CN|ja|ko)\/active-etf-research\/SKILL\.md$/.test(url.pathname)) file = url.pathname;
+  else if (/^\/assets\/[A-Za-z0-9_.-]+$/.test(url.pathname) || ["/favicon.svg", "/app-version.json", "/robots.txt", "/sitemap.xml"].includes(url.pathname)) file = url.pathname;
   if (!file || !["GET", "HEAD"].includes(request.method)) return {status: 404, headers: {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}, body: "Not found"};
   try {
     const body = await readFile(resolve(root, "." + file));
-    return {status: 200, body: request.method === "HEAD" ? undefined : body, headers: {"Content-Type": mime[extname(file)] ?? "application/octet-stream", "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}};
+    const indexable = /^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/skill)?\/index\.html$/.test(file);
+    return {status: 200, body: request.method === "HEAD" ? undefined : body, headers: {"Content-Type": mime[extname(file)] ?? "application/octet-stream", "Cache-Control": "public, max-age=300", ...(indexable || file === "/robots.txt" || file === "/sitemap.xml" ? {} : {"X-Robots-Tag": "noindex, nofollow"}), "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}};
   } catch { return {status: 404, body: "Not found"}; }
 }
 app.http("standaloneMcp", { route: "{*path}", authLevel: "anonymous", methods: ["GET", "HEAD", "POST", "DELETE", "OPTIONS"], handler: standaloneMcp });

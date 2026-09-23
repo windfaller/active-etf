@@ -8,6 +8,7 @@ mkdirSync(target, {recursive: true});
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 pkg.main = "dist-api/src/mcp/standalone.js";
 pkg.scripts = {}; delete pkg.devDependencies;
+pkg.dependencies = Object.fromEntries(["@azure/functions", "@modelcontextprotocol/sdk", "mongodb", "zod"].map(name => [name, pkg.dependencies[name]]));
 pkg.engines = {node: ">=24"};
 writeFileSync(resolve(target, "package.json"), JSON.stringify(pkg, null, 2));
 cpSync("package-lock.json", resolve(target, "package-lock.json"));
@@ -16,7 +17,7 @@ const host = JSON.parse(readFileSync("host.json", "utf8"));
 host.extensions = {http: {routePrefix: ""}};
 host.functionTimeout = "00:01:00";
 writeFileSync(resolve(target, "host.json"), JSON.stringify(host, null, 2));
-for (const path of ["assets", "favicon.svg", "app-version.json", ...["en","zh-TW","zh-CN","ja","ko"].flatMap(l=>[`${l}/mcp/index.html`,`${l}/mcp/connect/index.html`])]) {
+for (const path of ["assets", "favicon.svg", "app-version.json", "robots.txt", "sitemap.xml", ...["en","zh-TW","zh-CN","ja","ko"].flatMap(l=>[`${l}/mcp/index.html`,`${l}/mcp/skill/index.html`,`${l}/mcp/connect/index.html`,`skills/${l}/active-etf-research/SKILL.md`])]) {
   if (existsSync("dist/"+path)) cpSync("dist/"+path, resolve(target,"public-agent",path), {recursive:true});
 }
-console.log("Standalone HTTP entry packaged; market timers and Skill pages are not registered or served.");
+console.log("Standalone HTTP entry packaged with five-language public Skill guides and sitemap; market timers are not registered.");

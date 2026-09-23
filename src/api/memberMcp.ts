@@ -35,6 +35,11 @@ function getApplication() {
       const allow = process.env.MCP_BETA_MEMBER_IDS?.split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+      const releaseStage = process.env.MCP_RELEASE_STAGE ?? "test";
+      if (releaseStage !== "test" && releaseStage !== "production")
+        throw Error("Invalid MCP release stage");
+      if (releaseStage === "production" && allow?.length)
+        throw Error("Production member MCP cannot retain a beta allowlist");
       return createAgentHandler({
         origin,
         apiPrefix: "/api",
@@ -43,7 +48,7 @@ function getApplication() {
         requestTimeoutMs: 15000,
         allowedMembers: allow?.length ? new Set(allow) : undefined,
         provider: cachedResearchProvider(createResearchProvider(getDb)),
-        releaseStage: "test",
+        releaseStage,
       });
     })().catch((e) => {
       application = undefined;

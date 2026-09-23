@@ -117,6 +117,9 @@ function staticSeoShell(metadata: RouteMetadata, liveContent = ""): string {
   const usageCopy = metadata.path === "/data-usage/"
     ? "<p>台灣資料主要來自證交所、櫃買中心、公開資訊觀測站與各投信官方揭露；海外 ETF 來自發行商官方持股，13F 來自美國 SEC。</p><p>資料可能因來源公告時點、交易日與申報制度而延遲。本站未宣稱對第三方原始資料授予額外授權；請依各官方來源的使用條款。</p>"
     : "";
+  const memberMcpLink = metadata.path === "/"
+    ? '<section aria-label="免費會員 AI 研究工具"><h2>免費會員 MCP 與 Skill</h2><p>把 ETF 持股、調倉與比較資料連接到 AI，每日免費 20 研究點數。</p><a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp">了解會員 MCP</a> · <a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill">Skill 安裝說明</a></section>'
+    : "";
   return [
     "<!-- SEO_BODY_START -->",
     '      <main class="static-seo-shell">',
@@ -125,6 +128,7 @@ function staticSeoShell(metadata: RouteMetadata, liveContent = ""): string {
     `        <h1>${escapeHtml(metadata.h1)}</h1>`,
     `        <p>${escapeHtml(metadata.intro)}</p>`,
     liveContent,
+    memberMcpLink,
     usageCopy,
     `        <ul>${links}</ul>`,
     '        <p class="seo-disclosure">本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>',

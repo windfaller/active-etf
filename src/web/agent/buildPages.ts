@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { agentCopy, agentLocales, skillMarkdown } from "../../shared/agentCopy";
 const escape = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export function agentPagesPlugin(): Plugin {
   return {
     name: "member-agent-pages",
@@ -18,6 +18,7 @@ export function agentPagesPlugin(): Plugin {
         const site = (
           process.env.VITE_AGENT_SITE_ORIGIN ?? "https://active-etf.inthewins.com"
         ).replace(/\/$/, "");
+        const gatewayOrigin = (process.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-mcp.inthewins.com").replace(/\/$/, "");
         for (const lang of agentLocales) {
           const t = agentCopy[lang];
           for (const page of pages) {
@@ -28,8 +29,16 @@ export function agentPagesPlugin(): Plugin {
                   : page === "/connect"
                     ? t.account
                     : t.title;
-            const head = `<!-- SEO_HEAD_START --><title>${escape(title)} · ${escape(t.brand)}</title><meta name="description" content="${escape(page === "/skill" ? t.skillIntro : t.intro)}"><meta name="robots" content="${page === "/connect" ? "noindex, nofollow" : "index, follow"}"><link rel="canonical" href="${site}${path}">${agentLocales.map((l) => `<link rel="alternate" hreflang="${l}" href="${site}/${l}/mcp${page}">`).join("")}<link rel="alternate" hreflang="x-default" href="${site}/en/mcp${page}"><!-- SEO_HEAD_END -->`;
-            const body = `<!-- SEO_BODY_START --><main class="static-seo-shell"><h1>${escape(title)}</h1><p>${escape(page === "/skill" ? t.skillIntro : t.intro)}</p><a href="/${lang}/mcp">${escape(t.overview)}</a>${skillPublic ? ` · <a href="/${lang}/mcp/skill">${escape(t.skill)}</a>` : ""}</main><!-- SEO_BODY_END -->`;
+            const description = page === "/skill" ? t.skillIntro : t.intro;
+            const canonical = site + path;
+            const structuredData = JSON.stringify({"@context":"https://schema.org","@type":"WebPage",name:title+" · "+t.brand,description,url:canonical,inLanguage:lang}).replace(/</g,"\\u003c");
+            const alternate = agentLocales.map(l => '<link rel="alternate" hreflang="'+l+'" href="'+site+'/'+l+'/mcp'+page+'">').join("");
+            const head = '<!-- SEO_HEAD_START --><title>'+escape(title)+' · '+escape(t.brand)+'</title><meta name="description" content="'+escape(description)+'"><meta name="robots" content="'+(page === "/connect" ? "noindex, nofollow" : "index, follow")+'"><link rel="canonical" href="'+canonical+'">'+alternate+'<link rel="alternate" hreflang="x-default" href="'+site+'/en/mcp'+page+'"><meta property="og:type" content="website"><meta property="og:site_name" content="'+escape(t.brand)+'"><meta property="og:title" content="'+escape(title)+' · '+escape(t.brand)+'"><meta property="og:description" content="'+escape(description)+'"><meta property="og:url" content="'+canonical+'"><meta name="twitter:card" content="summary"><script type="application/ld+json">'+structuredData+'</script><!-- SEO_HEAD_END -->';
+            const details = page === "/skill"
+              ? "<h2>"+escape(t.workflow)+"</h2><ol>"+[t.step1,t.step2,t.step3,t.step4].map(step=>"<li>"+escape(step)+"</li>").join("")+"</ol><h2>"+escape(t.install)+"</h2><p>"+escape(t.installText)+"</p><p>"+escape(t.installChat)+"</p><p>"+escape(t.installGrok)+"</p><a href=\""+site+"/skills/"+lang+"/active-etf-research/SKILL.md\">"+escape(t.download)+"</a><h2>"+escape(t.prompts)+"</h2><ul>"+[t.prompt1,t.prompt2,t.prompt3].map(prompt=>"<li>"+escape(prompt)+"</li>").join("")+"</ul><h2>"+escape(t.limits)+"</h2><p>"+escape(t.limitsText)+"</p><p>"+escape(t.scope)+"</p>"
+              : page === "/connect" ? ""
+              : "<p>"+escape(t.scope)+"</p><h2>"+escape(t.quotaTitle)+"</h2><p>"+escape(t.quota)+"</p><h2>"+escape(t.tools)+"</h2><p>"+[t.search,t.snapshot,t.changes,t.comparison,t.stock,t.brief].map(escape).join(" · ")+"</p><p>"+escape(t.platformCosts)+"</p>";
+            const body = '<!-- SEO_BODY_START --><main class="static-seo-shell"><h1>'+escape(title)+'</h1><p>'+escape(description)+'</p>'+details+'<nav><a href="/'+lang+'/mcp">'+escape(t.overview)+'</a>'+(skillPublic ? ' · <a href="/'+lang+'/mcp/skill">'+escape(t.skill)+'</a>' : "")+'</nav></main><!-- SEO_BODY_END -->';
             const html = base
               .replace(/<html[^>]*>/, '<html lang="' + lang + '">')
               .replace(
@@ -49,6 +58,11 @@ export function agentPagesPlugin(): Plugin {
           mkdirSync(dest, { recursive: true });
           writeFileSync(resolve(dest, "SKILL.md"), skillMarkdown(lang));
           }
+        }
+        if (skillPublic) {
+          writeFileSync(resolve(root, "robots.txt"), "User-agent: *\nAllow: /\nSitemap: " + site + "/sitemap.xml\n");
+          const urls = agentLocales.flatMap(lang => ["/"+lang+"/mcp", "/"+lang+"/mcp/skill"]);
+          writeFileSync(resolve(root, "sitemap.xml"), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+urls.map(path => "<url><loc>"+site+path+"</loc></url>").join("")+"</urlset>\n");
         }
         const configPath = resolve(root, "staticwebapp.config.json"),
           config = JSON.parse(readFileSync(configPath, "utf8"));
@@ -75,7 +89,6 @@ export function agentPagesPlugin(): Plugin {
           ["/.well-known/oauth-protected-resource", protectedResource],
           ["/.well-known/oauth-protected-resource/api/mcp", protectedResource],
         ] as const;
-        const gatewayOrigin = (process.env.VITE_MCP_PUBLIC_ORIGIN ?? "https://active-etf-mcp.inthewins.com").replace(/\/$/, "");
         const discoveryRoutes = discovery.map(([path, data], i) => {
           if (site !== gatewayOrigin) return {route: path, redirect: gatewayOrigin + path, statusCode: 302, headers: {"cache-control": "no-store"}};
           const target = `/mcp-discovery-${i}.json`;
@@ -97,10 +110,15 @@ export function agentPagesPlugin(): Plugin {
           ] : []),
           ...discoveryRoutes,
           ...agentLocales.flatMap((lang) =>
-            pages.map((page) => ({
+            pages.map((page) => site === gatewayOrigin ? ({
               route: `/${lang}/mcp${page}`,
               rewrite: `/${lang}/mcp${page}/index.html`,
               headers: { "cache-control": "no-cache, must-revalidate" },
+            }) : ({
+              route: `/${lang}/mcp${page}`,
+              redirect: `${gatewayOrigin}/${lang}/mcp${page}`,
+              statusCode: 302,
+              headers: { "cache-control": "no-store" },
             })),
           ),
           ...config.routes,
