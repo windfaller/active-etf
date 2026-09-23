@@ -1,16 +1,16 @@
 # Current deployment
 
-The public website stays on Azure Static Web Apps. Standard MCP is hosted separately at https://active-etf-mcp.inthewins.com/api/mcp because SWA managed Functions overwrite Authorization. The standalone Function serves its OAuth endpoints and consent UI on the same origin. Public Skill pages/downloads are disabled by default (`VITE_MCP_SKILL_PUBLIC` must remain unset/false until acceptance). The main-site entry is removed.
+The market website stays on Azure Static Web Apps. Standard MCP is hosted separately at https://active-etf-mcp.inthewins.com/api/mcp because SWA managed Functions overwrite Authorization. The standalone Function serves OAuth, consent UI, and public five-language Skill guides on the same origin. Build the gateway with `VITE_MCP_SKILL_PUBLIC=true`; the market site redirects its MCP links there.
 
 ## Repeatable independent deployment
 
 1. Build a clean Git snapshot: `npm ci`, `npm run functions:build`; run tests.
-2. Build the consent UI with `VITE_AGENT_SITE_ORIGIN` and `VITE_MCP_PUBLIC_ORIGIN` both set to `https://active-etf-mcp.inthewins.com`, plus `GITHUB_SHA` set to the release commit.
+2. Build the consent UI with `VITE_AGENT_SITE_ORIGIN` and `VITE_MCP_PUBLIC_ORIGIN` both set to `https://active-etf-mcp.inthewins.com`, `VITE_MCP_SKILL_PUBLIC=true`, and `GITHUB_SHA` set to the release commit.
 3. Run `node scripts/package-member-mcp.mjs <fresh-output-directory>` and install production dependencies there with `npm ci --omit=dev --ignore-scripts`.
 4. Apply `infra/member-mcp/main.bicep` only after validate/what-if. On existing deployments, preserve runtime app settings: the base template does not contain MongoDB/Redis credentials; re-run the configuration script after applying infrastructure.
 5. Run `python3 scripts/configure-member-mcp.py` to copy only the necessary existing SWA connection settings to the Function, without logging values.
 6. ZIP the output directory contents and upload with `az functionapp deployment source config-zip --resource-group active-etf --name active-etf-member-mcp --src <zip> --build-remote false`.
-7. Verify live app-version, protocol/auth/quota and Skill 404s. SWA CI deploys the website only; it does not automatically update this independent Function.
+7. Verify live app-version, protocol/auth/quota and the five public Skill routes. SWA CI deploys the website only; it does not automatically update this independent Function.
 
 # Free member MCP runtime
 
@@ -45,7 +45,7 @@ Existing `MONGODB_URI` and `MONGODB_DB_NAME` are reused. Dedicated `member_mcp_r
 | get_stock_context | 2 |
 | build_research_brief | 3 |
 
-A versioned per-member/day MongoDB document atomically reserves and charges quota using compare-and-swap. This works across Function instances without requiring replica-set transactions. Two pending operations and 20 calls/minute are allowed. Empty or failed reads do not charge. Matching normalized arguments return the same member-specific snapshot within ten minutes without another charge. Cache results are stored separately so large holdings never inflate the ledger document. Research history is bounded to 30 days; comparisons to three supported Taiwan-listed ETFs.
+A versioned per-member/day MongoDB document atomically reserves and charges quota using compare-and-swap. This works across Function instances without requiring replica-set transactions. Two pending operations and 20 calls/minute are allowed. Empty or failed reads do not charge. Matching normalized arguments return the same member-specific snapshot within ten minutes without another charge. Cache results are stored separately so large holdings never inflate the ledger document. Research history is bounded to 30 days; comparisons to three supported ETFs from the same listing market. Taiwan-listed and US-listed ETFs are supported; 13F portfolios are excluded. Overseas issuer dates can differ, and overseas holding-change results are bounded and marked when truncated.
 
 Existing Redis is optional and caches public research payloads for five minutes under `active-etf:mcp:v1:research:`. Authorization and authoritative quota always remain in MongoDB; a Redis outage falls back to the provider and cannot bypass either. Anonymous OAuth abuse controls currently use a conservative shared ingress bucket; tune trusted client-IP handling before a broad public launch. Elasticsearch is not needed for this release.
 
@@ -74,7 +74,7 @@ See `member-mcp-validation.md` for observed deployment and platform acceptance e
 
 ## Member portal onboarding
 
-The five-language `/mcp/connect` page includes a three-step connection guide, a copyable canonical MCP URL, ChatGPT/Grok setup notes, and copyable usage (0 points), holdings (1 point) and comparison (2 points) prompts. The guide is also visible before sign-in so members can understand the flow, but it is omitted during an active OAuth consent request. Prompts are pasted into the connected AI chat; the portal does not itself execute research tools. Copying does not consume quota. Signed-in members see the appropriate next-step message instead of the signed-out notice. Public Skill pages and downloads remain hidden.
+The five-language `/mcp/connect` page includes a three-step connection guide, a copyable canonical MCP URL, ChatGPT/Grok setup notes, and copyable usage (0 points), holdings (1 point), Taiwan comparison (2 points), and US-listed ETF comparison (2 points) prompts. The guide is also visible before sign-in so members can understand the flow, but it is omitted during an active OAuth consent request. Prompts are pasted into the connected AI chat; the portal does not itself execute research tools. Copying does not consume quota. Signed-in members see the appropriate next-step message instead of the signed-out notice. Public Skill pages and downloads are available on the gateway.
 
 ## Manual member installation
 
@@ -82,7 +82,7 @@ The member portal now has Codex/local Skill, ChatGPT web and Grok web choices. O
 
 The portal also documents Claude Code and Claude web in all five languages. Claude Code can use the signed-in one-prompt installation guide: it saves `SKILL.md` at `~/.claude/skills/active-etf-research/SKILL.md`, adds the HTTP MCP URL with `claude mcp add --scope user --transport http active-etf https://active-etf-mcp.inthewins.com/api/mcp` only if absent, and starts OAuth from `/mcp` or `claude mcp login active-etf`. Claude web users add a custom remote connector through Customize → Connectors and enable it per chat; Team/Enterprise owners add the connector at organization level first. A local Skill is not imported by the web connector. The public Skill page and prerendered SEO body describe both paths. References: https://code.claude.com/docs/en/mcp, https://code.claude.com/docs/en/skills, and https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp.
 
-GET /api/agent/skill?lang=en (or zh-TW/zh-CN/ja/ko) requires an active browser member session and honors the beta member restriction. It returns a localized SKILL.md attachment with no-store and noindex, without tokens or member data, and does not consume points. The source Skill explains connection setup, client-managed refresh, and a zero-point get_my_plan_usage check. Public Skill routes/downloads remain disabled. Web connectors have separate instructions and do not claim automatic local Skill import. User checkboxes are manual, temporary acknowledgements, not telemetry or proof of successful OAuth. Actual user installation and real platform acceptance are left for the user to perform as requested.
+GET /api/agent/skill?lang=en (or zh-TW/zh-CN/ja/ko) requires an active browser member session and honors the beta member restriction. It returns a localized SKILL.md attachment with no-store and noindex, without tokens or member data, and does not consume points. The source Skill explains connection setup, client-managed refresh, and a zero-point get_my_plan_usage check. Public credential-free Skill routes/downloads are also available on the gateway. Web connectors have separate instructions and do not claim automatic local Skill import. User checkboxes are manual, temporary acknowledgements, not telemetry or proof of successful OAuth. Actual user installation and real platform acceptance are left for the user to perform as requested.
 
 ## One-prompt member installation
 

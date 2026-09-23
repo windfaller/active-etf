@@ -23,7 +23,7 @@ const en = {
   intro:
     "Connect your AI to sourced ETF holdings, portfolio changes and comparisons. Free membership. No credit card.",
   scope:
-    "The first release covers supported Taiwan-listed ETFs, including Taiwan-listed funds investing overseas. It does not yet cover US-listed ETFs or 13F portfolios.",
+    "Covers supported Taiwan-listed and US-listed ETFs. Compare funds within one listing market; issuer data dates can differ. 13F portfolios are not included.",
   daily: "Research points / day",
   history: "Days of holding changes",
   compare: "ETFs per comparison",
@@ -82,6 +82,7 @@ const en = {
     "Summarize the last 7 days of holding changes for 00981A. Separate raw changes from scale-adjusted changes.",
   prompt3:
     "Which tracked ETFs hold 2330? Show their source dates and recent observed changes.",
+    prompt4: "Compare US-listed ETFs DRAM and NASA: shared holdings, different exposures, and each issuer's data date.",
   limits: "What this service does not do",
   limitsText:
     "No trading, personalized buy/sell instructions or advertising. A data date is not a real-time quote. Company and fund names remain in their source language.",
@@ -137,7 +138,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     intro:
       "連接有來源的 ETF 持股、調倉與比較資料。免費會員即可使用，不需信用卡。",
     scope:
-      "首版支援已收錄的台灣掛牌 ETF，包含投資海外的台灣掛牌基金；尚不包含美國掛牌 ETF 與 13F 機構資料。",
+      "支援已收錄的台灣及美國掛牌 ETF。同市場 ETF 可互相比較，需逐檔核對官方資料日期；不包含 13F 機構申報。",
     daily: "每日研究點",
     history: "日持股變化",
     compare: "檔 ETF 同時比較",
@@ -191,6 +192,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     prompt2: "整理 00981A 最近 7 天持股變化，區分表面變化與規模校正後變化。",
     prompt3:
       "目前追蹤的 ETF 中，哪些持有 2330？列出資料日期與近期觀察到的變化。",
+      prompt4: "比較美國掛牌 ETF DRAM 與 NASA 的共同持股、配置差異及各自的官方資料日期。",
     limits: "服務範圍",
     limitsText:
       "不提供交易、個人化買賣指示或廣告。資料日期不等於即時報價；公司與基金名稱保留來源語言。",
@@ -237,7 +239,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     intro:
       "连接有来源的 ETF 持仓、调仓与比较数据。免费会员即可使用，无需信用卡。",
     scope:
-      "首版支持已收录的台湾上市 ETF，包括投资海外的台湾上市基金；暂不包含美国上市 ETF 和 13F 机构数据。",
+      "支持已收录的台湾及美国上市 ETF。同一市场的 ETF 可以比较，需逐只核对官方数据日期；不包含 13F 机构申报。",
     daily: "每日研究点",
     history: "天持仓变化",
     compare: "只 ETF 同时比较",
@@ -291,6 +293,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     prompt2: "整理 00981A 最近 7 天持仓变化，区分表面变化与规模调整后变化。",
     prompt3:
       "目前跟踪的 ETF 中，哪些持有 2330？列出数据日期与近期观察到的变化。",
+      prompt4: "比较美国上市 ETF DRAM 与 NASA 的共同持仓、配置差异及各自的官方数据日期。",
     limits: "服务范围",
     limitsText:
       "不提供交易、个性化买卖指令或广告。数据日期不等于实时报价；公司与基金名称保留来源语言。",
@@ -337,7 +340,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     intro:
       "出典付きの保有銘柄、保有変動、ETF 比較データに接続。会員登録で無料利用。クレジットカードは不要です。",
     scope:
-      "初版は収録済みの台湾上場 ETF が対象です。海外に投資する台湾上場ファンドも含みます。米国上場 ETF と 13F はまだ対象外です。",
+      "収録済みの台湾上場 ETF と米国上場 ETF に対応します。同じ市場の ETF を比較でき、発行会社ごとのデータ日付を確認できます。13F は対象外です。",
     daily: "1 日のリサーチポイント",
     history: "日間の保有変動",
     compare: "同時比較できる ETF",
@@ -396,6 +399,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
       "00981A の直近 7 日間の保有変動を、実際の変動と規模調整後の変動に分けて整理してください。",
     prompt3:
       "追跡中の ETF のうち、2330 を保有するものは？データ日付と最近の変動を示してください。",
+      prompt4: "米国上場 ETF の DRAM と NASA の共通保有銘柄、配分の違い、各発行会社のデータ日付を比較してください。",
     limits: "サービスの範囲",
     limitsText:
       "取引、個別の売買指示、広告は提供しません。データ日付はリアルタイム価格ではありません。会社名・ファンド名は原語を保持します。",
@@ -446,7 +450,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
     intro:
       "출처가 있는 ETF 보유종목, 보유 변동 및 비교 데이터에 연결하세요. 무료 회원으로 이용하며 신용카드는 필요하지 않습니다.",
     scope:
-      "첫 버전은 등록된 대만 상장 ETF를 지원합니다. 해외에 투자하는 대만 상장 펀드도 포함하며, 미국 상장 ETF와 13F는 아직 지원하지 않습니다.",
+      "등록된 대만 및 미국 상장 ETF를 지원합니다. 같은 시장의 ETF끼리 비교하고 각 운용사의 데이터 날짜를 확인할 수 있습니다. 13F 자료는 제외됩니다.",
     daily: "일일 리서치 포인트",
     history: "일간 보유 변동",
     compare: "동시 비교 ETF 수",
@@ -505,6 +509,7 @@ export const agentCopy: Record<AgentLocale, AgentCopy> = {
       "00981A의 최근 7일 보유 변동을 단순 변동과 펀드 규모 조정 후 변동으로 구분해 정리해 주세요.",
     prompt3:
       "추적 중인 ETF 가운데 2330을 보유한 ETF는 무엇인가요? 데이터 날짜와 최근 관찰된 변동을 보여 주세요.",
+      prompt4: "미국 상장 ETF DRAM과 NASA의 공통 보유 종목, 편입 비중 차이 및 각 운용사의 데이터 날짜를 비교해 주세요.",
     limits: "서비스 범위",
     limitsText:
       "거래, 개인별 매매 지시 또는 광고를 제공하지 않습니다. 데이터 날짜는 실시간 시세를 뜻하지 않습니다. 회사 및 펀드 이름은 원어로 유지합니다.",
@@ -556,5 +561,5 @@ export const agentToolRows = [
 ] as const;
 export function skillMarkdown(locale: AgentLocale): string {
   const t = agentCopy[locale];
-  return `---\nname: active-etf-research\ndescription: Research supported Taiwan-listed ETF holdings, portfolio changes, overlap, and stock ownership through the Active ETF member MCP. Use for factual ETF research and comparisons.\n---\n\n# ${t.skillTitle}\n\n${t.skillIntro}\n\n${t.scope}\n\n${t.endpoint}: https://active-etf-mcp.inthewins.com/api/mcp\n${t.account}: https://active-etf-mcp.inthewins.com/${locale}/mcp/connect\n\n## ${t.workflow}\n\n1. ${t.step1}\n2. ${t.step2}\n3. ${t.step3}\n4. ${t.step4}\n\n## ${t.tools}\n\n${agentToolRows.map(([name, label, cost]) => `- \`${name}\`: ${t[label]} (${cost} ${t.points}).`).join("\n")}\n\n${t.quota}\n${t.fair}\n\nTool arguments: search_market_entities({query}); get_etf_snapshot({code}); get_etf_changes({code, days:1..30}); compare_etfs({codes:[2..3 distinct codes]}); get_stock_context({symbol}); build_research_brief({codes:[1..3 distinct codes]}); get_my_plan_usage({}).\n\nConnection setup: This Skill requires a separately configured OAuth MCP client. If tools are unavailable, guide the user to add the MCP URL in their client and complete browser authorization. For Codex CLI, use \`codex mcp add active-etf --url https://active-etf-mcp.inthewins.com/api/mcp\` and, when authentication is needed, \`codex mcp login active-etf\`. For Claude Code, save this file at ~/.claude/skills/active-etf-research/SKILL.md, add an absent server with claude mcp add --scope user --transport http active-etf https://active-etf-mcp.inthewins.com/api/mcp, then authenticate from /mcp or claude mcp login active-etf. Claude web uses Customize → Connectors for the remote MCP connection and does not load this local file automatically. Keep existing client settings. Use native OAuth discovery and authorization; never invent or edit authorization URLs, PKCE, state or callback parameters. If a link expires or fails validation, restart the native client connection to obtain a fresh link; do not keep refreshing the failed page. If browser login state expires, sign in again in the same browser. After connecting, call get_my_plan_usage({}) as a zero-point check. Let the client manage token storage and refresh; never place credentials in this Skill or chat.\n\nOn invalid_token, let the client refresh first; if that fails, ask the user to reconnect through OAuth. On quota_exceeded, report resetsAt and stop retries. On request_in_progress or rate_limited, do not loop. Keep missing observations explicit. Repeated queries within the cache window return the prior snapshot. Never ask users to paste tokens in chat.\n\n## ${t.prompts}\n\n- ${t.prompt1}\n- ${t.prompt2}\n- ${t.prompt3}\n\n${t.limitsText}\n${t.disclaimer}\n`;
+  return `---\nname: active-etf-research\ndescription: Research supported Taiwan-listed and US-listed ETF holdings, portfolio changes, overlap, and stock ownership through the Active ETF member MCP. Use for factual ETF research and comparisons.\n---\n\n# ${t.skillTitle}\n\n${t.skillIntro}\n\n${t.scope}\n\n${t.endpoint}: https://active-etf-mcp.inthewins.com/api/mcp\n${t.account}: https://active-etf-mcp.inthewins.com/${locale}/mcp/connect\n\n## ${t.workflow}\n\n1. ${t.step1}\n2. ${t.step2}\n3. ${t.step3}\n4. ${t.step4}\n\n## ${t.tools}\n\n${agentToolRows.map(([name, label, cost]) => `- \`${name}\`: ${t[label]} (${cost} ${t.points}).`).join("\n")}\n\n${t.quota}\n${t.fair}\n\nTool arguments: search_market_entities({query, market:"all"|"tw"|"us"}); get_etf_snapshot({code}); get_etf_changes({code, days:1..30, limit?:1..500}); compare_etfs({codes:[2..3 distinct codes from the same listing market]}); get_stock_context({symbol, market?:"tw"|"us"}); build_research_brief({codes:[1..3 distinct codes]}); get_my_plan_usage({}). US-listed ETF changes are bounded and may be truncated; weight changes are not necessarily trades. 13F portfolios are excluded.\n\nConnection setup: This Skill requires a separately configured OAuth MCP client. If tools are unavailable, guide the user to add the MCP URL in their client and complete browser authorization. For Codex CLI, use \`codex mcp add active-etf --url https://active-etf-mcp.inthewins.com/api/mcp\` and, when authentication is needed, \`codex mcp login active-etf\`. For Claude Code, save this file at ~/.claude/skills/active-etf-research/SKILL.md, add an absent server with claude mcp add --scope user --transport http active-etf https://active-etf-mcp.inthewins.com/api/mcp, then authenticate from /mcp or claude mcp login active-etf. Claude web uses Customize → Connectors for the remote MCP connection and does not load this local file automatically. Keep existing client settings. Use native OAuth discovery and authorization; never invent or edit authorization URLs, PKCE, state or callback parameters. If a link expires or fails validation, restart the native client connection to obtain a fresh link; do not keep refreshing the failed page. If browser login state expires, sign in again in the same browser. After connecting, call get_my_plan_usage({}) as a zero-point check. Let the client manage token storage and refresh; never place credentials in this Skill or chat.\n\nOn invalid_token, let the client refresh first; if that fails, ask the user to reconnect through OAuth. On quota_exceeded, report resetsAt and stop retries. On request_in_progress or rate_limited, do not loop. Keep missing observations explicit. Repeated queries within the cache window return the prior snapshot. Never ask users to paste tokens in chat.\n\n## ${t.prompts}\n\n- ${t.prompt1}\n- ${t.prompt2}\n- ${t.prompt3}\n- ${t.prompt4}\n\n${t.limitsText}\n${t.disclaimer}\n`;
 }

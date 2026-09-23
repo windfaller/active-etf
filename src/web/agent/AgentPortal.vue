@@ -428,7 +428,7 @@ onMounted(() => {
           <h2>{{ t.prompts }}</h2>
           <div class="agent-prompts">
             <article
-              v-for="key in ['prompt1', 'prompt2', 'prompt3'] as const"
+              v-for="key in ['prompt1', 'prompt2', 'prompt3', 'prompt4'] as const"
               :key="key"
             >
               <p>{{ t[key] }}</p>

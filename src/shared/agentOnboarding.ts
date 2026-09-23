@@ -6,8 +6,8 @@ const en = {
   note: 'Website sign-in does not connect your AI automatically. Ask these questions in your connected AI chat; this page manages connections and usage.',
   examples: 'Start with these examples',
   hint: 'Copying a prompt does not spend points. Points are charged when a research tool succeeds. If the AI cannot find the tools, check that this connection is enabled.',
-  labels: ['Check my allowance · 0 points', 'First holdings query · 1 point', 'Compare two ETFs · 2 points'],
-  prompts: ['Use the ETF MCP connection to show my remaining research points and next reset time.', 'Use the ETF MCP connection to show the latest holdings of 00981A. Include the data date and sources; explain if data is missing.', 'Use the ETF MCP connection to compare 00981A and 00991A. Summarize shared holdings, different exposures and data dates.'],
+  labels: ['Check my allowance · 0 points', 'First holdings query · 1 point', 'Compare two ETFs · 2 points', 'US-listed ETF example · 2 points'],
+  prompts: ['Use the ETF MCP connection to show my remaining research points and next reset time.', 'Use the ETF MCP connection to show the latest holdings of 00981A. Include the data date and sources; explain if data is missing.', 'Use the ETF MCP connection to compare 00981A and 00991A. Summarize shared holdings, different exposures and data dates.', 'Use the ETF MCP connection to compare US-listed ETFs DRAM and NASA. Show shared holdings, exposure differences, and each issuer\'s data date.'],
 };
 type Copy = { [K in keyof typeof en]: typeof en[K] };
 export const agentOnboarding: Record<AgentLocale, Copy> = {
@@ -19,8 +19,8 @@ export const agentOnboarding: Record<AgentLocale, Copy> = {
     note: '登入本網站不會自動連接 AI。請在已連接的 AI 對話中提問；此頁用於管理連接與查看用量。',
     examples: '先試試這些基本範例',
     hint: '複製範例不扣點，研究工具成功執行才扣點。若 AI 找不到工具，請確認已啟用此連接。',
-    labels: ['查看剩餘配額 · 0 點', '第一次查持股 · 1 點', '比較兩檔 ETF · 2 點'],
-    prompts: ['請使用 ETF MCP 連接，查看我今天剩餘的研究點數與下次重設時間。', '請使用 ETF MCP 連接，查詢 00981A 最新持股，附上資料日期與來源；若有缺漏請說明。', '請使用 ETF MCP 連接，比較 00981A 與 00991A 的共同持股、配置差異與資料日期。'],
+    labels: ['查看剩餘配額 · 0 點', '第一次查持股 · 1 點', '比較兩檔 ETF · 2 點', '美國掛牌 ETF 範例 · 2 點'],
+    prompts: ['請使用 ETF MCP 連接，查看我今天剩餘的研究點數與下次重設時間。', '請使用 ETF MCP 連接，查詢 00981A 最新持股，附上資料日期與來源；若有缺漏請說明。', '請使用 ETF MCP 連接，比較 00981A 與 00991A 的共同持股、配置差異與資料日期。', '請使用 ETF MCP 連接，比較美國掛牌 ETF DRAM 與 NASA 的共同持股、配置差異及各自的官方資料日期。'],
   },
   'zh-CN': {
     signedIn: '已登录会员。接下来连接你的 AI，即可开始使用研究点数。',
@@ -29,8 +29,8 @@ export const agentOnboarding: Record<AgentLocale, Copy> = {
     note: '登录本网站不会自动连接 AI。请在已连接的 AI 对话中提问；此页用于管理连接与查看用量。',
     examples: '先试试这些基本示例',
     hint: '复制示例不扣点，研究工具成功执行才扣点。如果 AI 找不到工具，请确认已启用此连接。',
-    labels: ['查看剩余额度 · 0 点', '首次查询持仓 · 1 点', '比较两只 ETF · 2 点'],
-    prompts: ['请使用 ETF MCP 连接，查看我今天剩余的研究点数与下次重置时间。', '请使用 ETF MCP 连接，查询 00981A 最新持仓，附上数据日期与来源；如有缺失请说明。', '请使用 ETF MCP 连接，比较 00981A 与 00991A 的共同持仓、配置差异与数据日期。'],
+    labels: ['查看剩余额度 · 0 点', '首次查询持仓 · 1 点', '比较两只 ETF · 2 点', '美国上市 ETF 示例 · 2 点'],
+    prompts: ['请使用 ETF MCP 连接，查看我今天剩余的研究点数与下次重置时间。', '请使用 ETF MCP 连接，查询 00981A 最新持仓，附上数据日期与来源；如有缺失请说明。', '请使用 ETF MCP 连接，比较 00981A 与 00991A 的共同持仓、配置差异与数据日期。', '请使用 ETF MCP 连接，比较美国上市 ETF DRAM 与 NASA 的共同持仓、配置差异及各自的官方数据日期。'],
   },
   ja: {
     signedIn: 'ログイン済みです。AI を接続するとリサーチポイントを利用できます。',
@@ -39,8 +39,8 @@ export const agentOnboarding: Record<AgentLocale, Copy> = {
     note: 'このサイトへのログインだけでは AI は接続されません。質問は接続済みの AI チャットで行ってください。このページでは接続と利用状況を管理します。',
     examples: 'まずはこの質問から',
     hint: 'コピーだけではポイントを消費しません。リサーチツールの実行が成功すると消費します。ツールが見つからない場合は、接続が有効か確認してください。',
-    labels: ['残りポイントを確認 · 0 ポイント', '保有銘柄を調べる · 1 ポイント', '2 本の ETF を比較 · 2 ポイント'],
-    prompts: ['ETF MCP 接続を使い、本日の残りリサーチポイントと次回のリセット時刻を確認してください。', 'ETF MCP 接続を使い、00981A の最新保有銘柄をデータ日付と出典付きで調べてください。欠損があれば明示してください。', 'ETF MCP 接続を使い、00981A と 00991A の共通保有銘柄、配分の違い、データ日付を比較してください。'],
+    labels: ['残りポイントを確認 · 0 ポイント', '保有銘柄を調べる · 1 ポイント', '2 本の ETF を比較 · 2 ポイント', '米国上場 ETF の例 · 2 ポイント'],
+    prompts: ['ETF MCP 接続を使い、本日の残りリサーチポイントと次回のリセット時刻を確認してください。', 'ETF MCP 接続を使い、00981A の最新保有銘柄をデータ日付と出典付きで調べてください。欠損があれば明示してください。', 'ETF MCP 接続を使い、00981A と 00991A の共通保有銘柄、配分の違い、データ日付を比較してください。', 'ETF MCP 接続を使い、米国上場 ETF の DRAM と NASA の共通保有銘柄、配分の違い、各発行会社のデータ日付を比較してください。'],
   },
   ko: {
     signedIn: '로그인되었습니다. AI를 연결하면 리서치 포인트를 사용할 수 있습니다.',
@@ -49,7 +49,7 @@ export const agentOnboarding: Record<AgentLocale, Copy> = {
     note: '이 웹사이트에 로그인해도 AI가 자동으로 연결되지는 않습니다. 연결된 AI 대화에서 질문하세요. 이 페이지에서는 연결과 사용량을 관리합니다.',
     examples: '기본 예시로 시작하기',
     hint: '예시 복사에는 포인트가 들지 않습니다. 리서치 도구 실행에 성공하면 차감됩니다. AI가 도구를 찾지 못하면 연결이 활성화되어 있는지 확인하세요.',
-    labels: ['남은 한도 확인 · 0포인트', '첫 보유 종목 조회 · 1포인트', 'ETF 두 개 비교 · 2포인트'],
-    prompts: ['ETF MCP 연결을 사용해 오늘 남은 리서치 포인트와 다음 초기화 시간을 확인해 주세요.', 'ETF MCP 연결을 사용해 00981A의 최신 보유 종목을 데이터 날짜 및 출처와 함께 조회해 주세요. 누락된 데이터가 있으면 알려 주세요.', 'ETF MCP 연결을 사용해 00981A와 00991A의 공통 보유 종목, 비중 차이 및 데이터 날짜를 비교해 주세요.'],
+    labels: ['남은 한도 확인 · 0포인트', '첫 보유 종목 조회 · 1포인트', 'ETF 두 개 비교 · 2포인트', '미국 상장 ETF 예시 · 2포인트'],
+    prompts: ['ETF MCP 연결을 사용해 오늘 남은 리서치 포인트와 다음 초기화 시간을 확인해 주세요.', 'ETF MCP 연결을 사용해 00981A의 최신 보유 종목을 데이터 날짜 및 출처와 함께 조회해 주세요. 누락된 데이터가 있으면 알려 주세요.', 'ETF MCP 연결을 사용해 00981A와 00991A의 공통 보유 종목, 비중 차이 및 데이터 날짜를 비교해 주세요.', 'ETF MCP 연결을 사용해 미국 상장 ETF DRAM과 NASA의 공통 보유 종목, 비중 차이 및 각 운용사의 데이터 날짜를 비교해 주세요.'],
   },
 };

@@ -72,7 +72,7 @@ export function createAgentHandler(options: AgentOptions) {
           { name: "active-etf-research", version: "0.2.0" },
           {
             instructions:
-              "Read-only Taiwan-listed ETF research. Check source dates and missing observations. Free members share 20 daily points across clients. Respond in the user language. No trades or advertisements.",
+              "Read-only Taiwan-listed and US-listed ETF research. 13F portfolios are excluded; compare within one listing market. Check source dates and missing observations. Free members share 20 daily points across clients. Respond in the user language. No trades or advertisements.",
           },
         );
         for (const name of Object.keys(toolDefinitions) as ToolName[]) {

@@ -1,4 +1,4 @@
-import type { Db } from "mongodb";
+import type { Db, Filter } from "mongodb";
 import { configuredEtfs } from "../../config/etfs.js";
 import { findGlobalEtfConfig } from "../../config/globalEtfs.js";
 import type { EtfDailyHolding } from "../../models/EtfDailyHolding.js";
@@ -124,14 +124,14 @@ async function compareTaiwanEtfs(db: Db, codes: string[], date?: string) {
 
 async function latestGlobalSnapshot(db: Db, code: string, date?: string): Promise<GlobalEtfSnapshot | null> {
   return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").findOne(
-    { etfCode: code, strategyType: { $ne: "13f" }, sourceStatus: "ok", ...(date ? { sourceAsOf: { $lte: date } } : {}) },
+    { etfCode: code, strategyType: { $ne: "13f" }, sourceStatus: "ok", $or: [{ unusableReason: { $exists: false } }, { unusableReason: null } as unknown as Filter<GlobalEtfSnapshot>], rowCount: { $gt: 0 }, ...(date ? { sourceAsOf: { $lte: date } } : {}) },
     { sort: { sourceAsOf: -1, fetchedAt: -1 } }
   );
 }
 
 async function previousGlobalSnapshot(db: Db, snapshot: GlobalEtfSnapshot): Promise<GlobalEtfSnapshot | null> {
   return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").findOne(
-    { etfCode: snapshot.etfCode, sourceAsOf: { $lt: snapshot.sourceAsOf }, sourceStatus: "ok" },
+    { etfCode: snapshot.etfCode, sourceAsOf: { $lt: snapshot.sourceAsOf }, sourceStatus: "ok", $or: [{ unusableReason: { $exists: false } }, { unusableReason: null } as unknown as Filter<GlobalEtfSnapshot>], rowCount: { $gt: 0 } },
     { sort: { sourceAsOf: -1, fetchedAt: -1 } }
   );
 }

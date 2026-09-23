@@ -121,6 +121,8 @@ export function latestSnapshotsForStockPipeline(symbol: string, include13f: bool
         etfCode: { $in: codes },
         strategyType: include13f ? "13f" : { $ne: "13f" },
         sourceStatus: "ok",
+        unusableReason: null,
+        rowCount: { $gt: 0 },
         sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
       }
     },
