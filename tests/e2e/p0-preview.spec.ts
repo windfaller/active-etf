@@ -84,6 +84,22 @@ test("anonymous Google measurement starts before consent while Meta remains gate
   await expect(forvixEmbed.locator("iframe")).toHaveCount(1);
 });
 
+test("Agent Skill ad landing page initializes measurement with safe campaign attribution", async ({ page }) => {
+  await mockApis(page);
+  await page.goto("/zh-TW/mcp/skill?utm_source=google&utm_medium=paid&utm_campaign=active_etf_agent_skill_202609&request=secret");
+  await expect(page.locator('script[data-google-tag-id="G-DG02G9VVHY"]')).toHaveCount(1);
+  const pageView = await page.evaluate(() =>
+    ((window as typeof window & { dataLayer?: IArguments[] }).dataLayer ?? [])
+      .map((command) => Array.from(command))
+      .find((command) => command[0] === "event" && command[1] === "page_view")
+  );
+  expect(pageView?.[2]).toMatchObject({
+    page_destination: "mcp_skill",
+    page_location: "https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill?utm_source=google&utm_medium=paid&utm_campaign=active_etf_agent_skill_202609"
+  });
+  expect(JSON.stringify(pageView)).not.toContain("secret");
+});
+
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {
   await mockApis(page);
   for (const [path, heading] of directRoutes) {

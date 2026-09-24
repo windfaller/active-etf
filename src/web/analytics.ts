@@ -9,6 +9,8 @@ import {
 export const ACTIVE_ETF_COMPARE_COMPLETE_EVENT = "active_etf_compare_complete";
 export const ACTIVE_ETF_PAGE_CLICK_EVENT = "active_etf_page_click";
 export const ACTIVE_ETF_FEATURE_INTERACTION_EVENT = "active_etf_feature_interaction";
+export const ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT = "active_etf_skill_install_prompt_copied";
+export const ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT = "active_etf_skill_download_started";
 export type AuthAnalyticsEvent =
   | "active_etf_login_intent"
   | "active_etf_login_success"
@@ -78,6 +80,9 @@ type PageDestination =
   | "methodology"
   | "privacy"
   | "terms"
+  | "mcp_overview"
+  | "mcp_skill"
+  | "mcp_connect"
   | "other";
 
 export function pageDestination(pathname: string): PageDestination {
@@ -99,7 +104,45 @@ export function pageDestination(pathname: string): PageDestination {
   if (path === "/methodology") return "methodology";
   if (path === "/privacy") return "privacy";
   if (path === "/terms") return "terms";
+  if (/^\/(?:en|zh-TW|zh-CN|ja|ko)\/mcp\/skill$/u.test(path)) return "mcp_skill";
+  if (/^\/(?:en|zh-TW|zh-CN|ja|ko)\/mcp\/connect$/u.test(path)) return "mcp_connect";
+  if (/^\/(?:en|zh-TW|zh-CN|ja|ko)\/mcp$/u.test(path)) return "mcp_overview";
   return "other";
+}
+
+const AGENT_CAMPAIGN_PARAMETERS = [
+  "gclid", "gbraid", "wbraid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"
+] as const;
+
+export function safeAgentPageLocation(input: string): string {
+  const url = new URL(input);
+  const safe = new URL(url.pathname, "https://active-etf-mcp.inthewins.com");
+  for (const name of AGENT_CAMPAIGN_PARAMETERS) {
+    const value = url.searchParams.get(name);
+    if (value && value.length <= 500) safe.searchParams.set(name, value);
+  }
+  return safe.toString();
+}
+
+export function trackAgentPortalPageView(input: string = window.location.href): boolean {
+  const target = browserAnalyticsTarget();
+  if (!target) return false;
+  const destination = pageDestination(new URL(input).pathname);
+  if (!destination.startsWith("mcp_")) return false;
+  return sendAnalyticsEvent(target, "page_view", {
+    page_destination: destination,
+    page_location: safeAgentPageLocation(input),
+    page_title: `active_etf_${destination}`,
+    interaction_source: "initial_page_load"
+  });
+}
+
+export function trackAgentAction(
+  event: typeof ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT | typeof ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT,
+  source: "quick_install" | "skill_guide"
+): boolean {
+  const target = browserAnalyticsTarget();
+  return target ? sendAnalyticsEvent(target, event, { interaction_source: source }) : false;
 }
 
 export function trackInitialPageView(pathname: string): boolean {

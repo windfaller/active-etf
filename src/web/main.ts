@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import App from "./App.vue";
-import { trackFeatureInteraction, trackInitialPageView } from "./analytics";
+import { trackAgentPortalPageView, trackFeatureInteraction, trackInitialPageView } from "./analytics";
 import { startAppVersionMonitor } from "./cacheVersion";
 import { initializeColorMode } from "./composables/useColorMode";
 import { initializeTrackingConsent, installImpliedTrackingConsent } from "./consent";
@@ -8,10 +8,11 @@ import "./styles.css";
 
 initializeColorMode();
 
+initializeTrackingConsent();
 if (/^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/(?:skill|connect))?\/?$/.test(window.location.pathname)) {
+  trackAgentPortalPageView(window.location.href);
   void import("./agent/AgentPortal.vue").then(({default: AgentPortal}) => createApp(AgentPortal).mount("#app"));
 } else {
-  initializeTrackingConsent();
   installImpliedTrackingConsent(trackFeatureInteraction);
   trackInitialPageView(window.location.pathname);
   createApp(App).mount("#app");

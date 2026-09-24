@@ -4,6 +4,8 @@ import { agentCopy, type AgentLocale } from '../../shared/agentCopy';
 import { quickInstall } from '../../shared/agentBootstrap';
 import { agentInstall, installCommands, oauthReuse } from '../../shared/agentInstall';
 import { claudeCommands, claudeInstall } from '../../shared/claudeInstall';
+import { ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, trackAgentAction } from '../analytics';
+import { grantTrackingConsent } from '../consent';
 const props = defineProps<{locale: AgentLocale; authenticated: boolean; endpoint: string; csrfToken: string}>();
 const t = computed(() => agentCopy[props.locale]);
 const text = computed(() => agentInstall[props.locale]);
@@ -17,8 +19,8 @@ const error = ref('');
 const busy = ref(false);
 const checks = ref<boolean[]>([false,false,false]);
 async function copy(value: string, key: string) {
-  try { await navigator.clipboard.writeText(value); copied.value = key; error.value = ''; }
-  catch { error.value = t.value.copyError; }
+  try { await navigator.clipboard.writeText(value); copied.value = key; error.value = ''; return true; }
+  catch { error.value = t.value.copyError; return false; }
 }
 async function copyInstall() {
   busy.value = true; error.value = '';
@@ -27,7 +29,10 @@ async function copyInstall() {
     if (!response.ok) throw new Error(response.status === 401 ? 'login' : 'link');
     const data = await response.json();
     installPrompt.value = quick.value.prompt + '\n' + data.url;
-    await copy(installPrompt.value,'install');
+    if (await copy(installPrompt.value,'install')) {
+      grantTrackingConsent();
+      trackAgentAction(ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, 'quick_install');
+    }
   } catch(e) { error.value = e instanceof Error && e.message === 'login' ? quick.value.login : t.value.error; }
   finally { busy.value = false; }
 }

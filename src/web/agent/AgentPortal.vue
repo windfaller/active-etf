@@ -23,6 +23,7 @@ import {
 } from "../../shared/agentCopy";
 import { consumeBrowserAuthCallback } from "../auth/authService";
 import AgentInstall from "./AgentInstall.vue";
+import { ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, trackAgentAction, trackAuthEvent } from "../analytics";
 import { claudeInstall } from "../../shared/claudeInstall";
 import { recoveryAction, recoveryCopy } from "../../shared/agentRecovery";
 const errorCode = ref("");
@@ -130,15 +131,19 @@ async function load() {
     const cleanUrl = new URL(window.location.href);
     cleanUrl.searchParams.delete("login_state");
     window.history.replaceState({}, "", cleanUrl);
-    if (callback.idToken)
+    if (callback.idToken) {
       await call("/api/agent/session", {
         idToken: callback.idToken,
         loginState,
       });
+    }
     const session = await call("/api/agent/session");
     authenticated.value = session.authenticated;
     csrfToken.value = session.csrfToken ?? "";
     usage.value = session.usage;
+    if (callback.idToken && session.authenticated) {
+      trackAuthEvent(callback.action === "sign_up" ? "active_etf_sign_up_success" : "active_etf_login_success", "agent_portal_callback");
+    }
     if (request)
       authorization.value = await call(
         `/api/agent/authorization?request=${encodeURIComponent(request)}`,
@@ -169,6 +174,7 @@ function download() {
   a.href = url;
   a.download = "SKILL.md";
   a.click();
+  trackAgentAction(ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, "skill_guide");
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function signIn() {
