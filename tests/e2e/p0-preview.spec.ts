@@ -98,6 +98,14 @@ test("Agent Skill ad landing page initializes measurement with safe campaign att
     page_location: "https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill?utm_source=google&utm_medium=paid&utm_campaign=active_etf_agent_skill_202609"
   });
   expect(JSON.stringify(pageView)).not.toContain("secret");
+
+  await page.getByRole("button", { name: "複製", exact: true }).first().click();
+  const afterInteraction = await page.evaluate(() =>
+    ((window as typeof window & { dataLayer?: IArguments[] }).dataLayer ?? []).map((command) => Array.from(command))
+  );
+  expect(afterInteraction.filter((command) => command[0] === "consent" && command[1] === "update")).toHaveLength(1);
+  expect(afterInteraction.filter((command) => command[0] === "event" && command[1] === "page_view")).toHaveLength(2);
+  expect(afterInteraction.filter((command) => command[0] === "event" && command[1] === "active_etf_feature_interaction")).toHaveLength(1);
 });
 
 test("built static preview serves and hydrates every P0 direct route", async ({ page }) => {
