@@ -3,8 +3,12 @@ import {
   ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
   ACTIVE_ETF_FEATURE_INTERACTION_EVENT,
   ACTIVE_ETF_PAGE_CLICK_EVENT,
+  ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT,
   createEtfComparisonTracker,
   pageDestination,
+  safeAgentPageLocation,
+  trackAgentAction,
+  trackAgentPortalPageView,
   trackAuthEvent,
   trackFeatureInteraction,
   trackInitialPageView,
@@ -111,6 +115,31 @@ describe("Active ETF analytics", () => {
     expect(pageDestination("/institutions/BRK")).toBe("institution");
     expect(pageDestination("/privacy")).toBe("privacy");
     expect(pageDestination("/terms")).toBe("terms");
+    expect(pageDestination("/zh-TW/mcp/skill")).toBe("mcp_skill");
+    expect(pageDestination("/en/mcp/connect?request=secret")).toBe("mcp_connect");
+  });
+
+  it("attributes Agent Skill visits while excluding OAuth credentials and request tickets", () => {
+    const previousWindow = globalThis.window;
+    const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: false };
+    Object.defineProperty(globalThis, "window", { configurable: true, value: target });
+    try {
+      const landing = "https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill?utm_source=google&utm_medium=paid&utm_campaign=active_etf_agent_skill_202609&gclid=ad-click&request=secret&idToken=credential";
+      expect(trackAgentPortalPageView(landing)).toBe(true);
+      expect(eventCommand(target, "page_view")?.[2]).toEqual({
+        page_destination: "mcp_skill",
+        page_location: safeAgentPageLocation(landing),
+        page_title: "active_etf_mcp_skill",
+        interaction_source: "initial_page_load"
+      });
+      expect(safeAgentPageLocation(landing)).toContain("utm_campaign=active_etf_agent_skill_202609");
+      expect(safeAgentPageLocation(landing)).toContain("gclid=ad-click");
+      expect(JSON.stringify(commands(target))).not.toMatch(/secret|credential|idToken|request=/u);
+      expect(trackAgentAction(ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, "quick_install")).toBe(true);
+      expect(eventCommand(target, ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT)?.[2]).toEqual({ interaction_source: "quick_install" });
+    } finally {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: previousWindow });
+    }
   });
 
   it("treats sign-up and feature actions as consented, sanitized events", () => {

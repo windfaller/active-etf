@@ -73,6 +73,7 @@ async function flow() {
     loginState = new URL(
       loginUrl.searchParams.get("redirect")!,
     ).searchParams.get("login_state");
+  expect(loginUrl.searchParams.get("returnAuthAction")).toBe("1");
   const session = await post(
     "/api/agent/session",
     { idToken: "valid-fixture", loginState },

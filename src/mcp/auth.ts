@@ -254,6 +254,7 @@ export function createAuth(options: AuthOptions) {
         const dest = new URL("https://auth-app.gogowinners.me/sign-in");
         dest.searchParams.set("redirect", callback.toString());
         dest.searchParams.set("locale", returnPath.split("/")[1]);
+        dest.searchParams.set("returnAuthAction", "1");
         return json({ redirect: dest.toString() }, 200, {
           "Set-Cookie": setCookie("etf_agent_login", nonce, 600),
         });
