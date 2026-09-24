@@ -8,9 +8,16 @@ import "./styles.css";
 
 initializeColorMode();
 
-initializeTrackingConsent();
+const initialTrackingConsent = initializeTrackingConsent();
 if (/^\/(en|zh-TW|zh-CN|ja|ko)\/mcp(?:\/(?:skill|connect))?\/?$/.test(window.location.pathname)) {
   trackAgentPortalPageView(window.location.href);
+  let trackedPageAfterConsent = initialTrackingConsent === "granted";
+  installImpliedTrackingConsent((interaction) => {
+    trackFeatureInteraction(interaction);
+    if (trackedPageAfterConsent) return;
+    trackedPageAfterConsent = true;
+    trackAgentPortalPageView(window.location.href);
+  });
   void import("./agent/AgentPortal.vue").then(({default: AgentPortal}) => createApp(AgentPortal).mount("#app"));
 } else {
   installImpliedTrackingConsent(trackFeatureInteraction);
