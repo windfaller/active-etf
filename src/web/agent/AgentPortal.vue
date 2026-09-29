@@ -19,8 +19,8 @@ import {
   agentLocales,
   localeNames,
   agentToolRows,
-  skillMarkdown,
 } from "../../shared/agentCopy";
+import { agentSkillExample } from "../../shared/agentSkillExample";
 import { consumeBrowserAuthCallback } from "../auth/authService";
 import AgentInstall from "./AgentInstall.vue";
 import { ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, trackAgentAction, trackAuthEvent } from "../analytics";
@@ -35,12 +35,16 @@ const next = computed(() => agentOnboarding[locale.value]);
 const parts = window.location.pathname.split("/").filter(Boolean);
 const locale = ref(agentLocale(parts[0])),
   t = computed(() => agentCopy[locale.value]);
+const researchExample = computed(() => agentSkillExample[locale.value]);
 const claude = computed(() => claudeInstall[locale.value]);
 const page = parts[2] ?? "overview";
 const skillPublic = import.meta.env.VITE_MCP_SKILL_PUBLIC === "true";
-const request = new URLSearchParams(window.location.search).get("request");
+const agentWindow = window as Window & { __ACTIVE_ETF_AGENT_REQUEST__?: string; __ACTIVE_ETF_AGENT_LOGIN_STATE__?: string };
+const request = agentWindow.__ACTIVE_ETF_AGENT_REQUEST__ ?? new URLSearchParams(window.location.search).get("request");
+delete agentWindow.__ACTIVE_ETF_AGENT_REQUEST__;
 const base = computed(() => `/${locale.value}/mcp`);
 const busy = ref(false),
+  downloading = ref(false),
   loading = ref(true),
   authenticated = ref(false),
   csrfToken = ref(""),
@@ -124,9 +128,10 @@ async function load() {
       return;
     }
     releaseStage.value = config.releaseStage ?? "test";
-    const loginState = new URLSearchParams(window.location.search).get(
+    const loginState = agentWindow.__ACTIVE_ETF_AGENT_LOGIN_STATE__ ?? new URLSearchParams(window.location.search).get(
       "login_state",
     );
+    delete agentWindow.__ACTIVE_ETF_AGENT_LOGIN_STATE__;
     const callback = consumeBrowserAuthCallback();
     const cleanUrl = new URL(window.location.href);
     cleanUrl.searchParams.delete("login_state");
@@ -142,7 +147,11 @@ async function load() {
     csrfToken.value = session.csrfToken ?? "";
     usage.value = session.usage;
     if (callback.idToken && session.authenticated) {
-      trackAuthEvent(callback.action === "sign_up" ? "active_etf_sign_up_success" : "active_etf_login_success", "agent_portal_callback");
+      trackAuthEvent("active_etf_login_success", "agent_portal_callback");
+    }
+    if (callback.error) {
+      error.value = callback.error === "cancelled" ? researchExample.value.cancelled : t.value.error;
+      if (callback.error === "failed") trackAuthEvent("active_etf_login_failed", "agent_portal_callback");
     }
     if (request)
       authorization.value = await call(
@@ -164,18 +173,21 @@ async function copy(value: string, key: string) {
     error.value = t.value.copyError;
   }
 }
-function download() {
-  const url = URL.createObjectURL(
-    new Blob([skillMarkdown(locale.value)], {
-      type: "text/markdown;charset=utf-8",
-    }),
-  );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "SKILL.md";
-  a.click();
-  trackAgentAction(ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, "skill_guide");
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function download() {
+  if (downloading.value) return;
+  downloading.value = true;
+  try {
+    const response = await fetch(`/skills/${locale.value}/active-etf-research/SKILL.md`, { cache: "no-store" });
+    if (!response.ok) throw new Error("download_failed");
+    const url = URL.createObjectURL(await response.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "SKILL.md";
+    a.click();
+    trackAgentAction(ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, "skill_guide");
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch { error.value = t.value.error; }
+  finally { downloading.value = false; }
 }
 async function signIn() {
   busy.value = true;
@@ -297,7 +309,7 @@ onMounted(() => {
         <BookOpen :size="30" />
         <h1>{{ t.skillTitle }}</h1>
         <p class="agent-intro">{{ t.skillIntro }}</p>
-        <button class="agent-button primary" @click="download">
+        <button class="agent-button primary" :disabled="downloading" @click="download">
           <Download :size="18" />{{ t.download }}
         </button>
       </section>
@@ -305,6 +317,7 @@ onMounted(() => {
         <Plug :size="30" />
         <h1>{{ request ? t.consentTitle : t.account }}</h1>
         <p class="agent-intro">{{ request ? t.loginNotice : authenticated ? next.signedIn : t.signedOut }}</p>
+        <p v-if="!authenticated">{{ researchExample.account }}</p>
       </section>
       <p v-if="error" class="agent-alert" role="alert">
         {{ error }} <code>{{ diagnosticCode }}</code>
@@ -401,6 +414,15 @@ onMounted(() => {
         </section>
       </template>
       <template v-else-if="skillPublic && page === 'skill'">
+        <section class="agent-section agent-example">
+          <h2>{{ researchExample.title }}</h2>
+          <p>{{ researchExample.task }}</p>
+          <p>{{ researchExample.finding }}</p>
+          <p class="agent-caption">{{ researchExample.source }}</p>
+          <div class="agent-actions"><a class="agent-button primary" href="https://active-etf.inthewins.com/compare/etfs?type=tw&amp;codes=00981A,00982A">{{ researchExample.view }}<ArrowRight :size="18" /></a><button class="agent-button" :disabled="downloading" @click="download"><Download :size="18" />{{ t.download }}</button></div>
+          <p>{{ researchExample.steps }}</p>
+          <p>{{ researchExample.role }}</p>
+        </section>
         <section class="agent-section agent-workflow">
           <h2>{{ t.workflow }}</h2>
           <ol>
@@ -412,7 +434,7 @@ onMounted(() => {
             </li>
           </ol>
         </section>
-        <section class="agent-section">
+        <details class="agent-section agent-install-details"><summary>{{ researchExample.install }}</summary>
           <h2>{{ t.install }}</h2>
           <p>{{ t.installText }}</p>
           <p>{{ t.installChat }}</p>
@@ -423,13 +445,14 @@ onMounted(() => {
           <p>{{ claude.webSkill }}</p>
           <a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener noreferrer">{{ claude.codeReference }} ↗</a>
           <div class="agent-actions">
-            <button class="agent-button primary" @click="download">
+            <button class="agent-button primary" :disabled="downloading" @click="download">
               <Download :size="18" />{{ t.download }}</button
             ><a class="agent-button" :href="base + '#connect'"
               >{{ t.start }}<ArrowRight :size="18"
             /></a>
           </div>
-        </section>
+          <AgentInstall :locale="locale" :authenticated="authenticated" :endpoint="endpoint" :csrf-token="csrfToken" />
+        </details>
         <section class="agent-section">
           <h2>{{ t.prompts }}</h2>
           <div class="agent-prompts">

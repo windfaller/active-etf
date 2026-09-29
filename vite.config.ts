@@ -120,6 +120,9 @@ function staticSeoShell(metadata: RouteMetadata, liveContent = ""): string {
   const memberMcpLink = metadata.path === "/"
     ? '<section aria-label="免費會員 AI 研究工具"><h2>免費會員 MCP 與 Skill</h2><p>把 ETF 持股、調倉與比較資料連接到 AI，每日免費 20 研究點數。</p><a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp">了解會員 MCP</a> · <a href="https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill">Skill 安裝說明</a></section>'
     : "";
+  const startLinks = metadata.path === "/start"
+    ? '<section aria-label="研究入口"><a href="/compare/etfs?type=tw&amp;codes=00981A,00982A">立即比較 ETF</a><p>ETF 持倉雷達使用 GoGoWinners 共用帳號登入。比較頁會顯示實際資料日與涵蓋情況。</p></section>'
+    : "";
   return [
     "<!-- SEO_BODY_START -->",
     '      <main class="static-seo-shell">',
@@ -128,6 +131,7 @@ function staticSeoShell(metadata: RouteMetadata, liveContent = ""): string {
     `        <h1>${escapeHtml(metadata.h1)}</h1>`,
     `        <p>${escapeHtml(metadata.intro)}</p>`,
     liveContent,
+    startLinks,
     memberMcpLink,
     usageCopy,
     `        <ul>${links}</ul>`,

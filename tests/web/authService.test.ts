@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSignInUrl, extractAuthAction, extractAuthToken, stripAuthToken } from "../../src/web/auth/authService.js";
+import { buildSignInUrl, extractAuthAction, extractAuthToken, safeAuthReturnUrl, stripAuthToken } from "../../src/web/auth/authService.js";
 
 describe("external auth URL contract", () => {
   it("uses the requested central sign-in route and preserves the current product route", () => {
@@ -27,5 +27,17 @@ describe("external auth URL contract", () => {
     expect(result.searchParams.get("returnAuthAction")).toBe("1");
     expect(result.toString()).not.toContain("old-token");
     expect(result.searchParams.get("redirect")).not.toContain("authAction");
+  });
+
+  it("keeps ETF selection, metric and safe campaign fields while dropping callback and unknown fields", () => {
+    const result = new URL(safeAuthReturnUrl("https://active-etf.inthewins.com/compare/etfs?type=tw&codes=00981A,00982A&metric=holdings&utm_source=meta&fbclid=abc_123&idToken=secret&email=person%40example.com"));
+    expect(result.searchParams.get("codes")).toBe("00981A,00982A");
+    expect(result.searchParams.get("metric")).toBe("holdings");
+    expect(result.searchParams.get("utm_source")).toBe("meta");
+    expect(result.searchParams.get("fbclid")).toBe("abc_123");
+    expect(result.toString()).not.toMatch(/secret|email|person/iu);
+    expect(() => safeAuthReturnUrl("https://attacker.example/compare/etfs?codes=00981A,00982A")).toThrow();
+    expect(safeAuthReturnUrl("https://kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/compare/etfs?type=tw&codes=00981A,00982A"))
+      .toContain("kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/compare/etfs?type=tw");
   });
 });

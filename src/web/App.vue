@@ -11,7 +11,7 @@ import type { AppRoute } from "./contracts/navigation";
 import { useColorMode } from "./composables/useColorMode";
 import { useAuth } from "./composables/useAuth";
 import { getJson } from "./apiClient";
-import { trackPageClick } from "./analytics";
+import { trackInitialPageView, trackPageClick } from "./analytics";
 import AuthMenu from "./components/AuthMenu.vue";
 import TrackingConsent from "./components/TrackingConsent.vue";
 import { notFoundMetadata, routeMetadataForPath, routeStructuredData, SITE_ORIGIN } from "./seo/routeMetadata";
@@ -21,6 +21,7 @@ type RouteComponentLoader = () => Promise<unknown>;
 const loadForvixMarketEmbed = () => import("./components/ForvixMarketEmbed.vue");
 const loadGlobalSearchDialog = () => import("./components/search/GlobalSearchDialog.vue");
 const loadDailyBriefView = () => import("./views/DailyBriefView.vue");
+const loadStartView = () => import("./views/StartView.vue");
 const loadTaiwanMarketView = () => import("./views/TaiwanMarketView.vue");
 const loadTaiwanEtfView = () => import("./views/TaiwanEtfView.vue");
 const loadGlobalMarketView = () => import("./views/GlobalMarketView.vue");
@@ -40,6 +41,7 @@ const loadNotFoundView = () => import("./views/NotFoundView.vue");
 const ForvixMarketEmbed = defineAsyncComponent(loadForvixMarketEmbed);
 const GlobalSearchDialog = defineAsyncComponent(loadGlobalSearchDialog);
 const DailyBriefView = defineAsyncComponent(loadDailyBriefView);
+const StartView = defineAsyncComponent(loadStartView);
 const TaiwanMarketView = defineAsyncComponent(loadTaiwanMarketView);
 const TaiwanEtfView = defineAsyncComponent(loadTaiwanEtfView);
 const GlobalMarketView = defineAsyncComponent(loadGlobalMarketView);
@@ -61,6 +63,7 @@ const prefetchedRouteLoaders = new Set<RouteComponentLoader>();
 function routeComponentLoader(pathname: string): RouteComponentLoader | null {
   const path = cleanPath(new URL(pathname, window.location.origin).pathname);
   if (path === "/") return loadDailyBriefView;
+  if (path === "/start") return loadStartView;
   if (path === "/market") return loadTaiwanMarketView;
   if (path === "/global-etfs") return loadGlobalMarketView;
   if (/^\/global-etfs\/[^/]+$/u.test(path)) return loadGlobalEtfView;
@@ -193,6 +196,7 @@ function routeFromPath(pathname: string, search = ""): AppRoute {
   const parts = path.split("/").filter(Boolean);
   const params = new URLSearchParams(search);
   if (path === "/") return { view: "daily", path };
+  if (path === "/start") return { view: "start", path };
   if (path === "/market") return { view: "market", path };
   if (path === "/stocks") return { view: "stocks", path };
   if (parts[0] === "stocks" && (parts[1] === "tw" || parts[1] === "us") && parts[2] && !parts[3]) {
@@ -439,6 +443,7 @@ async function navigate(path: string, replace = false): Promise<void> {
   if (currentLocation !== nextLocation) {
     trackPageClick(next);
     window.history[replace ? "replaceState" : "pushState"]({}, "", nextLocation);
+    trackInitialPageView(next, "spa_navigation");
   }
   applyRouteFromLocation();
   isMobileSearchOpen.value = false;
@@ -485,7 +490,7 @@ function onGlobalShortcut(event: KeyboardEvent): void {
   }
 }
 
-function onPopState(): void { applyRouteFromLocation(); void loadForCurrentRoute(); }
+function onPopState(): void { applyRouteFromLocation(); trackInitialPageView(window.location.pathname, "spa_navigation"); void loadForCurrentRoute(); }
 
 function scheduleLowPriorityLoads(): void {
   const prefetch = () => {
@@ -558,7 +563,8 @@ onBeforeUnmount(() => {
 
     <p v-if="taiwanError && isTaiwanArea" class="app-alert">{{ taiwanError }}</p>
 
-    <DailyBriefView v-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" :member-preview="marketDashboard.memberPreview" @navigate="navigate" @stock="showMarketStock" />
+    <StartView v-if="route.view === 'start'" @navigate="navigate" />
+    <DailyBriefView v-else-if="route.view === 'daily'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :is-loading="isTaiwanLoading" :member-preview="marketDashboard.memberPreview" @navigate="navigate" @stock="showMarketStock" />
     <TaiwanMarketView v-else-if="route.view === 'market'" :impacts="dashboard.stockImpact.impacts" :sectors="dashboard.stockImpact.sectorSummary.sectors" :coverage="dashboard.coverage" :selected-date="marketDate" :loading="isTaiwanLoading" :focus-stock-id="focusStockId" @etf="selectTaiwanEtf" @stock="showMarketStock" />
     <TaiwanEtfView v-else-if="route.view === 'taiwanEtf'" :options="etfOptions" :selected-code="selectedEtfCode" :page="route.etfPage ?? 'report'" :section="route.etfSection ?? 'overview'" :selected-date="selectedEtfDate" :source-latest-date="selectedEtfCoverage?.latestTradeDate ?? '-'" :summary="dashboard.summary" :summaries="dashboard.summaries" :changes="dashboard.changes" :holdings="dashboard.holdings" :loading="isTaiwanLoading" @select="selectTaiwanEtf" @report="navigate(`/etf/${selectedEtfCode}`)" @changes="navigate(`/etf/${selectedEtfCode}/changes`)" @premium="navigate(`/etf/${selectedEtfCode}/premium-history`)" @style="navigate(`/etf/${selectedEtfCode}/style`)" />
     <GlobalMarketView v-else-if="route.view === 'globalMarket'" :report="globalReport" :loading="isGlobalLoading" :error="globalError" :selected-date="selectedGlobalDate" @etf="selectGlobalEtf" @institutions="navigate('/institutions')" />

@@ -1,4 +1,5 @@
 export type AppView =
+  | "start"
   | "daily"
   | "market"
   | "taiwanEtf"

@@ -144,16 +144,18 @@ export function loadMetaPixel(target: TrackingConsentTarget | null = browserTarg
   script.src = "https://connect.facebook.net/en_US/fbevents.js";
   target.document.head.appendChild(script);
   fbq("init", ACTIVE_ETF_META_PIXEL_ID);
-  fbq("track", "PageView");
   return true;
 }
 
 export function trackMetaCustomEvent(
   event: string,
-  target: TrackingConsentTarget | null = browserTarget()
+  target: TrackingConsentTarget | null = browserTarget(),
+  eventId?: string
 ): boolean {
   if (!target || !hasTrackingConsent(target) || !target.fbq) return false;
-  target.fbq("trackCustom", event);
+  if (event === "page_view") target.fbq("track", "PageView", {}, eventId ? { eventID: eventId } : {});
+  else if (event === "active_etf_sign_up_success") target.fbq("track", "CompleteRegistration", {}, eventId ? { eventID: eventId } : {});
+  else target.fbq("trackCustom", event, {}, eventId ? { eventID: eventId } : {});
   return true;
 }
 
@@ -221,6 +223,7 @@ export function installImpliedTrackingConsent(
 ): () => void {
   const handleInteraction = (event: Event): void => {
     if (!event.isTrusted) return;
+    if (readTrackingConsent(safeStorage(target as TrackingConsentTarget)) === "denied") return;
     const interaction = impliedConsentInteraction(event.target);
     if (!interaction) return;
     grantTrackingConsent(target as TrackingConsentTarget);
