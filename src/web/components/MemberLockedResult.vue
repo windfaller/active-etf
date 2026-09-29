@@ -28,6 +28,7 @@ const { isLoading, signIn } = useAuth();
       <span><LockKeyhole :size="compact ? 15 : 17" /> 免費會員限定</span>
       <b>{{ title }}</b>
       <small v-if="!compact">{{ description }}</small>
+      <small>ETF 持倉雷達使用 GoGoWinners 共用帳號登入。</small>
     </div>
     <button type="button" :disabled="isLoading" @click="signIn(source)">
       {{ isLoading ? "驗證中…" : "免費註冊／登入解鎖" }}

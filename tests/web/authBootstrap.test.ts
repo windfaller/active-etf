@@ -14,6 +14,9 @@ describe("auth callback bootstrap", () => {
     expect(tokenBootstrap).toBeGreaterThan(0);
     expect(appModule).toBeGreaterThan(tokenBootstrap);
     expect(html).toContain("url.searchParams.delete('idToken')");
+    expect(html).toContain("url.searchParams.delete('error_description')");
+    expect(html).toContain("url.searchParams.delete('login_state')");
+    expect(html).toContain("url.searchParams.delete('request')");
     expect(html).toContain('<meta name="referrer" content="same-origin" />');
     expect(html).not.toContain("googletagmanager.com");
     expect(main.indexOf("initializeTrackingConsent()")).toBeLessThan(main.indexOf("createApp(App).mount"));

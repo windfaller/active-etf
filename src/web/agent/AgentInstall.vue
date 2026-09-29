@@ -4,8 +4,7 @@ import { agentCopy, type AgentLocale } from '../../shared/agentCopy';
 import { quickInstall } from '../../shared/agentBootstrap';
 import { agentInstall, installCommands, oauthReuse } from '../../shared/agentInstall';
 import { claudeCommands, claudeInstall } from '../../shared/claudeInstall';
-import { ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, trackAgentAction } from '../analytics';
-import { grantTrackingConsent } from '../consent';
+import { ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, trackAgentAction } from '../analytics';
 const props = defineProps<{locale: AgentLocale; authenticated: boolean; endpoint: string; csrfToken: string}>();
 const t = computed(() => agentCopy[props.locale]);
 const text = computed(() => agentInstall[props.locale]);
@@ -30,7 +29,6 @@ async function copyInstall() {
     const data = await response.json();
     installPrompt.value = quick.value.prompt + '\n' + data.url;
     if (await copy(installPrompt.value,'install')) {
-      grantTrackingConsent();
       trackAgentAction(ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT, 'quick_install');
     }
   } catch(e) { error.value = e instanceof Error && e.message === 'login' ? quick.value.login : t.value.error; }
@@ -43,6 +41,7 @@ async function downloadSkill() {
     if (!response.ok) throw new Error(response.status === 401 ? 'login' : 'download');
     const url = URL.createObjectURL(await response.blob());
     const a = document.createElement('a'); a.href=url; a.download='SKILL.md'; a.click();
+    trackAgentAction(ACTIVE_ETF_SKILL_DOWNLOAD_STARTED_EVENT, 'quick_install');
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   } catch (e) { error.value = e instanceof Error && e.message === 'login' ? text.value.login : t.value.error; }
   finally { busy.value = false; }

@@ -78,6 +78,19 @@ export function routeMetadataForPath(pathname: string): RouteMetadata | null {
     );
   }
 
+  if (path === "/start") {
+    return metadataBase(
+      path,
+      "看懂 ETF 持股差異｜免費研究示範",
+      "比較 00981A 與 00982A 的真實持股、調倉與資料日期；先看公開研究結果，再建立免費研究帳號。",
+      "看懂 ETF 持股差異，讓研究有依據",
+      "比較持股、查看調倉變化，並核對資料日期與缺口。",
+      "ETF 持倉雷達",
+      "tool",
+      [homeBreadcrumb(), { name: "免費研究示範", path }]
+    );
+  }
+
   if (path === "/market") {
     return metadataBase(
       path,
@@ -360,6 +373,7 @@ export function notFoundMetadata(pathname: string): RouteMetadata {
 export function allStaticSeoPaths(): string[] {
   return [
     "/",
+    "/start",
     "/market",
     "/active-etfs/",
     "/global-etfs",

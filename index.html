@@ -10,6 +10,10 @@
           var url = new URL(w.location.href);
           var token = url.searchParams.get('idToken');
           var action = url.searchParams.get('authAction');
+          var authError = url.searchParams.get('error');
+          var errorDescription = url.searchParams.get('error_description');
+          var loginState = url.searchParams.get('login_state');
+          var agentRequest = url.searchParams.get('request');
           if (token) {
             Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__', {
               value: token, writable: true, configurable: true, enumerable: false
@@ -20,9 +24,16 @@
               });
             }
           }
+          if (authError) Object.defineProperty(w, '__ACTIVE_ETF_AUTH_CALLBACK_ERROR__', { value: authError, writable: true, configurable: true, enumerable: false });
+          if (loginState) Object.defineProperty(w, '__ACTIVE_ETF_AGENT_LOGIN_STATE__', { value: loginState, writable: true, configurable: true, enumerable: false });
+          if (agentRequest) Object.defineProperty(w, '__ACTIVE_ETF_AGENT_REQUEST__', { value: agentRequest, writable: true, configurable: true, enumerable: false });
           url.searchParams.delete('idToken');
           url.searchParams.delete('authAction');
-          if (token || action) w.history.replaceState({}, document.title, url.toString());
+          url.searchParams.delete('error');
+          url.searchParams.delete('error_description');
+          url.searchParams.delete('login_state');
+          url.searchParams.delete('request');
+          if (token || action || authError || errorDescription || loginState || agentRequest) w.history.replaceState({}, document.title, url.toString());
         } catch (_) {}
       })(window);
     </script>

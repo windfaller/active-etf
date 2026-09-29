@@ -1,4 +1,6 @@
 import { apiBase } from "../apiClient.js";
+import { CAMPAIGN_KEYS, safeCampaignValues, withCampaign } from "../attribution.js";
+import { readBrowserTrackingConsent } from "../consent.js";
 
 export const AUTH_APP_BASE = "https://auth-app.gogowinners.me";
 export const AUTH_TOKEN_PARAM = "idToken";
@@ -23,12 +25,37 @@ export function stripAuthToken(input: string): string {
   const url = new URL(input);
   url.searchParams.delete(AUTH_TOKEN_PARAM);
   url.searchParams.delete(AUTH_ACTION_PARAM);
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_description");
   return url.toString();
+}
+
+export function safeAuthReturnUrl(input: string): string {
+  const source = new URL(stripAuthToken(input));
+  const localPreview = /^(?:localhost|127\.0\.0\.1)$/u.test(source.hostname);
+  const azurePreview = source.protocol === "https:" && /^kind-coast-08b07e900(?:-\d+)?\.7\.azurestaticapps\.net$/u.test(source.hostname);
+  if (!localPreview && !azurePreview && source.origin !== "https://active-etf.inthewins.com") throw new Error("Unsupported return origin");
+  const allowedPath = /^\/(?:start|market|performance|signals(?:\/(?:consecutive|reversals|divergence))?|compare\/etfs|etf\/[A-Z0-9]+(?:\/(?:changes|style|premium-history))?|stocks(?:\/(?:tw|us)\/[A-Z0-9.-]+)?|search|global-etfs(?:\/[A-Z0-9]+)?|institutions(?:\/[A-Z0-9]+)?|methodology)?\/?$/u;
+  const result = new URL(allowedPath.test(source.pathname) ? source.pathname : "/", source.origin);
+  const permitted = new Set<string>(["type", "codes", "metric"]);
+  for (const [key, value] of source.searchParams) {
+    if (!permitted.has(key)) continue;
+    if (key === "type" && (value === "tw" || value === "global")) result.searchParams.set(key, value);
+    if (key === "codes" && /^[A-Z0-9.-]{3,12}(,[A-Z0-9.-]{3,12}){1,3}$/u.test(value)) result.searchParams.set(key, value);
+    if (key === "metric" && ["overview", "holdings", "sectors", "activity"].includes(value)) result.searchParams.set(key, value);
+  }
+  const canKeepCampaign = typeof window === "undefined" || readBrowserTrackingConsent() === "granted";
+  if (canKeepCampaign) {
+    for (const [key, value] of Object.entries(safeCampaignValues(source.search))) {
+      if ((CAMPAIGN_KEYS as readonly string[]).includes(key)) result.searchParams.set(key, value);
+    }
+  }
+  return (canKeepCampaign ? withCampaign(result) : result).toString();
 }
 
 export function buildSignInUrl(currentUrl: string, locale = "zh-TW"): string {
   const params = new URLSearchParams({
-    redirect: stripAuthToken(currentUrl),
+    redirect: safeAuthReturnUrl(currentUrl),
     locale,
     [AUTH_ACTION_OPT_IN_PARAM]: "1"
   });
@@ -47,21 +74,26 @@ export function extractAuthAction(input: string): AuthAction | null {
 type AuthCallbackWindow = Window & {
   __ACTIVE_ETF_AUTH_CALLBACK_TOKEN__?: string;
   __ACTIVE_ETF_AUTH_CALLBACK_ACTION__?: AuthAction;
+  __ACTIVE_ETF_AUTH_CALLBACK_ERROR__?: string;
 };
 
 export interface BrowserAuthCallback {
   idToken: string | null;
   action: AuthAction | null;
+  error: "cancelled" | "failed" | null;
 }
 
 export function consumeBrowserAuthCallback(): BrowserAuthCallback {
   const target = window as AuthCallbackWindow;
   const idToken = target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__ ?? extractAuthToken(window.location.href);
   const action = target.__ACTIVE_ETF_AUTH_CALLBACK_ACTION__ ?? extractAuthAction(window.location.href);
+  const rawError = target.__ACTIVE_ETF_AUTH_CALLBACK_ERROR__ ?? new URL(window.location.href).searchParams.get("error");
+  const error = rawError === "access_denied" || rawError === "cancelled" ? "cancelled" : rawError ? "failed" : null;
   delete target.__ACTIVE_ETF_AUTH_CALLBACK_TOKEN__;
   delete target.__ACTIVE_ETF_AUTH_CALLBACK_ACTION__;
-  if (extractAuthToken(window.location.href) || new URL(window.location.href).searchParams.has(AUTH_ACTION_PARAM)) clearAuthTokenFromBrowserUrl();
-  return { idToken, action };
+  delete target.__ACTIVE_ETF_AUTH_CALLBACK_ERROR__;
+  if (extractAuthToken(window.location.href) || new URL(window.location.href).searchParams.has(AUTH_ACTION_PARAM) || rawError) clearAuthTokenFromBrowserUrl();
+  return { idToken, action, error };
 }
 
 export function consumeBrowserAuthToken(): string | null {

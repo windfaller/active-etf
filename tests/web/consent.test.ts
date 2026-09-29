@@ -93,10 +93,7 @@ describe("tracking consent", () => {
     expect(appended).toHaveLength(2);
     expect(appended[1]?.dataset).toEqual({ metaPixelId: ACTIVE_ETF_META_PIXEL_ID });
     expect(appended[1]?.src).toBe("https://connect.facebook.net/en_US/fbevents.js");
-    expect(target.fbq?.queue).toEqual([
-      ["init", ACTIVE_ETF_META_PIXEL_ID],
-      ["track", "PageView"]
-    ]);
+    expect(target.fbq?.queue).toEqual([["init", ACTIVE_ETF_META_PIXEL_ID]]);
 
     expect(denyTrackingConsent(target)).toBe(true);
     expect(hasTrackingConsent(target)).toBe(false);

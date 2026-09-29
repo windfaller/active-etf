@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { GitCompareArrows, Layers3 } from "@lucide/vue";
 import { configuredEtfs } from "../../config/etfs";
 import { enabledGlobalEtfs } from "../../config/globalEtfs";
 import IntelligenceMetaStrip from "../components/IntelligenceMetaStrip.vue";
 import MemberLockedResult from "../components/MemberLockedResult.vue";
 import SourceDisclosure from "../components/SourceDisclosure.vue";
-import { trackEtfCompareComplete } from "../analytics";
+import { trackCompareStarted, trackEtfCompareComplete } from "../analytics";
 import { useAuth } from "../composables/useAuth";
 import { useEtfComparison } from "../composables/useEtfComparison";
 import { isMemberLockedResult, shouldRenderMemberLock } from "../domain/memberVisibility";
@@ -26,7 +26,9 @@ const defaultCodes = (type: "tw" | "global"): string[] => {
 };
 const effectiveCodes = (type: "tw" | "global", codes: string[]): string[] => codes.length ? [...codes] : defaultCodes(type);
 const selectedCodes = ref<string[]>(effectiveCodes(props.type, props.codes));
-const metric = ref<"overview" | "holdings" | "sectors" | "activity">("overview");
+type Metric = "overview" | "holdings" | "sectors" | "activity";
+const initialMetric = new URLSearchParams(window.location.search).get("metric");
+const metric = ref<Metric>(["holdings", "sectors", "activity"].includes(initialMetric ?? "") ? initialMetric as Metric : "overview");
 const { comparison, loading, error, load, abort } = useEtfComparison();
 const options = computed(() => selectedType.value === "tw"
   ? configuredEtfs.filter((row) => row.enabled).map((row) => ({ code: row.etfCode, name: row.name }))
@@ -44,7 +46,17 @@ function changeType(type: "tw" | "global"): void {
   comparison.value = null;
   if (canCompare.value) void load(type, selectedCodes.value);
 }
-function apply(): void { if (canCompare.value) emit("navigate", `/compare/etfs?type=${selectedType.value}&codes=${selectedCodes.value.join(',')}`); }
+function apply(): void {
+  if (!canCompare.value) return;
+  trackCompareStarted("comparison_builder");
+  emit("navigate", `/compare/etfs?type=${selectedType.value}&codes=${selectedCodes.value.join(',')}&metric=${metric.value}`);
+}
+function selectMetric(value: Metric): void {
+  metric.value = value;
+  const url = new URL(window.location.href);
+  url.searchParams.set("metric", value);
+  window.history.replaceState(window.history.state, "", url);
+}
 
 watch(() => [props.type, props.codes.join(","), props.refreshKey], async () => {
   const codes = effectiveCodes(props.type, props.codes);
@@ -52,7 +64,10 @@ watch(() => [props.type, props.codes.join(","), props.refreshKey], async () => {
   selectedCodes.value = codes;
   if (codes.length >= 2 && codes.length <= 4) {
     const result = await load(props.type, codes);
-    if (result && props.codes.length >= 2) trackEtfCompareComplete(props.type, codes);
+    if (result && result.cards.length >= 2 && props.codes.length >= 2) {
+      await nextTick();
+      trackEtfCompareComplete(props.type, codes, result.sourceAsOf);
+    }
   }
 }, { immediate: true });
 onBeforeUnmount(abort);
@@ -60,7 +75,7 @@ onBeforeUnmount(abort);
 
 <template>
   <section class="compare-view">
-    <header class="compare-hero"><span>ETF 多檔比較</span><h1>持股重疊、調倉與配置差異</h1><p>同一次比較只使用台灣 ETF 或海外 ETF；13F 不屬於 ETF，無法加入。最多 4 檔，結果網址可分享。</p></header>
+    <header class="compare-hero"><span>ETF 多檔比較</span><h1>持股重疊、調倉與配置差異</h1><p>同一次比較只使用台灣 ETF 或海外 ETF；13F 不屬於 ETF，無法加入。最多 4 檔，結果網址可分享。</p><p v-if="!isAuthenticated">公開結果可先試用；會員資料會依權限解鎖。ETF 持倉雷達使用 GoGoWinners 共用帳號登入。</p></header>
     <section class="compare-builder"><div class="type-toggle"><button type="button" :class="{active:selectedType==='tw'}" @click="changeType('tw')">台灣主動 ETF</button><button type="button" :class="{active:selectedType==='global'}" @click="changeType('global')">海外 ETF</button></div><div class="code-options"><button v-for="option in options" :key="option.code" type="button" :class="{selected:selectedCodes.includes(option.code)}" :aria-pressed="selectedCodes.includes(option.code)" @click="toggleCode(option.code)"><b>{{ option.code }}</b><small>{{ option.name }}</small></button></div><footer><span>已選 {{ selectedCodes.length }} / 4 檔</span><button type="button" :disabled="!canCompare" @click="apply"><GitCompareArrows :size="17" />比較 ETF</button></footer></section>
     <p v-if="error" class="compare-error">{{ error }}</p><p v-else-if="loading && !comparison" class="compare-state">比較資料載入中…</p>
     <IntelligenceMetaStrip v-if="comparison" :source-as-of="comparison.sourceAsOf" :generated-at="comparison.generatedAt" :coverage="comparison.coverage" :confidence="comparison.confidence" />
@@ -70,7 +85,7 @@ onBeforeUnmount(abort);
       <div><span v-for="row in globalDateAlignment?.rows ?? comparison.cards" :key="row.code"><b>{{ row.code }}</b> 持股資料日 {{ row.sourceAsOf ?? '未知' }}｜最後抓取 {{ formatFetchedAt(row.fetchedAt) }}</span></div>
     </section>
 
-    <nav v-if="comparison" class="metric-selector" aria-label="比較指標"><button v-for="item in [{id:'overview',label:'摘要'},{id:'holdings',label:'持股'},{id:'sectors',label:'產業'},{id:'activity',label:'調整'}]" :key="item.id" type="button" :class="{active:metric===item.id}" @click="metric=item.id as typeof metric">{{ item.label }}</button></nav>
+    <nav v-if="comparison" class="metric-selector" aria-label="比較指標"><button v-for="item in [{id:'overview',label:'摘要'},{id:'holdings',label:'持股'},{id:'sectors',label:'產業'},{id:'activity',label:'調整'}]" :key="item.id" type="button" :class="{active:metric===item.id}" @click="selectMetric(item.id as Metric)">{{ item.label }}</button></nav>
 
     <section v-if="comparison" class="etf-card-grid">
       <article v-for="card in comparison.cards" :key="card.code" class="etf-card">

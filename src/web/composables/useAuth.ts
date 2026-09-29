@@ -22,15 +22,17 @@ function applySession(authenticated: boolean, nextUser: AuthUser | null): void {
 async function initialize(): Promise<void> {
   if (initialization) return initialization;
   initialization = (async () => {
-    const { idToken, action } = consumeBrowserAuthCallback();
+    const { idToken, error: callbackError } = consumeBrowserAuthCallback();
 
     isLoading.value = true;
     error.value = "";
     try {
       const session = idToken ? await establishAuthSession(idToken) : await getAuthSession();
       applySession(session.authenticated, session.user);
-      if (idToken && session.authenticated && action) {
-        trackAuthEvent(action === "sign_up" ? "active_etf_sign_up_success" : "active_etf_login_success", "auth_callback");
+      if (idToken && session.authenticated) trackAuthEvent("active_etf_login_success", "auth_callback");
+      if (callbackError) {
+        error.value = callbackError === "cancelled" ? "已取消登入，可繼續查看公開研究資料。" : "登入未完成，請重新登入。";
+        if (callbackError === "failed") trackAuthEvent("active_etf_login_failed", "auth_callback");
       }
     } catch {
       applySession(false, null);
@@ -46,6 +48,12 @@ async function initialize(): Promise<void> {
 function signIn(source = "header"): void {
   error.value = "";
   trackAuthEvent("active_etf_login_intent", source);
+  window.location.assign(buildSignInUrl(window.location.href));
+}
+
+function signUp(source = "research"): void {
+  error.value = "";
+  trackAuthEvent("active_etf_sign_up_started", source);
   window.location.assign(buildSignInUrl(window.location.href));
 }
 
@@ -73,6 +81,7 @@ export function useAuth() {
     error: readonly(error),
     initialize,
     signIn,
+    signUp,
     signOut
   };
 }
