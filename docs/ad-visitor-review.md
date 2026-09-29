@@ -1,6 +1,14 @@
 # ETF 持倉雷達：廣告訪客體驗與量測審閱紀錄
 
-審閱基準：2026-09-29（Asia/Taipei）。本文件記錄可檢查的程式與本機預覽結果；正式網域尚未部署此版本。
+審閱基準：2026-09-29（Asia/Taipei）。本文件記錄可檢查的程式、預覽與正式部署結果；帳號系統與 Meta 收據的待辦事項見文末。
+
+## 正式部署驗證（2026-09-29）
+
+- [PR #20](https://github.com/windfaller/active-etf/pull/20) 已合併至 GitHub `main`，合併版號 `41e08eb55cf662667cde142d44c0a46fa7846f47`。主站 [Azure Static Web Apps 工作流程](https://github.com/windfaller/active-etf/actions/runs/36531952046) 成功，包含正式環境索引與路由檢查。
+- 獨立 MCP gateway 從同一個合併版號的乾淨 Git 快照建立，`npm ci`、Functions build、299 項測試、前端 build、預渲染檢查通過；正式依賴 `npm audit` 為 0 個弱點。Azure Function ZIP 部署 ID：`c8e3c143-788e-47c7-bd63-27478a6321d7`。主站與 gateway 的 `/app-version.json` 都回報上述版號。
+- 正式入口：[廣告落地頁](https://active-etf.inthewins.com/start)、[00981A／00982A 比較](https://active-etf.inthewins.com/compare/etfs?type=tw&codes=00981A,00982A)、[Skill 頁](https://active-etf-mcp.inthewins.com/zh-TW/mcp/skill)。正式站 smoke test：健康檢查 200、比較 2 張卡、搜尋 1 筆、訊號 60 筆、sitemap 166 個 URL；Skill／Guide／公開 SKILL.md 均 200，未登入會員下載 API 401，MCP 端點未授權請求 401 且有 Bearer challenge。
+- Chromium 正式站視覺驗證：桌面 1365px、手機 390px 的落地頁，及手機比較、Skill 頁均 200；無瀏覽器例外及橫向溢出。完成匿名量測選擇後的截圖：`start-desktop-production.png`、`start-mobile-production.png`、`compare-mobile-production.png`、`skill-mobile-production.png`，存於下述本機截圖目錄。實際 Facebook／Instagram 應用程式 WebView 仍未驗證。
+- 未執行真實新會員註冊、跨網域回調、Meta Test Events 或 CAPI 去重驗收；這些需要帳號系統介面與平台收據，不能因部署成功視為通過。
 
 ## 改動與預覽
 
@@ -9,8 +17,8 @@
 - Skill 頁在安裝步驟之前加入研究工作、2026-09-24 範例、來源、簡單步驟及下載入口；原有帳號、OAuth 與各工具安裝說明仍在可展開區塊。
 - 共用帳號提示顯示於落地頁、比較頁、會員遮隱卡與全站登入選單。登入成功、取消及錯誤均回到原研究頁並保留可用狀態；能否完成外部帳號系統的實際註冊往返仍需聯測。
 - 本機預覽（此機器）：`http://127.0.0.1:4177/start`、`http://127.0.0.1:4177/zh-TW/mcp/skill`。預覽以本分支靜態建置執行，匿名 `/api` 代理正式站的公開 API。Skill 頁的帳號 API 不在此本機代理中。
-- 草稿 PR #20 的主站測試預覽：`https://kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/start`。此 Azure SWA 環境不會更新正式網域；Skill gateway 仍需另外部署測試版。
-- 重建方式：`VITE_MCP_SKILL_PUBLIC=true npm run web:build`，再以 `PREVIEW_API_TARGET=https://active-etf.inthewins.com npm run web:preview:static -- --port 4177` 啟動。主站 PR 預覽使用 CI 的 `VITE_MCP_SKILL_PUBLIC=false`；Skill 正式站由另一套 MCP gateway 發布，尚無本次修改的獨立 gateway 預覽部署。
+- PR #20 的主站測試預覽曾位於 `https://kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/start`。合併後請使用上方正式網址審閱；該 PR 預覽可能已由平台清除。
+- 重建方式：`VITE_MCP_SKILL_PUBLIC=true npm run web:build`，再以 `PREVIEW_API_TARGET=https://active-etf.inthewins.com npm run web:preview:static -- --port 4177` 啟動。主站 PR 預覽使用 CI 的 `VITE_MCP_SKILL_PUBLIC=false`；Skill 正式站由獨立 MCP gateway 發布。本次沒有獨立 gateway 預覽環境，正式發布後已依上節驗證。
 
 ## 現況與權限
 
