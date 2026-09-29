@@ -33,7 +33,7 @@ export function stripAuthToken(input: string): string {
 export function safeAuthReturnUrl(input: string): string {
   const source = new URL(stripAuthToken(input));
   const localPreview = /^(?:localhost|127\.0\.0\.1)$/u.test(source.hostname);
-  const azurePreview = source.protocol === "https:" && /^kind-coast-08b07e900(?:-\d+)?\.7\.azurestaticapps\.net$/u.test(source.hostname);
+  const azurePreview = source.protocol === "https:" && /^kind-coast-08b07e900(?:-\d+\.eastasia)?\.7\.azurestaticapps\.net$/u.test(source.hostname);
   if (!localPreview && !azurePreview && source.origin !== "https://active-etf.inthewins.com") throw new Error("Unsupported return origin");
   const allowedPath = /^\/(?:start|market|performance|signals(?:\/(?:consecutive|reversals|divergence))?|compare\/etfs|etf\/[A-Z0-9]+(?:\/(?:changes|style|premium-history))?|stocks(?:\/(?:tw|us)\/[A-Z0-9.-]+)?|search|global-etfs(?:\/[A-Z0-9]+)?|institutions(?:\/[A-Z0-9]+)?|methodology)?\/?$/u;
   const result = new URL(allowedPath.test(source.pathname) ? source.pathname : "/", source.origin);

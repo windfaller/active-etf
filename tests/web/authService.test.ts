@@ -37,7 +37,7 @@ describe("external auth URL contract", () => {
     expect(result.searchParams.get("fbclid")).toBe("abc_123");
     expect(result.toString()).not.toMatch(/secret|email|person/iu);
     expect(() => safeAuthReturnUrl("https://attacker.example/compare/etfs?codes=00981A,00982A")).toThrow();
-    expect(safeAuthReturnUrl("https://kind-coast-08b07e900-42.7.azurestaticapps.net/compare/etfs?type=tw&codes=00981A,00982A"))
-      .toContain("kind-coast-08b07e900-42.7.azurestaticapps.net/compare/etfs?type=tw");
+    expect(safeAuthReturnUrl("https://kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/compare/etfs?type=tw&codes=00981A,00982A"))
+      .toContain("kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/compare/etfs?type=tw");
   });
 });

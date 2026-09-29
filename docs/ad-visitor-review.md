@@ -9,6 +9,7 @@
 - Skill 頁在安裝步驟之前加入研究工作、2026-09-24 範例、來源、簡單步驟及下載入口；原有帳號、OAuth 與各工具安裝說明仍在可展開區塊。
 - 共用帳號提示顯示於落地頁、比較頁、會員遮隱卡與全站登入選單。登入成功、取消及錯誤均回到原研究頁並保留可用狀態；能否完成外部帳號系統的實際註冊往返仍需聯測。
 - 本機預覽（此機器）：`http://127.0.0.1:4177/start`、`http://127.0.0.1:4177/zh-TW/mcp/skill`。預覽以本分支靜態建置執行，匿名 `/api` 代理正式站的公開 API。Skill 頁的帳號 API 不在此本機代理中。
+- 草稿 PR #20 的主站測試預覽：`https://kind-coast-08b07e900-20.eastasia.7.azurestaticapps.net/start`。此 Azure SWA 環境不會更新正式網域；Skill gateway 仍需另外部署測試版。
 - 重建方式：`VITE_MCP_SKILL_PUBLIC=true npm run web:build`，再以 `PREVIEW_API_TARGET=https://active-etf.inthewins.com npm run web:preview:static -- --port 4177` 啟動。主站 PR 預覽使用 CI 的 `VITE_MCP_SKILL_PUBLIC=false`；Skill 正式站由另一套 MCP gateway 發布，尚無本次修改的獨立 gateway 預覽部署。
 
 ## 現況與權限
@@ -49,7 +50,7 @@
 
 | 驗收項目 | 結果與證據 |
 | --- | --- |
-| 未登入研究示範 | **通過**。本機預覽實際讀取公開 API，首屏 23／30、兩檔共同 18；點擊後比較頁載入兩張卡與重疊矩陣。 |
+| 未登入研究示範 | **通過**。本機與 PR 測試站均實際讀取公開 API，首屏 23／30、兩檔共同 18；點擊後比較頁載入兩張卡與重疊矩陣。PR 測試站的 session、比較、coverage API 均回 200。 |
 | 返回研究頁與選擇 | **本專案部分通過**。攔截帳號跳轉驗證返回 URL 保留 `type=tw`、`codes=00981A,00982A`、`metric=holdings` 與已同意的 UTM／fbclid；真正的跨網域回調及註冊／取消要與帳號系統聯測。 |
 | 新／既有會員區分 | **修正錯誤，聯測待辦**。不再把任何 `authAction=sign_up` 登入當新會員；缺帳號後端新建回執，因此註冊成功事件暫不發。 |
 | Pixel／CAPI 去重 | **瀏覽器 ID 通過，CAPI 不適用**。本機截取 GA4 `event_id` 與 Pixel `eventID` 相同；重整不重複完成比較。服務端 CAPI 尚未實作。 |
@@ -59,7 +60,7 @@
 
 測試：`VITE_MCP_SKILL_PUBLIC=true npm run web:build`、`npm run functions:build`、`npm test`（299 通過、4 略過）與 prerender SEO 驗證；Playwright Chromium 手動流程。首次桌面 `page_view` 一筆；按比較後一筆 SPA `page_view`、一筆 compare start、完成後一筆 compare complete；重整後只有新的 page_view。FB／IG 模擬首屏 390px 寬無溢出，首次載入 `/assets/` 資源傳輸約 321 KB、DOM Content Loaded 分別 83ms／32ms，**僅是本機網路及快取條件，不代表廣告網路的實際速度**。第三方量測腳本在此測試中攔截為本地隊列，需於測試站 Test Events 與 GA4 DebugView 核對實際收據。
 
-截圖位於本機 `~/.codex/visualizations/2026/09/29/01a0eb3b-dca1-7c13-9e5a-86fca381dab3/`：`start-desktop-clean.png`、`start-mobile-clean.png`、`start-facebook-mobile.png`、`start-instagram-mobile.png`、`compare-desktop.png`、`compare-mobile.png`、`skill-desktop.png`。前兩張為明確選擇匿名量測後的產品畫面；其餘 App UA 截圖顯示首次到站同意介面。截圖含公開資料，於 2026-09-29 取得；資料日期可能變動。
+截圖位於本機 `~/.codex/visualizations/2026/09/29/01a0eb3b-dca1-7c13-9e5a-86fca381dab3/`：PR 測試站 `start-preview-desktop.png`、`start-preview-mobile.png`；本機 `start-desktop-clean.png`、`start-mobile-clean.png`、`start-facebook-mobile.png`、`start-instagram-mobile.png`、`compare-desktop.png`、`compare-mobile.png`、`skill-desktop.png`。`clean` 兩張為明確選擇匿名量測後的產品畫面；App UA 截圖顯示首次到站同意介面。截圖含公開資料，於 2026-09-29 取得；資料日期可能變動。
 
 ## 尚需其他系統與營運資料
 
