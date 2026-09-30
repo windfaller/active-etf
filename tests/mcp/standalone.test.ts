@@ -26,4 +26,24 @@ describe("independent MCP Function isolation", () => {
       expect(result.status).toBe(404);
     }
   });
+  it("serves public support contact in five languages", async () => {
+    for (const locale of ["en", "zh-TW", "zh-CN", "ja", "ko"]) {
+      const result=await handler(new HttpRequest({url:`https://mcp.example/${locale}/mcp/support`,method:"GET"}));
+      expect(result.status).toBe(200);
+      expect(String(result.body)).toContain("service@inthewins.com");
+      expect(new Headers(result.headers).get("Content-Type")).toBe("text/html; charset=utf-8");
+    }
+  });
+  it("exposes only the configured OpenAI domain-verification token", async () => {
+    const url="https://mcp.example/.well-known/openai-apps-challenge";
+    const absent=await handler(new HttpRequest({url,method:"GET"}));
+    expect(absent.status).toBe(404);
+    vi.stubEnv("OPENAI_PLUGIN_DOMAIN_CHALLENGE", "test-token-123");
+    const ready=await handler(new HttpRequest({url,method:"GET"}));
+    expect(ready.status).toBe(200);
+    expect(ready.body).toBe("test-token-123");
+    expect(new Headers(ready.headers).get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(new Headers(ready.headers).get("Cache-Control")).toBe("no-store");
+    vi.stubEnv("OPENAI_PLUGIN_DOMAIN_CHALLENGE", "");
+  });
 });

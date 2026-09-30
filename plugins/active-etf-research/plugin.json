@@ -1,0 +1,110 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "active-etf-research",
+  "version": "1.0.0",
+  "description": "Source-linked research on supported Taiwan-listed and US-listed ETF holdings and observed changes.",
+  "author": {
+    "name": "IN THE WIN LIMITED",
+    "email": "service@inthewins.com",
+    "url": "https://active-etf.inthewins.com"
+  },
+  "homepage": "https://active-etf.inthewins.com",
+  "keywords": ["ETF", "holdings", "research", "Taiwan", "United States"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "ETF Holdings Radar",
+        "shortDescription": "Sourced ETF holdings research",
+        "longDescription": "Explore issuer-sourced holdings for supported Taiwan-listed and US-listed ETFs. Compare holdings within one listing market, inspect observed changes, identify tracked ETFs that hold a stock, and assemble a dated research brief. Results include source dates and note missing observations. Account authorization is required. The plugin does not trade or provide personalized investment advice.",
+        "developerName": "IN THE WIN LIMITED",
+        "category": "Finance",
+        "capabilities": ["Search supported ETFs", "Read ETF holdings and observed changes", "Compare same-market ETFs", "Find ETFs holding a stock"],
+        "websiteURL": "https://active-etf.inthewins.com",
+        "supportURL": "https://active-etf-mcp.inthewins.com/en/mcp/support",
+        "privacyPolicyURL": "https://active-etf.inthewins.com/privacy",
+        "termsOfServiceURL": "https://active-etf.inthewins.com/terms",
+        "defaultPrompt": [
+          "Compare the latest holdings of Taiwan ETFs 00981A and 00982A, with source dates and gaps.",
+          "Show the latest DRAM ETF holdings and the issuer's data date.",
+          "Which tracked Taiwan ETFs hold 2330? Cite each source date."
+        ],
+        "brandColor": "#345986",
+        "composerIcon": "./assets/logo-mark.svg",
+        "logo": "./assets/logo-mark.svg"
+      },
+      "onboardingSkill": "./skills/active-etf-research/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Check remaining research points without consuming points",
+              "prompt": "How many ETF research points do I have left today, and when do they reset?",
+              "tools_triggered": "get_my_plan_usage",
+              "expected_behavior": "Show the authenticated member's remaining daily points and reset time without charging points."
+            },
+            {
+              "description": "Find a supported US-listed ETF",
+              "prompt": "Find the US-listed DRAM ETF in the supported ETF catalog.",
+              "tools_triggered": "search_market_entities",
+              "expected_behavior": "Return DRAM as a supported US-listed ETF or explicitly report that it is unavailable; do not invent a fund."
+            },
+            {
+              "description": "Read Taiwan ETF holdings with the source date",
+              "prompt": "Show the latest available holdings for Taiwan ETF 00981A and the source date.",
+              "tools_triggered": "get_etf_snapshot",
+              "expected_behavior": "Return the available 00981A holdings, issuer/source link, and observation date; distinguish any missing data from zero holdings."
+            },
+            {
+              "description": "Compare two Taiwan ETFs",
+              "prompt": "Compare 00981A and 00982A: common holdings, different exposures, and each source date.",
+              "tools_triggered": "compare_etfs",
+              "expected_behavior": "Compare same-market supported ETFs, state overlap and source-date alignment, and disclose gaps without predicting returns."
+            },
+            {
+              "description": "Read US-listed ETF holdings",
+              "prompt": "Show the latest available DRAM ETF holdings and the issuer's data date.",
+              "tools_triggered": "get_etf_snapshot",
+              "expected_behavior": "Return a dated DRAM issuer holdings observation with source link, or clearly state when no current snapshot is available."
+            }
+          ],
+          "negative": [
+            {
+              "description": "No investment trade execution",
+              "prompt": "Buy 100 shares of 00981A in my account."
+            },
+            {
+              "description": "Do not compare different listing markets in one comparison",
+              "prompt": "Compare the holdings of Taiwan-listed 00981A and US-listed DRAM as one ETF comparison."
+            },
+            {
+              "description": "Exclude 13F portfolios",
+              "prompt": "Show Berkshire Hathaway's latest 13F positions through this ETF plugin."
+            }
+          ]
+        },
+        "commerce": false
+      },
+      "publication": {
+        "release_notes": "Initial release with read-only ETF holdings research, source dates, and a bundled research Skill.",
+        "translations": {
+          "zh-TW": {
+            "subtitle": "查詢 ETF 持股與調倉",
+            "description": "查詢已收錄的台灣及美國掛牌 ETF 官方持股與觀察到的變化，於同一掛牌市場比較基金，或反查個股被哪些 ETF 持有。研究摘要會列出來源與資料日期，並標明缺漏。須授權會員帳號；不提供交易或個人化投資建議。"
+          },
+          "zh-CN": {
+            "subtitle": "查询 ETF 持仓与调仓",
+            "description": "查询已收录的台湾及美国上市 ETF 官方持仓和观测到的变化，在同一上市市场比较基金，或反查哪些 ETF 持有某只股票。研究摘要列出来源、数据日期及缺口。需要授权会员账号；不提供交易或个性化投资建议。"
+          },
+          "ja-JP": {
+            "subtitle": "ETF の保有銘柄を調査",
+            "description": "対応する台湾・米国上場 ETF の発行体による保有銘柄と観測された変化を調査します。同じ上場市場内で比較し、銘柄を保有する ETF を探せます。出典、データ日付、欠損を明示します。会員認証が必要です。取引や個別の投資助言は行いません。"
+          },
+          "ko-KR": {
+            "subtitle": "ETF 보유 종목 조사",
+            "description": "지원되는 대만 및 미국 상장 ETF의 발행사 보유 종목과 관측된 변경 사항을 조사합니다. 동일 상장 시장의 ETF를 비교하고 특정 주식을 보유한 ETF를 찾을 수 있습니다. 출처, 자료 날짜와 누락 사항을 표시합니다. 회원 인증이 필요하며 거래나 개인화된 투자 조언은 제공하지 않습니다."
+          }
+        }
+      }
+    }
+  }
+}
