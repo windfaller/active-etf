@@ -66,10 +66,18 @@ The discovery job stores the complete raw JSON response in `raw_snapshots` with 
 
 The overseas product line uses `src/config/globalEtfs.ts` and must not reuse Taiwan ranking collections. Enabled sources:
 
-- `DRAM` Roundhill Memory ETF
+- Roundhill ETFs: `DRAM`, `LYTE`, `NCLD`, `CHAT`, `CCML`
   - Landing page: `https://www.roundhillinvestments.com/etf/dram/`
   - Holdings CSV pattern: `https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_MMDDYYYY.csv`
-  - The provider scans the latest 15 calendar days and filters `Account == "DRAM"`.
+  - The provider scans the latest 15 calendar days and filters `Account` by the requested ETF code. Empty files or files without that fund are skipped even when HTTP status is 200.
+  - `LYTE`, `NCLD`, `CHAT`, `CCML` use the same official daily CSV. Each row's `Date` is authoritative, rather than the date embedded in the filename.
+  - New funds preserve separate CUSIPs for local shares, ADRs and swaps; currency balances, Treasury collateral and money-market funds are marked as cash.
+- Harbor Capital: `OAIW` OpenAI Lab Ecosystem ETF and `ANTW` Anthropic AI Lab Ecosystem ETF
+  - Product pages: `https://www.harborcapital.com/etf/oaiw/` and `https://www.harborcapital.com/etf/antw/`.
+  - Official page-data JSON: `https://www.harborcapital.com/page-data/etf/{ticker}/page-data.json` (lowercase ticker).
+  - Read `fullHoldings` from the product tab's API reference whose `fundClasses` contains the requested ticker. Top-ten data is not substituted for full holdings.
+  - `calendar.date` is the holdings source date; `weight` is a fraction multiplied by 100. `fullHoldingsCashWeight` is already in percentage points and is included separately as cash.
+  - Preserve CUSIPs and source tickers, add exchange suffixes to numeric Japanese/Taiwanese/Korean/Hong Kong tickers, and retain negative FX weights. Reject missing or inconsistent source dates.
 - `NASA` Tema Space Innovators ETF
   - Holdings CSV: `https://temaetfs.com/hubfs/Website/Holdings/NASA-holdings.csv`
   - `percent_of_nav` is a fraction and is multiplied by 100.

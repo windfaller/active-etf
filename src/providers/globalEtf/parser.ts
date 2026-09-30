@@ -213,12 +213,26 @@ function normalizeRoundhillDramHolding(row: CsvRow): {
   };
 }
 
-export function parseRoundhillDramCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+function normalizeRoundhillHolding(row: CsvRow) {
+  const ticker = normalizeExchangeTicker(stringFrom(row.StockTicker));
+  const name = stringFrom(row.SecurityName) ?? ticker ?? "Unknown";
+  const identifier = stringFrom(row.CUSIP);
+  const cash = row.MoneyMarketFlag?.trim().toUpperCase() === "Y" || identifier?.toUpperCase().startsWith("CASH") || name.toUpperCase().includes("TREASURY BILL");
+  return {
+    ticker,
+    sourceTicker: ticker,
+    name,
+    identifier,
+    assetType: cash ? "Cash" : /SWAP|TRS/iu.test(`${name} ${ticker ?? ""}`) ? "Equity Swap" : "Equity"
+  };
+}
+
+export function parseRoundhillHoldingsCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
   const rows = parseCsv(raw);
-  const filtered = rows.filter((row) => row.Account?.trim().toUpperCase() === "DRAM");
-  const sourceAsOf = dateOnly(filtered[0]?.Date ?? rows[0]?.Date);
+  const filtered = rows.filter((row) => row.Account?.trim().toUpperCase() === etf.etfCode);
+  const sourceAsOf = dateOnly(filtered[0]?.Date);
   const holdings = filtered.map((row) => {
-    const normalized = normalizeRoundhillDramHolding(row);
+    const normalized = etf.etfCode === "DRAM" ? normalizeRoundhillDramHolding(row) : normalizeRoundhillHolding(row);
     return buildHolding(etf, sourceAsOf, sourceUrl, row, {
       ...normalized,
       weightPercent: numberFrom(row.Weightings),
@@ -228,6 +242,78 @@ export function parseRoundhillDramCsv(raw: string, etf: GlobalEtfConfig, sourceU
   });
 
   return { sourceAsOf, rawRowCount: rows.length, holdings };
+}
+
+export const parseRoundhillDramCsv = parseRoundhillHoldingsCsv;
+
+interface HarborHoldingRow {
+  calendar?: { date?: string };
+  ticker?: string | null;
+  cusip?: string | null;
+  shares?: number | null;
+  weight?: number | null;
+  marketValue?: number | null;
+  sectorName?: string | null;
+  securityName?: string | null;
+  countryName?: string | null;
+  assetGroup?: string | null;
+}
+
+interface HarborHoldingsData {
+  fundClasses?: Array<{ ticker?: string }>;
+  fullHoldings?: HarborHoldingRow[];
+  fullHoldingsCashWeight?: number | null;
+}
+
+function normalizeHarborTicker(row: HarborHoldingRow): string | undefined {
+  const ticker = stringFrom(row.ticker);
+  if (!ticker || !/^\d+$/u.test(ticker)) return ticker;
+  const suffix = new Map([["JAPAN", "JP"], ["TAIWAN", "TW"], ["SOUTH KOREA", "KS"], ["HONG KONG", "HK"]]).get(row.countryName?.toUpperCase() ?? "");
+  return suffix ? `${ticker}.${suffix}` : ticker;
+}
+
+export function parseHarborFullHoldingsJson(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {
+  const body = JSON.parse(raw) as {
+    result?: { data?: { contentstackProductV2?: { product_tabs?: Array<{
+      data_section?: { section?: Array<{ api_reference?: Array<{ data?: HarborHoldingsData }> }> };
+    }> } } };
+  };
+  const data = body.result?.data?.contentstackProductV2?.product_tabs
+    ?.flatMap((tab) => tab.data_section?.section ?? [])
+    .flatMap((section) => section.api_reference ?? [])
+    .map((reference) => reference.data)
+    .find((item) => item?.fundClasses?.some((fund) => fund.ticker === etf.etfCode) && Array.isArray(item.fullHoldings));
+  const rows = data?.fullHoldings ?? [];
+  const sourceAsOf = dateOnly(rows[0]?.calendar?.date);
+  if (!rows.length || !/^\d{4}-\d{2}-\d{2}$/u.test(sourceAsOf) || rows.some((row) => dateOnly(row.calendar?.date) !== sourceAsOf)) {
+    throw new Error(`${etf.etfCode} Harbor full holdings or source date missing/inconsistent`);
+  }
+  const holdings = rows.map((row) => {
+    const weight = numberFrom(row.weight);
+    return buildHolding(etf, sourceAsOf, sourceUrl, row, {
+      ticker: normalizeHarborTicker(row),
+      sourceTicker: stringFrom(row.ticker),
+      identifier: stringFrom(row.cusip),
+      name: stringFrom(row.securityName) ?? stringFrom(row.ticker) ?? "Unknown",
+      weightPercent: weight === undefined ? undefined : weight * 100,
+      shares: numberFrom(row.shares),
+      marketValue: numberFrom(row.marketValue),
+      country: stringFrom(row.countryName),
+      sector: stringFrom(row.sectorName),
+      assetType: row.assetGroup === "FX" ? "Foreign Exchange" : stringFrom(row.assetGroup)
+    });
+  });
+  // Harbor publishes residual cash separately, already in percentage points.
+  const cashWeight = numberFrom(data?.fullHoldingsCashWeight);
+  if (cashWeight !== undefined) {
+    holdings.push(buildHolding(etf, sourceAsOf, sourceUrl, { fullHoldingsCashWeight: cashWeight }, {
+      ticker: "CASH&OTHER",
+      name: "Cash and Other Assets Less Liabilities",
+      weightPercent: cashWeight,
+      assetType: "Cash"
+    }));
+  }
+  return { sourceAsOf, rawRowCount: holdings.length, holdings };
 }
 
 export function parseTemaNasaCsv(raw: string, etf: GlobalEtfConfig, sourceUrl: string): { sourceAsOf: string; rawRowCount: number; holdings: GlobalEtfHolding[] } {

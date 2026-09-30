@@ -7,8 +7,9 @@ import {
   parseAllianceBernsteinUsTopHoldingsJson,
   parseBlackRockBaiSpreadsheet,
   parseCorgiEuvRows,
+  parseHarborFullHoldingsJson,
   parseJanusHendersonFullHoldingsHtml,
-  parseRoundhillDramCsv,
+  parseRoundhillHoldingsCsv,
   parseSec13fInformationTable,
   parseTemaNasaCsv,
   parseTuttleNavstarHoldingsJson
@@ -25,26 +26,38 @@ function mmddyyyy(date: Date): string {
   return `${month}${day}${date.getUTCFullYear()}`;
 }
 
-async function fetchRoundhillDram() {
-  const etf = findGlobalEtfConfig("DRAM");
-  if (!etf) throw new Error("DRAM config missing");
+async function fetchRoundhillHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf) throw new Error(`${etfCode} config missing`);
   const today = new Date();
   const attempts = Array.from({ length: 15 }, (_, index) => {
     const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - index));
-    return `https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_${mmddyyyy(date)}.csv`;
+    const template = etf.holdingsUrl ?? "https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_{date}.csv";
+    return template.replace("{date}", mmddyyyy(date));
   });
 
   const errors: string[] = [];
   for (const url of attempts) {
     const raw = await fetchSource({ url, headers: defaultCrawlerHeaders(etf.sourceUrl) });
     if (raw.responseStatus >= 200 && raw.responseStatus < 300 && raw.rawBody.includes("StockTicker")) {
-      const parsed = parseRoundhillDramCsv(raw.rawBody, etf, raw.url);
-      return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+      const parsed = parseRoundhillHoldingsCsv(raw.rawBody, etf, raw.url);
+      if (parsed.holdings.length && /^\d{4}-\d{2}-\d{2}$/u.test(parsed.sourceAsOf)) {
+        return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
+      }
     }
     errors.push(`${url} -> ${raw.responseStatus}`);
   }
 
-  throw new Error(`DRAM holdings CSV not found in recent 15 calendar days: ${errors.slice(0, 3).join("; ")}`);
+  throw new Error(`${etfCode} holdings CSV not found in recent 15 calendar days: ${errors.slice(0, 3).join("; ")}`);
+}
+
+async function fetchHarborHoldings(etfCode: string) {
+  const etf = findGlobalEtfConfig(etfCode);
+  if (!etf?.holdingsUrl) throw new Error(`${etfCode} holdings URL missing`);
+  const raw = await fetchSource({ url: etf.holdingsUrl, headers: defaultCrawlerHeaders(etf.sourceUrl) });
+  if (raw.responseStatus < 200 || raw.responseStatus >= 300) throw new Error(`${etfCode} holdings returned ${raw.responseStatus}`);
+  const parsed = parseHarborFullHoldingsJson(raw.rawBody, etf, raw.url);
+  return { snapshot: buildGlobalSnapshot(etf, { ...parsed, sourceUrl: raw.url }), raw };
 }
 
 async function fetchTemaHoldings(etfCode: string) {
@@ -231,8 +244,9 @@ async function fetchSec13fHoldings(etfCode: string) {
 export async function fetchGlobalEtfSnapshot(etfCode: string): Promise<GlobalEtfFetchOutput> {
   const normalized = etfCode.trim().toUpperCase();
 
-  if (normalized === "DRAM") return fetchRoundhillDram();
   const etf = findGlobalEtfConfig(normalized);
+  if (etf?.providerId === "roundhill") return fetchRoundhillHoldings(normalized);
+  if (etf?.providerId === "harbor") return fetchHarborHoldings(normalized);
   if (etf?.providerId === "tema") return fetchTemaHoldings(normalized);
   if (etf?.providerId === "tuttle") return fetchTuttleHoldings(normalized);
   if (etf?.providerId === "janusHenderson") return fetchJanusHendersonHoldings(normalized);

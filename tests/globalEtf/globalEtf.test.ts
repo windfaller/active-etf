@@ -53,7 +53,13 @@ describe("global ETF product line", () => {
       "APP13F",
       "IDEF",
       "BDYN",
-      "IALT"
+      "IALT",
+      "OAIW",
+      "ANTW",
+      "LYTE",
+      "NCLD",
+      "CHAT",
+      "CCML"
     ]);
   });
 

@@ -27,6 +27,7 @@ export interface GlobalEtfConfig {
   productGroup: "global_etf";
   providerId:
     | "roundhill"
+    | "harbor"
     | "tema"
     | "blackrock"
     | "corgi"
@@ -519,6 +520,96 @@ export const enabledGlobalEtfs: GlobalEtfConfig[] = [
     holdingsUrl:
       "https://www.blackrock.com/varnish-api/blk-one01-product-data/product-data/api/v1/get-fund-document?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares&locale=en_US&portfolioId=346898&component=fundDownload&userType=individual",
     themes: ["macro"]
+  },
+  {
+    etfCode: "OAIW",
+    fundName: "OpenAI Lab Ecosystem ETF",
+    issuer: "Harbor Capital",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "harbor",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.harborcapital.com/etf/oaiw/",
+    holdingsUrl: "https://www.harborcapital.com/page-data/etf/oaiw/page-data.json",
+    themes: ["ai", "innovation"]
+  },
+  {
+    etfCode: "ANTW",
+    fundName: "Anthropic AI Lab Ecosystem ETF",
+    issuer: "Harbor Capital",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "harbor",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.harborcapital.com/etf/antw/",
+    holdingsUrl: "https://www.harborcapital.com/page-data/etf/antw/page-data.json",
+    themes: ["ai", "innovation"]
+  },
+  {
+    etfCode: "LYTE",
+    fundName: "Roundhill Photonics & Optics ETF",
+    issuer: "Roundhill Investments",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "roundhill",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.roundhillinvestments.com/etf/lyte/",
+    holdingsUrl: "https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_{date}.csv",
+    themes: ["ai", "innovation"]
+  },
+  {
+    etfCode: "NCLD",
+    fundName: "Roundhill Neocloud ETF",
+    issuer: "Roundhill Investments",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "roundhill",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.roundhillinvestments.com/etf/ncld/",
+    holdingsUrl: "https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_{date}.csv",
+    themes: ["ai", "internet", "innovation"]
+  },
+  {
+    etfCode: "CHAT",
+    fundName: "Roundhill Generative AI & Technology ETF",
+    issuer: "Roundhill Investments",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "roundhill",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.roundhillinvestments.com/etf/chat/",
+    holdingsUrl: "https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_{date}.csv",
+    themes: ["ai", "innovation"]
+  },
+  {
+    etfCode: "CCML",
+    fundName: "Roundhill MLCC & Electronic Components ETF",
+    issuer: "Roundhill Investments",
+    market: "US",
+    currency: "USD",
+    productGroup: "global_etf",
+    providerId: "roundhill",
+    strategyType: "active",
+    enabled: true,
+    sourceStatus: "verified",
+    sourceUrl: "https://www.roundhillinvestments.com/etf/ccml/",
+    holdingsUrl: "https://www.roundhillinvestments.com/assets/data/filepointroundhill.40ru.ru_holdings_{date}.csv",
+    themes: ["ai", "manufacturing", "innovation"]
   }
 ];
 
