@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Deployed and verified — 2026-09-30 OpenAI support and domain-verification route application update.
+Status: Validated — 2026-09-30 company-registration link support-page update.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -72,3 +72,6 @@ Validation Proof (application-only, 2026-09-30): `npm run test:mcp` passed (23 t
 The OpenAI platform currently prevents draft creation until Business developer identity verification completes. The domain token cannot be configured until a draft is uploaded and OpenAI issues it. After deployment, verify the five support pages and confirm the challenge is 404 before token configuration.
 
 Deployment proof (2026-09-30): Azure config-zip operation `e40336c3-7e73-4b77-8177-749ce892e8c1` exited successfully. Live browser checks showed the support email and localized text at `/en/mcp/support`, `/zh-TW/mcp/support`, `/zh-CN/mcp/support`, `/ja/mcp/support`, and `/ko/mcp/support`. HTTPS GET `/.well-known/openai-apps-challenge` returned 404 before token configuration; `/api/mcp-health` returned 200 with `status=ok`, `version=0.2.0`, and MongoDB storage; unauthenticated MCP initialization returned 401. The public website, privacy, terms, and support URLs in the OpenAI manifest all returned 200. The OpenAI draft, domain token, OAuth scan, review credentials, and review submission remain pending developer identity verification and platform steps.
+
+## Company registration identity link — 2026-09-30
+The user supplied the official Companies House record for IN THE WIN LIMITED, UK company number 14533535. The support page now links to that public record; privacy and terms copy in the draft PR does the same. This is an application-only copy update: no change to OAuth, MCP tools, quota, app settings, infrastructure, or public Skill visibility. Validation Proof: official Companies House page returned 200 and identified the name, company number, and Active status; `npm run test:mcp` passed 23 tests (4 optional Mongo tests skipped), `npm run functions:build` and `npm run web:build` passed, `git diff --check` passed, and the production-only Function ZIP contains the compiled standalone entry and public pages. The existing active-etf-member-mcp Function and canonical hostname are the target.
