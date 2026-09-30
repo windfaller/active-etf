@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — 2026-09-30 OpenAI support and domain-verification route application update.
+Status: Deployed and verified — 2026-09-30 OpenAI support and domain-verification route application update.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -70,3 +70,5 @@ User asked to handle the OpenAI plugin submission. This incremental Function upd
 Validation Proof (application-only, 2026-09-30): `npm run test:mcp` passed (23 tests, 4 opt-in integration tests skipped); `npm run mcp:build`, `npm run functions:build`, and the existing public-site `npm run web:build` passed. `git diff origin/main -- infra` was empty. Azure subscription `e4c458d1-80eb-419b-9680-0dc8682a9df4` is the existing deployed subscription; `active-etf-member-mcp` in resource group `active-etf` is Running in East Asia, HTTPS-only, with `active-etf-mcp.inthewins.com` bound. The Function ZIP contains its HTTP entry, public pages, and production-only dependencies; SHA-256 `6a600243172f26975cad42b3ae6273eff9e03bae3251004afaa87ba8bcd595fc`. No Bicep, RBAC, database, or app-setting change is part of this deployment.
 
 The OpenAI platform currently prevents draft creation until Business developer identity verification completes. The domain token cannot be configured until a draft is uploaded and OpenAI issues it. After deployment, verify the five support pages and confirm the challenge is 404 before token configuration.
+
+Deployment proof (2026-09-30): Azure config-zip operation `e40336c3-7e73-4b77-8177-749ce892e8c1` exited successfully. Live browser checks showed the support email and localized text at `/en/mcp/support`, `/zh-TW/mcp/support`, `/zh-CN/mcp/support`, `/ja/mcp/support`, and `/ko/mcp/support`. HTTPS GET `/.well-known/openai-apps-challenge` returned 404 before token configuration; `/api/mcp-health` returned 200 with `status=ok`, `version=0.2.0`, and MongoDB storage; unauthenticated MCP initialization returned 401. The public website, privacy, terms, and support URLs in the OpenAI manifest all returned 200. The OpenAI draft, domain token, OAuth scan, review credentials, and review submission remain pending developer identity verification and platform steps.
