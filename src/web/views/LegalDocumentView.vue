@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{ kind: "privacy" | "terms" }>();
-const updatedAt = "2026 年 9 月 1 日";
+const updatedAt = "2026 年 9 月 30 日";
 </script>
 
 <template>
@@ -11,8 +11,11 @@ const updatedAt = "2026 年 9 月 1 日";
       <p>最後更新：{{ updatedAt }}</p>
     </header>
 
+    <section><h2>營運者與聯絡方式 / Publisher and contact</h2><p>ETF 持倉雷達由 IN THE WIN LIMITED 提供，客服信箱為 <a href="mailto:service@inthewins.com">service@inthewins.com</a>。ETF Holdings Radar is provided by IN THE WIN LIMITED. For support, email <a href="mailto:service@inthewins.com">service@inthewins.com</a>.</p></section>
+
     <template v-if="kind === 'privacy'">
       <section><h2>適用範圍</h2><p>本政策適用於 ETF 持倉雷達（active-etf.inthewins.com）。本站整理公開市場與 ETF 資料，並使用 GoGoWinners 共用登入服務驗證會員身分。</p></section>
+      <section><h2>會員 MCP 服務</h2><p>會員選擇授權 AI 用戶端連接 MCP 時，本站會處理會員識別、授權與連接資訊、工具請求及每日研究點數，以提供資料查詢、配額計算與防濫用控制。研究結果可能短期快取；交付給用戶端的資料也會依該用戶端的隱私政策處理。本站不會把會員的查詢內容提供給廣告平台。</p></section>
       <section><h2>必要資料與儲存</h2><p>為提供登入、會員內容與安全控制，本站會使用 HttpOnly 會員工作階段 Cookie；瀏覽器端另保存深色模式及你的追蹤同意選擇。本站不接收或保存你的登入密碼。</p></section>
       <section><h2>進站匿名量測</h2><p>尚未同意完整追蹤時，本站會以 Google Consent Mode denied 傳送無 Cookie 的受限量測，用來統計初始頁面目的地等整體使用狀況，不載入 Meta Pixel。這不代表零資料傳輸：瀏覽器連線仍可能包含時間、裝置與來源頁等一般請求資訊，但本站會將頁面位置轉為分類網址，不傳送實際股票或 ETF 代碼、搜尋字串及會員識別資料。</p></section>
       <section><h2>互動即升級同意</h2><p>當你操作分頁、點擊內容或功能，或進入登入／加入會員流程，即視為同意完整成效分析。Google 的分析與廣告儲存權限會更新為 granted，並開始載入 Meta Pixel；你也可以直接按下「同意完整量測」。傳送事件限於頁面目的地類別、登入生命週期、比較檔數及互動類型，不傳送電子郵件、會員 ID、Token、股票或 ETF 代碼、搜尋字串等識別或投資內容。</p></section>
@@ -24,6 +27,7 @@ const updatedAt = "2026 年 9 月 1 日";
 
     <template v-else>
       <section><h2>服務性質</h2><p>ETF 持倉雷達整理公開資訊並提供可重現的資料比較、研究摘要與方法說明。所有內容僅供資訊研究，不構成投資建議、招攬、報價或任何保證。</p></section>
+      <section><h2>會員 MCP 使用</h2><p>MCP 只提供已收錄 ETF 的唯讀研究資料，需完成會員授權並遵守每日研究點數與合理使用限制；不提供交易執行或個人化投資建議。</p></section>
       <section><h2>資料限制</h2><p>ETF、投信、證交所、SEC 與發行商資料可能有公告時差、缺值、修正或來源中斷。本站會揭露資料日期、涵蓋率與已知限制，但不保證資料即時、完整或適合特定目的。</p></section>
       <section><h2>會員與帳號</h2><p>會員登入由 GoGoWinners 共用登入服務提供。你應妥善保護登入方式，不得冒用他人身分、繞過會員限制、自動化大量擷取、干擾服務或嘗試存取未授權資料。</p></section>
       <section><h2>成效量測</h2><p>進站會先使用無 Cookie 的受限匿名量測；操作分頁、點擊內容或功能，或進入登入／加入會員流程，即依隱私政策視為同意完整成效分析。你可以隨時由頁尾「追蹤設定」調整選擇。</p></section>
