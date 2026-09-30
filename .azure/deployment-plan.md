@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — 2026-09-30 company-registration link support-page update.
+Status: Deployed and verified — 2026-09-30 company-registration link support-page update.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -75,3 +75,5 @@ Deployment proof (2026-09-30): Azure config-zip operation `e40336c3-7e73-4b77-81
 
 ## Company registration identity link — 2026-09-30
 The user supplied the official Companies House record for IN THE WIN LIMITED, UK company number 14533535. The support page now links to that public record; privacy and terms copy in the draft PR does the same. This is an application-only copy update: no change to OAuth, MCP tools, quota, app settings, infrastructure, or public Skill visibility. Validation Proof: official Companies House page returned 200 and identified the name, company number, and Active status; `npm run test:mcp` passed 23 tests (4 optional Mongo tests skipped), `npm run functions:build` and `npm run web:build` passed, `git diff --check` passed, and the production-only Function ZIP contains the compiled standalone entry and public pages. The existing active-etf-member-mcp Function and canonical hostname are the target.
+
+Company-link deployment proof (2026-09-30): Azure config-zip operation `83a7ab20-05bf-4fe7-82b2-54fc1c371421` exited successfully. The production `/en/mcp/support` page now displays IN THE WIN LIMITED, links UK company number 14533535 to the official Companies House record, and retains `service@inthewins.com`. `/api/mcp-health` returned 200 and the unconfigured OpenAI challenge returned 404. Main-site privacy and terms text remains in draft PR #22, not yet released.
