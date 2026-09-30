@@ -32,6 +32,7 @@ describe("independent MCP Function isolation", () => {
       expect(result.status).toBe(200);
       expect(String(result.body)).toContain("service@inthewins.com");
       expect(String(result.body)).toContain("IN THE WIN LIMITED");
+      expect(String(result.body)).toContain("14533535");
       expect(new Headers(result.headers).get("Content-Type")).toBe("text/html; charset=utf-8");
     }
   });
