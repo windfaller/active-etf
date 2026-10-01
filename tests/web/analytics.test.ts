@@ -4,7 +4,8 @@ import {
   ACTIVE_ETF_FEATURE_INTERACTION_EVENT,
   ACTIVE_ETF_PAGE_CLICK_EVENT,
   ACTIVE_ETF_SKILL_INSTALL_PROMPT_COPIED_EVENT,
-  createEtfComparisonTracker,
+  createComparisonRequests,
+  trackVerifiedRegistration,
   pageDestination,
   safeAgentPageLocation,
   trackAgentAction,
@@ -25,55 +26,75 @@ function eventCommand(target: AnalyticsTarget, event: string): unknown[] | undef
 }
 
 describe("Active ETF analytics", () => {
+  it('keeps research usable in browsers without crypto.randomUUID', () => {
+    vi.stubGlobal('crypto', { getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto) });
+    try {
+      const target: AnalyticsTarget = {};
+      const requests = createComparisonRequests(() => target);
+      const request = requests.begin('tw', ['00981A', '00982A'], 'direct_url');
+      expect(request?.compareId).toMatch(/^[a-f\d-]{36}$/u);
+      expect(requests.complete(request)).toBe(true);
+      expect(requests.begin('tw', ['00981A', '00982A'], 'comparison_builder')?.compareId).not.toBe(request?.compareId);
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("tracks a completed comparison without sending ETF codes", () => {
     const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
-    const track = createEtfComparisonTracker(() => target);
-
-    expect(track("tw", ["00982A", "00981A"])).toBe(true);
+    const tracker = createComparisonRequests(() => target);
+    const request = tracker.begin("tw", ["00982A", "00981A"], "comparison_builder");
+    expect(tracker.complete(request)).toBe(true);
     expect(eventCommand(target, ACTIVE_ETF_COMPARE_COMPLETE_EVENT)).toMatchObject([
       "event",
       ACTIVE_ETF_COMPARE_COMPLETE_EVENT,
-      { comparison_market: "tw", etf_count: 2, interaction_source: "comparison_results", event_id: expect.any(String) }
+      { comparison_market: "tw", etf_count: 2, interaction_source: "comparison_builder", compare_id: request?.compareId, event_id: `${request?.compareId}:complete` }
     ]);
     expect(JSON.stringify(commands(target))).not.toMatch(/00981A|00982A/u);
   });
 
   it("deduplicates the same comparison within the current page session", () => {
     const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
-    const track = createEtfComparisonTracker(() => target);
-
-    expect(track("global", ["DRAM", "HBMX"])).toBe(true);
-    expect(track("global", ["HBMX", "DRAM"])).toBe(false);
+    const tracker = createComparisonRequests(() => target);
+    const request = tracker.begin("global", ["DRAM", "HBMX"], "start_primary");
+    expect(tracker.complete(request)).toBe(true);
+    expect(tracker.complete(request)).toBe(false);
     expect(commands(target).filter((command) => command[1] === ACTIVE_ETF_COMPARE_COMPLETE_EVENT)).toHaveLength(1);
   });
 
-  it("deduplicates a completed comparison across refresh for the same data date", () => {
+  it("preserves the request ID on reload and gives an explicit repeat a new ID", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
     const target: AnalyticsTarget = { sessionStorage: storage };
-    expect(createEtfComparisonTracker(() => target)("tw", ["00981A", "00982A"], "2026-09-24")).toBe(true);
-    expect(createEtfComparisonTracker(() => target)("tw", ["00982A", "00981A"], "2026-09-24")).toBe(false);
-    expect(createEtfComparisonTracker(() => target)("tw", ["00981A", "00982A"], "2026-09-25")).toBe(true);
+    const tracker = createComparisonRequests(() => target);
+    const request = tracker.resume("tw", ["00981A", "00982A"]);
+    expect(request?.source).toBe("direct_url");
+    expect(tracker.complete(request)).toBe(true);
+    const reloaded = createComparisonRequests(() => target);
+    const same = reloaded.resume("tw", ["00982A", "00981A"]);
+    expect(same?.compareId).toBe(request?.compareId);
+    expect(reloaded.complete(same)).toBe(false);
+    const repeated = reloaded.begin("tw", ["00981A", "00982A"], "comparison_builder");
+    expect(repeated?.compareId).not.toBe(request?.compareId);
+    expect(reloaded.complete(repeated)).toBe(true);
+    const starts = commands(target).filter(command => command[1] === "active_etf_compare_started");
+    const completes = commands(target).filter(command => command[1] === ACTIVE_ETF_COMPARE_COMPLETE_EVENT);
+    expect(starts).toHaveLength(2); expect(completes).toHaveLength(2);
+    expect((starts[0]?.[2] as { compare_id: string }).compare_id).toBe((completes[0]?.[2] as { compare_id: string }).compare_id);
   });
 
   it("keeps anonymous Google events before full consent and does not call Meta", () => {
     const fbq = vi.fn();
     const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: false, fbq };
-    const track = createEtfComparisonTracker(() => target);
-
-    expect(track("tw", ["00981A", "00982A"])).toBe(true);
+    const tracker = createComparisonRequests(() => target);
+    expect(tracker.complete(tracker.begin("tw", ["00981A", "00982A"], "direct_url"))).toBe(true);
     expect(eventCommand(target, ACTIVE_ETF_COMPARE_COMPLETE_EVENT)).toBeDefined();
     expect(fbq).not.toHaveBeenCalled();
   });
 
   it("does not track invalid comparison sizes or non-browser execution", () => {
     const target: AnalyticsTarget = {};
-    const track = createEtfComparisonTracker(() => target);
-    const noBrowserTrack = createEtfComparisonTracker(() => null);
-
-    expect(track("tw", ["00981A"])).toBe(false);
-    expect(track("tw", ["1", "2", "3", "4", "5"])).toBe(false);
-    expect(noBrowserTrack("tw", ["00981A", "00982A"])).toBe(false);
+    const tracker = createComparisonRequests(() => target);
+    expect(tracker.begin("tw", ["00981A"], "direct_url")).toBeNull();
+    expect(tracker.begin("tw", ["1", "2", "3", "4", "5"], "direct_url")).toBeNull();
+    expect(createComparisonRequests(() => null).begin("tw", ["00981A", "00982A"], "direct_url")).toBeNull();
     expect(target.dataLayer).toBeUndefined();
   });
 
@@ -173,17 +194,19 @@ describe("Active ETF analytics", () => {
     const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: false, fbq };
     Object.defineProperty(globalThis, "window", { configurable: true, value: target });
     try {
-      expect(trackAuthEvent("active_etf_sign_up_success", "auth_callback")).toBe(true);
+      const receipt = { eventName: "active_etf_sign_up_success", eventId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", scope: "shared_account_created" };
+      expect(trackVerifiedRegistration(receipt)).toBe(false);
       expect(target.__ACTIVE_ETF_TRACKING_ALLOWED__).toBe(false);
-      expect(eventCommand(target, "active_etf_sign_up_success")?.[2]).toMatchObject({
-        auth_method: "external_firebase",
-        interaction_source: "auth_callback"
-      });
+      expect(eventCommand(target, "active_etf_sign_up_success")).toBeUndefined();
       expect(fbq).not.toHaveBeenCalled();
       target.__ACTIVE_ETF_TRACKING_ALLOWED__ = true;
-      expect(trackAuthEvent("active_etf_sign_up_success", "verified_new_account")).toBe(true);
+      const values = new Map<string, string>();
+      target.sessionStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => { values.set(key, value); } };
+      expect(trackVerifiedRegistration(receipt)).toBe(true);
+      expect(trackVerifiedRegistration(receipt)).toBe(false);
       const signupCommands = commands(target).filter((command) => command[1] === "active_etf_sign_up_success");
-      expect(fbq).toHaveBeenCalledWith("track", "CompleteRegistration", {}, { eventID: (signupCommands[1]?.[2] as { event_id: string }).event_id });
+      expect(signupCommands).toHaveLength(1);
+      expect(fbq).toHaveBeenCalledWith("trackCustom", "active_etf_sign_up_success", {}, { eventID: receipt.eventId });
       expect(trackFeatureInteraction("button")).toBe(true);
       expect(eventCommand(target, ACTIVE_ETF_FEATURE_INTERACTION_EVENT)?.[2]).toMatchObject({
         interaction_kind: "button",

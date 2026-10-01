@@ -1,0 +1,28 @@
+name: Active ETF Registration Meta Outbox
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: active-etf-registration-meta
+  cancel-in-progress: false
+
+jobs:
+  send:
+    if: vars.ACTIVE_ETF_CAPI_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the authenticated production outbox job
+        env:
+          ADMIN_JOB_TOKEN: ${{ secrets.ADMIN_JOB_TOKEN }}
+        run: |
+          test -n "$ADMIN_JOB_TOKEN"
+          curl --fail --silent --show-error --retry 2 --retry-delay 10 \
+            --connect-timeout 10 --max-time 40 \
+            --request POST --header "x-admin-token: $ADMIN_JOB_TOKEN" \
+            https://active-etf.inthewins.com/api/jobs/registration-meta/send

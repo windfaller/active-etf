@@ -1,8 +1,8 @@
 import { computed, readonly, ref } from "vue";
-import { trackAuthEvent } from "../analytics";
+import { trackAuthEvent, trackVerifiedRegistration } from "../analytics";
 import { clearJsonCache } from "../apiClient";
 import {
-  buildSignInUrl,
+  startBrowserAuth,
   clearAuthSession,
   consumeBrowserAuthCallback,
   establishAuthSession,
@@ -14,6 +14,7 @@ const user = ref<AuthUser | null>(null);
 const isLoading = ref(true);
 const error = ref("");
 let initialization: Promise<void> | null = null;
+let authStartPending = false;
 
 function applySession(authenticated: boolean, nextUser: AuthUser | null): void {
   user.value = authenticated ? nextUser : null;
@@ -29,6 +30,11 @@ async function initialize(): Promise<void> {
     try {
       const session = idToken ? await establishAuthSession(idToken) : await getAuthSession();
       applySession(session.authenticated, session.user);
+      if (session.authenticated) {
+        clearJsonCache();
+        if (session.authReceipt?.loginEventId) trackAuthEvent("active_etf_login_success", "verified_post_callback");
+        if (session.authReceipt?.registration) trackVerifiedRegistration(session.authReceipt.registration);
+      }
       if (idToken && session.authenticated) trackAuthEvent("active_etf_login_success", "auth_callback");
       if (callbackError) {
         error.value = callbackError === "cancelled" ? "已取消登入，可繼續查看公開研究資料。" : "登入未完成，請重新登入。";
@@ -45,16 +51,20 @@ async function initialize(): Promise<void> {
   return initialization;
 }
 
-function signIn(source = "header"): void {
+async function signIn(source = "header"): Promise<void> {
+  if (authStartPending) return;
+  authStartPending = true;
   error.value = "";
   trackAuthEvent("active_etf_login_intent", source);
-  window.location.assign(buildSignInUrl(window.location.href));
+  try { await startBrowserAuth("login"); } catch (cause) { authStartPending = false; error.value = cause instanceof Error ? cause.message : "帳號服務無法開啟。"; }
 }
 
-function signUp(source = "research"): void {
+async function signUp(source = "research"): Promise<void> {
+  if (authStartPending) return;
+  authStartPending = true;
   error.value = "";
   trackAuthEvent("active_etf_sign_up_started", source);
-  window.location.assign(buildSignInUrl(window.location.href));
+  try { await startBrowserAuth("sign_up"); } catch (cause) { authStartPending = false; error.value = cause instanceof Error ? cause.message : "帳號服務無法開啟。"; }
 }
 
 async function signOut(source = "account_menu"): Promise<void> {

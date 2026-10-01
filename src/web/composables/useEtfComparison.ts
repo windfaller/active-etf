@@ -17,12 +17,13 @@ export function useEtfComparison() {
     error.value = "";
     try {
       const result = await getJson<EtfComparison>(path, requestController.signal);
+      if (controller !== requestController) return null;
       comparison.value = result;
       return result;
     }
     catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError") && !comparison.value) {
-        error.value = cause instanceof Error ? cause.message : "ETF 比較讀取失敗。";
+      if (!(cause instanceof DOMException && cause.name === "AbortError") && controller === requestController) {
+        error.value = comparison.value ? "更新失敗，以下是先前取得的資料，請稍後重試。" : cause instanceof Error ? cause.message : "ETF 比較讀取失敗。";
       }
     }
     finally {

@@ -3,7 +3,7 @@ import { onMounted, ref } from "vue";
 import { ArrowRight, GitCompareArrows, ShieldCheck } from "@lucide/vue";
 import { configuredEtfs } from "../../config/etfs";
 import { getJson } from "../apiClient";
-import { trackCompareStarted } from "../analytics";
+import { comparisonRequests, trackPreviewLoaded } from "../analytics";
 import { useAuth } from "../composables/useAuth";
 import type { EtfComparison } from "../contracts/compare";
 import type { EtfCoverageResponse } from "../contracts/dashboard";
@@ -17,13 +17,14 @@ const examplePath = "/compare/etfs?type=tw&codes=00981A,00982A";
 const sources = configuredEtfs.filter((row) => ["00981A", "00982A"].includes(row.etfCode));
 
 function compare(): void {
-  trackCompareStarted("start_primary");
+  comparisonRequests.begin("tw", ["00981A", "00982A"], "start_primary");
   emit("navigate", examplePath);
 }
 
 onMounted(async () => {
   try {
     comparison.value = await getJson<EtfComparison>("/api/compare/etfs?type=tw&codes=00981A%2C00982A");
+    if (comparison.value.cards.length >= 2) trackPreviewLoaded();
     if (comparison.value.sourceAsOf) {
       coverageDetail.value = await getJson<EtfCoverageResponse>(`/api/etfs/coverage?date=${comparison.value.sourceAsOf}`).catch(() => null);
     }

@@ -14,7 +14,7 @@ withDefaults(defineProps<{
   source: "member_locked_result"
 });
 
-const { isLoading, signIn } = useAuth();
+const { isLoading, signIn, signUp } = useAuth();
 </script>
 
 <template>
@@ -30,13 +30,12 @@ const { isLoading, signIn } = useAuth();
       <small v-if="!compact">{{ description }}</small>
       <small>ETF 持倉雷達使用 GoGoWinners 共用帳號登入。</small>
     </div>
-    <button type="button" :disabled="isLoading" @click="signIn(source)">
-      {{ isLoading ? "驗證中…" : "免費註冊／登入解鎖" }}
-    </button>
+    <div class="unlock-actions"><button type="button" :disabled="isLoading" @click="signUp(source)">{{ isLoading ? "驗證中…" : "免費註冊解鎖" }}</button><button type="button" class="existing-login" :disabled="isLoading" @click="signIn(source)">已有帳號？登入</button></div>
   </section>
 </template>
 
 <style scoped>
+.unlock-actions{position:relative;z-index:1;display:grid;gap:4px}.unlock-actions .existing-login{background:transparent;border:0;color:#234d73;min-height:36px;text-decoration:underline;font-size:12px}
 .member-locked-result{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;min-height:150px;padding:20px;overflow:hidden;border:1px solid #b9c8d3;border-radius:12px;background:linear-gradient(135deg,#f5f8fa,#eaf0f4);color:var(--theme-text)}
 .locked-mask{position:absolute;inset:0;display:grid;align-content:center;gap:10px;padding:20px;opacity:.45;filter:blur(5px);pointer-events:none}.locked-mask i{display:block;width:78%;height:14px;border-radius:999px;background:#adbbc5}.locked-mask i:nth-child(2){width:92%}.locked-mask i:nth-child(3){width:58%}
 .locked-copy,.member-locked-result button{position:relative;z-index:1}.locked-copy{display:grid;gap:5px}.locked-copy>span{display:flex;align-items:center;gap:6px;color:#345986;font-size:11px;font-weight:850;letter-spacing:.04em}.locked-copy>b{color:var(--theme-text-strong);font-size:16px}.locked-copy>small{color:var(--theme-text-muted);line-height:1.5}
