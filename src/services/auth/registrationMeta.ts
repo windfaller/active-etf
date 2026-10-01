@@ -13,7 +13,7 @@ export async function sendDueRegistrationEvents(): Promise<{ sent: number; faile
   const version = process.env.ACTIVE_ETF_META_API_VERSION;
   if (process.env.ACTIVE_ETF_CAPI_ENABLED !== "true" || !token || !/^v\d+\.\d+$/u.test(version ?? "")) return result;
   const events = (await getDb()).collection<RegistrationEvent>("active_etf_registration_events");
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < 3; index += 1) { // <=30s network time within SWA's 45s request limit.
     const now = new Date(); const lease = randomUUID();
     const event = await events.findOneAndUpdate({ metaStatus: "pending", nextAttemptAt: { $lte: now }, occurredAt: { $gt: new Date(Date.now() - 7 * 86400000) }, attempts: { $lt: 5 }, $or: [{ leaseUntil: { $exists: false } }, { leaseUntil: { $lt: now } }] }, { $set: { lease, leaseUntil: new Date(Date.now() + 60_000) }, $inc: { attempts: 1 } }, { returnDocument: "after" });
     if (!event) break;

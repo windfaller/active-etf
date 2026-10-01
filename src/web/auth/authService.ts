@@ -71,7 +71,8 @@ export async function startBrowserAuth(intent: "login" | "sign_up"): Promise<voi
   const data = await response.json() as { authUrl?: string };
   if (!response.ok || !data.authUrl) throw new Error("帳號服務暫時無法開啟，請稍後再試。");
   const target = new URL(data.authUrl);
-  if (target.origin !== AUTH_APP_BASE || target.pathname !== (intent === "sign_up" ? "/register" : "/sign-in") || target.searchParams.get("returnMode") !== "post") throw new Error("帳號返回設定無效。");
+  const qaTarget = /^https:\/\/kind-coast-08b07e900-\d+\.eastasia\.7\.azurestaticapps\.net$/u.test(window.location.origin) && /^https:\/\/black-desert-0cdbaeb00-\d+\.eastasia\.3\.azurestaticapps\.net$/u.test(target.origin);
+  if ((target.origin !== AUTH_APP_BASE && !qaTarget) || target.pathname !== (intent === "sign_up" ? "/register" : "/sign-in") || target.searchParams.get("returnMode") !== "post") throw new Error("帳號返回設定無效。");
   window.location.assign(target.toString());
 }
 

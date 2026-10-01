@@ -6,7 +6,11 @@ ETF 基底 `d8c5d1508a2090d5805d7824261b7bdd84b2851e`，分支 `codex/etf-funnel
 
 本次先交付 GitHub PR／預覽，正式發布須協調兩個專案的核准範圍。沒有操作廣告、预算或關閉副本；NT$100／日是使用者提供的現況，本次未重讀 Meta 後台。此文件取代先前 `ad-visitor-review.md` 的註冊映射與最佳化建議。
 
-本機畫面預覽：ETF `http://127.0.0.1:4175/compare/etfs?type=tw&codes=00981A,00982A`，Auth `http://127.0.0.1:5177/register`。PR 預覽網址及 CI 結果發布後補入下方。
+GitHub：[ETF PR #23](https://github.com/windfaller/active-etf/pull/23)、[Auth PR #1](https://github.com/gogowinners/GoGoWinners-Auth/pull/1)。
+
+遠端畫面預覽：[ETF 比較](https://kind-coast-08b07e900-23.eastasia.7.azurestaticapps.net/compare/etfs?type=tw&codes=00981A,00982A)、[Auth 註冊](https://black-desert-0cdbaeb00-1.eastasia.3.azurestaticapps.net/register?locale=zh-TW&redirect=https%3A%2F%2Factive-etf.inthewins.com%2Fcompare%2Fetfs%3Ftype%3Dtw%26codes%3D00981A%2C00982A%26metric%3Dholdings)。Auth 連結只供畫面審閱，不是有效後端 flow，請勿以此作真帳號聯測。最新部署 CI 見各 PR checks；真會員跨預覽驗收需下列配置。
+
+本機畫面預覽：ETF `http://127.0.0.1:4175/compare/etfs?type=tw&codes=00981A,00982A`，Auth `http://127.0.0.1:5177/register`。
 
 ## 使用體驗與權限
 
@@ -55,7 +59,9 @@ ETF 基底 `d8c5d1508a2090d5805d7824261b7bdd84b2851e`，分支 `codex/etf-funnel
 
 ## CAPI 與部署設定
 
-此前已查 ETF／TSFunc 沒有找到這個 Pixel 的 ETF CAPI sender，不表示其他專案或平台零註冊；H8 CompleteRegistration 不屬本次來源。新增 registration outbox、原子lease、最多五次同ID退避重試，每輪最多十筆，只處理七日內待送事件；停用時建立的紀錄不回補。
+此前已查 ETF／TSFunc 沒有找到這個 Pixel 的 ETF CAPI sender，不表示其他專案或平台零註冊；H8 CompleteRegistration 不屬本次來源。新增 registration outbox、原子lease、最多五次同ID退避重試，每輪最多三筆，只處理七日內待送事件；停用時建立的紀錄不回補。
+
+主站採受管 Functions，依 [Azure HTTP 限制](https://learn.microsoft.com/en-us/azure/static-web-apps/apis-functions) 與 [45秒限制](https://learn.microsoft.com/en-us/azure/static-web-apps/apis-overview)，沿用既有 ADMIN_JOB_TOKEN 的 `POST /api/jobs/registration-meta/send`。GitHub排程每五分鐘但 **vars.ACTIVE_ETF_CAPI_SCHEDULE_ENABLED 預設不啟用**；尚未設定該變數。若使用獨立 Functions timer，還須 ENABLE_TIMER_TRIGGERS=true，主站不得開此開關。HTTP一次最多30秒網路等待，結果只含啟用狀態及計數。
 
 **預設停用**，本次未設定正式憑證或啟用 sender。核准後需 `ACTIVE_ETF_CAPI_ENABLED=true`、受保護 `ACTIVE_ETF_META_ACCESS_TOKEN`、可用 `ACTIVE_ETF_META_API_VERSION`；測試另用 `ACTIVE_ETF_META_TEST_EVENT_CODE`。只用已同意且合法 `_fbp/_fbc` matching，缺少則記 no_matching_data，不捏造 email/IP；來源URL去query，日誌只記計數。
 
@@ -68,7 +74,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 | 檢查 | 結果 | 限制 |
 | --- | --- | --- |
 | ETF Web／Functions build | 通過 | 非正式部署 |
-| ETF unit regression | 329通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、舊瀏覽器randomUUID fallback均用替身 |
+| ETF unit regression | 332通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、admin job、精確QA配對、舊瀏覽器randomUUID fallback均用替身 |
 | Auth build／unit | 通過／19項通過 | 含原有其他產品redirect regression |
 | Chromium首屏／picker／解鎖 | 8項新漏斗測試及14項既有P1測試通過；三尺寸有產品識別、同日摘要、結果入口及CTA；無溢出、遮擋overlay或pageerror | 非實體WebView；首次測試CSS locator誤用，修正後通過 |
 | 比較事件 | begin/complete共用ID；重整／分頁重繪不重送；失敗不完成；預覽另記 | 無平台receipt |
@@ -92,7 +98,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 ## 待協同、驗收與回復
 
 1. 授權測試者以 `utm_source=qa&utm_medium=validation&utm_campaign=etf_funnel_20261001` 核對真新／既有Email、Email link、驗證信及Google/Facebook返回；測失敗、取消、拒絕、刷新及重複callback，不重放真Token。
-2. 中央服務提供精確ETF預覽origin白名單，Auth build用 `VITE_ACTIVE_ETF_QA_ORIGIN`；ETF QA允許精確 `ACTIVE_ETF_AUTH_QA_ORIGIN`、`ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN`。生產不設QA override，本次沒有變更中央白名單。
+2. 中央服務提供精確ETF預覽origin白名單，Auth build用 `VITE_ACTIVE_ETF_QA_ORIGIN`；ETF QA配對精確 `ACTIVE_ETF_AUTH_QA_ORIGIN`、`ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN`，後者只能為已知 Auth SWA 預覽。僅指定的ETF QA來源可開啟QA Auth及callback，正式來源永遠不改道。Firebase維護者另核准Auth精確測試網域／驗證信continue URL及社群設定。生產不設QA override，本次未變更中央或Firebase白名單。
 3. 核准後先部署Auth並確認capability JSON，再部署ETF／設定Firebase lookup；Test Events通過且獲准才開CAPI。廣告事件與預算不隨發布改動。
 4. Provider證據列同一event_name/event_id的Browser/Server接收、去重、GA4事件數／使用者數，另列平台歸因；現在均為**未核實**，不填零。
 5. 回復先設 `ACTIVE_ETF_CAPI_ENABLED=false`、`ACTIVE_ETF_AUTH_STARTS_DISABLED=true`，保留24小時在途callback；前端回復時保留API契約，再回復Auth與API。保留ledger避免重送，不刪資料或撤銷其他會員。
@@ -100,6 +106,6 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 ## 修改檔案
 
 - ETF UI/analytics：`src/web/views/{EtfCompareView,StartView}.vue`、`components/MemberLockedResult.vue`、`composables/{useAuth,useEtfComparison}.ts`、`auth/authService.ts`、`analytics.ts`、`consent.ts`。
-- ETF API：`src/api/{authFlow,authSession}.ts`、`src/services/auth/{authCapability,returnPolicy,firebaseAccount,flowStore,registrationMeta}.ts`、`src/functions/{apiRoutes,registrationMetaWorker}.ts`。
-- ETF tests：`tests/api/authFlow.test.ts`、`tests/auth/{firebaseAccount,authCapability,registrationLedger}.test.ts`、`tests/web/analytics.test.ts`、`tests/e2e/{etf-funnel,p1-intelligence}.spec.ts`。
+- ETF API：`src/api/{authFlow,authSession,postEtfAdminJobs}.ts`、`src/services/auth/{authCapability,returnPolicy,firebaseAccount,flowStore,registrationMeta}.ts`、`src/functions/{apiRoutes,registrationMetaWorker}.ts`、`.github/workflows/registration-meta.yml`。
+- ETF tests：`tests/api/{authFlow,registrationJob}.test.ts`、`tests/auth/{firebaseAccount,authCapability,returnPolicy,registrationLedger}.test.ts`、`tests/web/analytics.test.ts`、`tests/e2e/{etf-funnel,p1-intelligence}.spec.ts`。
 - Auth：`src/App.vue`、`utils/{productFlow,common}.ts`、`views/{Register,SignIn}.vue`、`components/LanguageSwitcher.vue`、`style.css`、`plugins/i18n.ts`、`locales/{zh-TW,zh-CN,en}.json`、capability JSON、`test/product-flow.test.ts`、`docs/active-etf-post-flow.md`。

@@ -1,7 +1,7 @@
 import { app, type Cookie, type HttpRequest, type HttpResponseInit } from "@azure/functions";
 import { randomBytes, randomUUID } from "node:crypto";
 import { authFlowStore, fingerprint, type AuthFlow } from "../services/auth/flowStore.js";
-import { AUTH_ORIGIN, isEtfOrigin, safeResearchReturn } from "../services/auth/returnPolicy.js";
+import { AUTH_ORIGIN, authOriginFor, isAuthPreviewOrigin, isEtfOrigin, safeResearchReturn } from "../services/auth/returnPolicy.js";
 import { isNewAccountDuringFlow, lookupFirebaseCreation } from "../services/auth/firebaseAccount.js";
 import { verifyFirebaseIdToken } from "../services/auth/firebaseTokenVerifier.js";
 import { requestCookies } from "../services/auth/memberSession.js";
@@ -26,7 +26,8 @@ export async function startAuthFlow(request: HttpRequest): Promise<HttpResponseI
     if (typeof body.returnUrl !== "string" || body.returnUrl.length > 2200 || !["login", "sign_up"].includes(body.intent ?? "")) return jsonResponse({ error: "invalid_request" }, 400, headers);
     const trackingAllowed = body.trackingAllowed === true;
     const returnUrl = safeResearchReturn(body.returnUrl, origin, trackingAllowed);
-    if (!await supportsEtfPostReturn()) return jsonResponse({ error: "auth_post_flow_not_ready" }, 503, headers);
+    const authOrigin = authOriginFor(origin);
+    if (!await supportsEtfPostReturn(authOrigin)) return jsonResponse({ error: "auth_post_flow_not_ready" }, 503, headers);
     const binding = randomBytes(32).toString("base64url");
     const cookies = requestCookies(request);
     const metaUserData: AuthFlow["metaUserData"] = {};
@@ -35,13 +36,14 @@ export async function startAuthFlow(request: HttpRequest): Promise<HttpResponseI
     }
     const flow: AuthFlow = { _id: randomUUID(), binding: fingerprint(binding), returnUrl, createdAt: new Date(), expiresAt: new Date(Date.now() + 24 * 60 * 60_000), status: "pending", trackingAllowed, metaUserData };
     await authFlowStore.create(flow);
-    const authUrl = new URL(body.intent === "sign_up" ? "/register" : "/sign-in", AUTH_ORIGIN);
+    const authUrl = new URL(body.intent === "sign_up" ? "/register" : "/sign-in", authOrigin);
     authUrl.search = new URLSearchParams({ redirect: returnUrl, locale: "zh-TW", returnAuthAction: "1", returnMode: "post", authFlow: flow._id }).toString();
     return { ...jsonResponse({ authUrl: authUrl.toString() }, 200, headers), cookies: [cookie(request, FLOW_COOKIE, binding, 86400, true)] };
   } catch { return jsonResponse({ error: "auth_start_unavailable" }, 503, headers); }
 }
 export async function finishAuthFlow(request: HttpRequest): Promise<HttpResponseInit> {
-  const allowedAuthOrigin = request.headers.get("origin") === AUTH_ORIGIN || (process.env.ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN && request.headers.get("origin") === process.env.ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN);
+  const callbackOrigin = request.headers.get('origin') ?? '';
+  const allowedAuthOrigin = callbackOrigin === AUTH_ORIGIN || (isAuthPreviewOrigin(callbackOrigin) && callbackOrigin === process.env.ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN);
   if (!allowedAuthOrigin || !request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded")) return jsonResponse({ error: "unsupported_callback" }, 403, headers);
   const raw = await request.text();
   if (raw.length > 15000) return jsonResponse({ error: "invalid_callback" }, 400, headers);
@@ -57,7 +59,7 @@ export async function finishAuthFlow(request: HttpRequest): Promise<HttpResponse
   if (!uuid.test(id) || !binding) return expiredReturn();
   let existing: AuthFlow | null;
   try { existing = await authFlowStore.get(id); } catch { return expiredReturn(); }
-  if (!existing || existing.binding !== fingerprint(binding) || !isEtfOrigin(new URL(existing.returnUrl).origin)) return expiredReturn();
+  if (!existing || existing.binding !== fingerprint(binding) || !isEtfOrigin(new URL(existing.returnUrl).origin) || callbackOrigin !== authOriginFor(new URL(existing.returnUrl).origin)) return expiredReturn();
   const redirect = (url: string, cookies: Cookie[] = []) => ({ status: 303, headers: { ...headers, Location: url }, cookies });
   if (existing.status !== "pending") return redirect(existing.returnUrl); // Replay never establishes a session or creates another event.
   let flow: AuthFlow | null;

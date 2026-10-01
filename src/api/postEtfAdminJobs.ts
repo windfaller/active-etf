@@ -14,6 +14,7 @@ import { calculateSectorFlow } from "../services/sector/sectorFlowEngine.js";
 import { refreshStockSectorProfiles } from "../services/sector/sectorProfileSync.js";
 import { syncDailyMarketIntelligence } from "../services/sync/marketIntelligenceSync.js";
 import { assertTradeDate } from "../utils/date.js";
+import { sendDueRegistrationEvents } from "../services/auth/registrationMeta.js";
 import { badRequest, jsonResponse, serverError, unauthorized } from "./response.js";
 
 function validateAdminToken(request: HttpRequest) {
@@ -35,6 +36,12 @@ function enabledEtfSummaries() {
       fundCode: etf.fundCode,
       providerId: etf.source.providerId ?? null
     }));
+}
+
+export async function postRegistrationMeta(request: HttpRequest) {
+  const authError = validateAdminToken(request);
+  if (authError) return authError;
+  return jsonResponse({ ok: true, job: 'registrationMeta', enabled: process.env.ACTIVE_ETF_CAPI_ENABLED === 'true', result: await sendDueRegistrationEvents() });
 }
 
 async function latestHoldingChangeTradeDate(): Promise<string | null> {
@@ -399,3 +406,5 @@ app.http("postTelegramDailyDigest", {
   authLevel: "anonymous",
   handler: postTelegramDailyDigest
 });
+
+app.http('postRegistrationMeta', { methods: ['POST'], route: 'jobs/registration-meta/send', authLevel: 'anonymous', handler: postRegistrationMeta });

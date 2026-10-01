@@ -1,4 +1,9 @@
 export const AUTH_ORIGIN = "https://auth-app.gogowinners.me";
+export const isAuthPreviewOrigin = (origin: string): boolean => /^https:\/\/black-desert-0cdbaeb00-\d+\.eastasia\.3\.azurestaticapps\.net$/u.test(origin);
+export function authOriginFor(etfOrigin: string): string {
+  const qa = process.env.ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN ?? '';
+  return etfOrigin !== 'https://active-etf.inthewins.com' && etfOrigin === process.env.ACTIVE_ETF_AUTH_QA_ORIGIN && isAuthPreviewOrigin(qa) ? qa : AUTH_ORIGIN;
+}
 export function isEtfOrigin(origin: string): boolean {
   return origin === "https://active-etf.inthewins.com" || /^https:\/\/kind-coast-08b07e900(?:-\d+\.eastasia)?\.7\.azurestaticapps\.net$/u.test(origin) || origin === process.env.ACTIVE_ETF_AUTH_QA_ORIGIN;
 }
