@@ -45,6 +45,19 @@ describe("build-time route metadata", () => {
     expect(routeMetadataForPath("/stocks/us/ZZZZ")?.robots).toBe("noindex, nofollow");
   });
 
+  it("identifies the Taiwan operating company on public legal pages", () => {
+    for (const path of ["/privacy", "/terms"]) {
+      const metadata = routeMetadataForPath(path);
+      expect(metadata).not.toBeNull();
+      const [page] = routeStructuredData(metadata!) as Array<Record<string, unknown>>;
+      expect(page.publisher).toMatchObject({
+        name: "Global Triple Winners Ltd.",
+        legalName: "寶瀛環彩有限公司",
+        identifier: "24283696"
+      });
+    }
+  });
+
   it("limits Dataset markup to canonical data landing pages", () => {
     for (const path of ["/", "/market", "/global-etfs", "/institutions", "/stocks", "/compare/etfs", "/signals", "/methodology"]) {
       const metadata = routeMetadataForPath(path);

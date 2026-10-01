@@ -415,7 +415,10 @@ export function routeStructuredData(metadata: RouteMetadata, dateModified?: stri
   const canonical = `${SITE_ORIGIN}${metadata.path}`;
   const organization = {
     "@type": "Organization",
-    name: "Active ETF Intelligence",
+    name: "Global Triple Winners Ltd.",
+    legalName: "寶瀛環彩有限公司",
+    identifier: "24283696",
+    alternateName: "ETF 持倉雷達",
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/assets/logo-mark.svg`
   };
