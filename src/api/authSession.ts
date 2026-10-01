@@ -2,6 +2,8 @@ import { app, type Cookie, type HttpRequest, type HttpResponseInit, type Invocat
 import { MEMBER_SESSION_COOKIE_NAME, memberSessionToken } from "../services/auth/memberSession.js";
 import { verifyFirebaseIdToken, type FirebaseIdTokenClaims } from "../services/auth/firebaseTokenVerifier.js";
 import { jsonResponse } from "./response.js";
+import { authFlowStore, fingerprint } from "../services/auth/flowStore.js";
+import { requestCookies } from "../services/auth/memberSession.js";
 
 export interface AuthenticatedUser {
   uid: string;
@@ -34,7 +36,7 @@ function isSecureRequest(request: HttpRequest): boolean {
   return forwardedProto === "https" || request.url.startsWith("https://");
 }
 
-function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number): Cookie {
+export function sessionCookie(request: HttpRequest, idToken: string, expiresAt: number): Cookie {
   const maxAge = Math.max(0, Math.min(3_600, expiresAt - Math.floor(Date.now() / 1000)));
   return {
     name: MEMBER_SESSION_COOKIE_NAME,
@@ -93,7 +95,9 @@ async function readSession(request: HttpRequest): Promise<HttpResponseInit> {
 
   try {
     const claims = await verifyFirebaseIdToken(idToken);
-    return jsonResponse({ authenticated: true, user: safeUser(claims) }, 200, noStoreHeaders());
+    const receiptId = requestCookies(request).active_etf_auth_receipt;
+    const receipt = receiptId ? await authFlowStore.receipt(receiptId, fingerprint(`${claims.aud}:${claims.sub}`), request.headers.get('x-active-etf-tracking-consent') === 'granted').catch(() => null) : null;
+    return { ...jsonResponse({ authenticated: true, user: safeUser(claims), ...(receipt ? { authReceipt: receipt } : {}) }, 200, noStoreHeaders()), ...(receiptId ? { cookies: [{ name: "active_etf_auth_receipt", value: "", path: "/", httpOnly: true, sameSite: "Lax" as const, secure: isSecureRequest(request), maxAge: 0 }] } : {}) };
   } catch {
     return {
       ...jsonResponse({ authenticated: false, user: null }, 200, noStoreHeaders()),

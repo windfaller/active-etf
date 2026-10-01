@@ -154,7 +154,6 @@ export function trackMetaCustomEvent(
 ): boolean {
   if (!target || !hasTrackingConsent(target) || !target.fbq) return false;
   if (event === "page_view") target.fbq("track", "PageView", {}, eventId ? { eventID: eventId } : {});
-  else if (event === "active_etf_sign_up_success") target.fbq("track", "CompleteRegistration", {}, eventId ? { eventID: eventId } : {});
   else target.fbq("trackCustom", event, {}, eventId ? { eventID: eventId } : {});
   return true;
 }

@@ -19,6 +19,7 @@ export interface AuthUser {
 export interface AuthSessionResponse {
   authenticated: boolean;
   user: AuthUser | null;
+  authReceipt?: { loginEventId?: string; registration?: { eventName: string; eventId: string; scope: string } };
 }
 
 export function stripAuthToken(input: string): string {
@@ -60,6 +61,18 @@ export function buildSignInUrl(currentUrl: string, locale = "zh-TW"): string {
     [AUTH_ACTION_OPT_IN_PARAM]: "1"
   });
   return `${AUTH_APP_BASE}/sign-in?${params.toString()}`;
+}
+
+export async function startBrowserAuth(intent: "login" | "sign_up"): Promise<void> {
+  const response = await fetch(`${apiBase}/api/auth/start`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ intent, returnUrl: safeAuthReturnUrl(window.location.href), trackingAllowed: readBrowserTrackingConsent() === "granted" })
+  });
+  const data = await response.json() as { authUrl?: string };
+  if (!response.ok || !data.authUrl) throw new Error("帳號服務暫時無法開啟，請稍後再試。");
+  const target = new URL(data.authUrl);
+  if (target.origin !== AUTH_APP_BASE || target.pathname !== (intent === "sign_up" ? "/register" : "/sign-in") || target.searchParams.get("returnMode") !== "post") throw new Error("帳號返回設定無效。");
+  window.location.assign(target.toString());
 }
 
 export function extractAuthToken(input: string): string | null {
@@ -110,6 +123,7 @@ async function sessionRequest(init: RequestInit = {}): Promise<AuthSessionRespon
     credentials: "include",
     ...init,
     headers: {
+      'x-active-etf-tracking-consent': readBrowserTrackingConsent() ?? 'unknown',
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...init.headers
     }

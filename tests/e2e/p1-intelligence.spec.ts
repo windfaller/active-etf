@@ -57,6 +57,7 @@ test("ETF compare enforces four selections and never offers 13F", async ({ page 
   await page.getByRole("button", { name: "調整" }).click();
   await expect(page.getByText(/加碼持股筆數 5/u).first()).toBeVisible();
   await expect(page.getByText(/減碼持股筆數 2/u).first()).toBeVisible();
+  await page.locator('.builder-disclosure>summary').click();
   await page.locator(".type-toggle").getByRole("button", { name: "海外 ETF" }).click();
   await expect(page.getByRole("button", { name: /ARK13F/u })).toHaveCount(0);
   const options = page.locator(".code-options button");
@@ -103,6 +104,8 @@ test("selected ETF options keep WCAG AA text contrast in dark mode", async ({ pa
   await page.goto("/compare/etfs?type=tw&codes=00981A,00982A");
   await page.getByRole("button", { name: "切換至深色模式" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+
+  await page.locator('.builder-disclosure>summary').click();
 
   const contrastRatios = await page.locator(".code-options button.selected").first().evaluate((button) => {
     const luminance = (color: string): number => {
