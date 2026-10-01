@@ -4,7 +4,7 @@
 
 ETF 基底 `d8c5d1508a2090d5805d7824261b7bdd84b2851e`，分支 `codex/etf-funnel-followup`；Auth 基底 `a849a9a`，分支 `codex/active-etf-auth-funnel`。兩個專案均使用隔離 worktree，沒有納入原工作目錄未提交的變動，沒有修改 TSFunc。
 
-本次先交付 GitHub PR／預覽，正式發布須協調兩個專案的核准範圍。沒有操作廣告、预算或關閉副本；NT$100／日是使用者提供的現況，本次未重讀 Meta 後台。此文件取代先前 `ad-visitor-review.md` 的註冊映射與最佳化建議。
+本次先建立 GitHub PR／預覽及驗證，依使用者先前「先合併部署，注意要上github」授權，按 Auth → ETF 順序發布。沒有操作廣告、预算或關閉副本；NT$100／日是使用者提供的現況，本次未重讀 Meta 後台。此文件取代先前 `ad-visitor-review.md` 的註冊映射與最佳化建議。正式版本與發布後證據另記錄在交付驗證紀錄／PR。
 
 GitHub：[ETF PR #23](https://github.com/windfaller/active-etf/pull/23)、[Auth PR #1](https://github.com/gogowinners/GoGoWinners-Auth/pull/1)。
 
@@ -65,7 +65,7 @@ GitHub：[ETF PR #23](https://github.com/windfaller/active-etf/pull/23)、[Auth 
 
 **預設停用**，本次未設定正式憑證或啟用 sender。核准後需 `ACTIVE_ETF_CAPI_ENABLED=true`、受保護 `ACTIVE_ETF_META_ACCESS_TOKEN`、可用 `ACTIVE_ETF_META_API_VERSION`；測試另用 `ACTIVE_ETF_META_TEST_EVENT_CODE`。只用已同意且合法 `_fbp/_fbc` matching，缺少則記 no_matching_data，不捏造 email/IP；來源URL去query，日誌只記計數。
 
-`FIREBASE_WEB_API_KEY` 必須屬同一專案且可由後端 accounts:lookup，尚待測試部署核對設定／限制。缺設定不宣稱零註冊。沿用 MongoDB；flow建TTL，ledger以_id唯一。
+`FIREBASE_WEB_API_KEY` 已設定為 Auth 既有 `gogowinners-380206` 專案的 Web API key，未輸出憑證；正式 CAPI 明確設為 false。真帳號 accounts:lookup 的設定／限制仍待授權測試者驗收，未核實不宣稱零註冊。沿用 MongoDB；flow建TTL，ledger以_id唯一。
 
 ## 驗證紀錄
 
@@ -86,6 +86,8 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 
 390px修正前摘要分頁y=1238、矩陣y=1946；新版核心摘要y=267、底部553。元素不同，證據只说明承諾重點已提早可見。新版結果跳轉與解鎖CTA位於固定導覽上方。
 
+最後一次 Auth 遠端檢查發現初始 lazy route 尚未就緒時，Firebase 匿名 callback 把 `/register` 視為 `/` 並跳到登入。已增加 `router.isReady()` 後再初始化；build、20項測試及匿名切換／返回重新通過，遠端直接註冊另於發布前核對。
+
 2026-10-01 遠端 ETF 預覽版本 `9b0ac2c01c494cba042deb41ff7e80199713d7d6` 的 merge parent 包含來源 `b1e32e22e09086e6fb5272631e4b970f5b0af4b9`。三尺寸頁面200、實際公開API結果可見、無pageerror／溢出、CTA在導覽上方。`POST /api/auth/start` 回503 `auth_post_flow_not_ready`，符合未發布新版正式Auth／未配對QA時的防護，**不是註冊往返通過**。ETF遠端CI [36817464349](https://github.com/windfaller/active-etf/actions/runs/36817464349)成功；最新文件版CI請見PR。
 
 截圖未提交二進位檔，目錄：`/Users/chi/.codex/visualizations/2026/09/29/01a0eb3b-dca1-7c13-9e5a-86fca381dab3/`。修正前 `funnel-before-{compare,auth}-{1365,390,360}.png`；本機修正後 `funnel-after-{compare,picker,unlock,auth}-{1365,390,360}.png`；遠端 `funnel-preview-{compare,picker,unlock,auth}-{1365,390,360}.png`。
@@ -101,7 +103,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 
 1. 授權測試者以 `utm_source=qa&utm_medium=validation&utm_campaign=etf_funnel_20261001` 核對真新／既有Email、Email link、驗證信及Google/Facebook返回；測失敗、取消、拒絕、刷新及重複callback，不重放真Token。
 2. 中央服務提供精確ETF預覽origin白名單，Auth build用 `VITE_ACTIVE_ETF_QA_ORIGIN`；ETF QA配對精確 `ACTIVE_ETF_AUTH_QA_ORIGIN`、`ACTIVE_ETF_AUTH_QA_AUTH_ORIGIN`，後者只能為已知 Auth SWA 預覽。僅指定的ETF QA來源可開啟QA Auth及callback，正式來源永遠不改道。Firebase維護者另核准Auth精確測試網域／驗證信continue URL及社群設定。生產不設QA override，本次未變更中央或Firebase白名單。
-3. 核准後先部署Auth並確認capability JSON，再部署ETF／設定Firebase lookup；Test Events通過且獲准才開CAPI。廣告事件與預算不隨發布改動。
+3. 依既有合併部署授權，先部署Auth並確認capability JSON及直接註冊，再部署ETF／核對Firebase lookup設定；Test Events通過且獲准才開CAPI。廣告事件與預算不隨發布改動。
 4. Provider證據列同一event_name/event_id的Browser/Server接收、去重、GA4事件數／使用者數，另列平台歸因；現在均為**未核實**，不填零。
 5. 回復先設 `ACTIVE_ETF_CAPI_ENABLED=false`、`ACTIVE_ETF_AUTH_STARTS_DISABLED=true`，保留24小時在途callback；前端回復時保留API契約，再回復Auth與API。保留ledger避免重送，不刪資料或撤銷其他會員。
 
