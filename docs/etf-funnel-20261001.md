@@ -25,7 +25,7 @@ GitHub：[ETF PR #23](https://github.com/windfaller/active-etf/pull/23)、[Auth 
 1. `POST /api/auth/start` 只接受核准 ETF Origin、login/sign_up intent 與白名單研究返回網址。僅保留合法 `type/codes/metric`；有同意才保留 allowlist UTM／點擊ID，移除其他 query 與 hash。
 2. 後端產生24小時 flow，使用隨機 HttpOnly／Secure／SameSite=None 綁定 cookie；資料庫僅存其 SHA-256。代理 HTTPS 判斷沿用既有 session 邏輯。
 3. Auth 沿用共用 redirect/authAction 儲存，另加獨立 session flow ID／redirect digest。註冊／登入、語言、Email 驗證 continuation、Email link 及社群成功出口保留返回狀態。
-4. 新 ETF 流程以表單 POST body 傳 `state`、安全 `returnUrl`、Token 或取消狀態至固定 `/api/auth/callback`，不把 Token 放進網址或分析。其他產品 legacy callback 保留；舊 ETF bookmark 的 legacy callback 仍存在，須逐步淘汰，不屬新流程。
+4. ETF 流程以表單 POST body 傳 `state`、安全 `returnUrl`、Token 或取消狀態至固定 `/api/auth/callback`，不把 Token 放進網址或分析。舊 ETF bookmark 會返回公開研究並提示重開新流程，也不生成 Token URL；其他產品 legacy callback 保留。
 5. ETF 核對 Origin、綁定、有效 flow、Firebase JWT 簽章及受眾，再建立 HttpOnly session。取消、失敗、重複 callback 不新增註冊；失效 flow 只可返回重新白名單化的公開研究，不建 session，並移除來源參數。
 6. 後端透過 [Firebase accounts:lookup](https://firebase.google.com/docs/reference/rest/auth#section-get-account-info) 核對同一 uid 的 `createdAt`、disabled 與 Email 驗證。只接受本 flow 啟動後、24小時內建立的新共用帳號。URL `authAction=sign_up` 不具判定權限；既有會員首次使用 ETF 不混入新帳號事件。
 7. metadata 未設定／讀取失敗時，登入仍可成功，註冊分類**未核實**，不補造事件。拒絕追蹤不建註冊量測事件，因此事件數不是全部真實新帳號總數。
@@ -75,7 +75,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 | --- | --- | --- |
 | ETF Web／Functions build | 通過 | 非正式部署 |
 | ETF unit regression | 332通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、admin job、精確QA配對、舊瀏覽器randomUUID fallback均用替身 |
-| Auth build／unit | 通過／19項通過 | 含原有其他產品redirect regression |
+| Auth build／unit | 通過／20項通過 | 含原有其他產品redirect regression及舊ETF無Token返回 |
 | Chromium首屏／picker／解鎖 | 8項新漏斗測試及14項既有P1測試通過；三尺寸有產品識別、同日摘要、結果入口及CTA；無溢出、遮擋overlay或pageerror | 非實體WebView；首次測試CSS locator誤用，修正後通過 |
 | 比較事件 | begin/complete共用ID；重整／分頁重繪不重送；失敗不完成；預覽另記 | 無平台receipt |
 | Auth實際DOM | register→sign-in→en→register→refresh→取消POST通過，codes/metric/QA UTM保留，無pageerror | 中央白名單實際讀取，取消POST攔截；未填帳號欄 |
@@ -86,7 +86,9 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 
 390px修正前摘要分頁y=1238、矩陣y=1946；新版核心摘要y=267、底部553。元素不同，證據只说明承諾重點已提早可見。新版結果跳轉與解鎖CTA位於固定導覽上方。
 
-截圖未提交二進位檔，目錄：`/Users/chi/.codex/visualizations/2026/09/29/01a0eb3b-dca1-7c13-9e5a-86fca381dab3/`。修正前 `funnel-before-{compare,auth}-{1365,390,360}.png`；修正後 `funnel-after-{compare,picker,unlock,auth}-{1365,390,360}.png`。
+2026-10-01 遠端 ETF 預覽版本 `9b0ac2c01c494cba042deb41ff7e80199713d7d6` 的 merge parent 包含來源 `b1e32e22e09086e6fb5272631e4b970f5b0af4b9`。三尺寸頁面200、實際公開API結果可見、無pageerror／溢出、CTA在導覽上方。`POST /api/auth/start` 回503 `auth_post_flow_not_ready`，符合未發布新版正式Auth／未配對QA時的防護，**不是註冊往返通過**。ETF遠端CI [36817464349](https://github.com/windfaller/active-etf/actions/runs/36817464349)成功；最新文件版CI請見PR。
+
+截圖未提交二進位檔，目錄：`/Users/chi/.codex/visualizations/2026/09/29/01a0eb3b-dca1-7c13-9e5a-86fca381dab3/`。修正前 `funnel-before-{compare,auth}-{1365,390,360}.png`；本機修正後 `funnel-after-{compare,picker,unlock,auth}-{1365,390,360}.png`；遠端 `funnel-preview-{compare,picker,unlock,auth}-{1365,390,360}.png`。
 
 ## 到站與資料缺口
 
