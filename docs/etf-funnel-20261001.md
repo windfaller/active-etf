@@ -34,6 +34,10 @@ GitHub：[ETF PR #23](https://github.com/windfaller/active-etf/pull/23)、[Auth 
 回到 ETF 領取回執時會再次核對目前同意；若已拒絕，抑制瀏覽器註冊回執、清除 matching data 並停用該 CAPI 記錄。有同意才以原子更新將 awaiting_consent 改為 pending，避免等待登入期間的舊同意直接發送。
 9. 新流程啟動前讀取 Auth `/.well-known/active-etf-auth-flow.json` 的 POST 版本宣告；舊 Auth／網路失敗會拒絕開始，以免回退成 query Token 流程。
 
+正式匿名驗證曾遇到 capability readiness 503；新增防CDN快取的探測、一個有界重試，以及按Auth origin隔離、僅成功宣告的30秒快取。仍驗證version／return_mode／product，不快取失敗，不放寬不明來源。首次503的具體網路／快取原因未核實。
+
+另確認正式Auth的 `Referrer-Policy: same-origin` 使跨網域表單 `Origin: null`，callback正確拒絕403。Auth僅在ETF POST提交時設 `strict-origin`，只傳Auth網域、不含path/query；後端精確Origin、cookie及state驗證維持。[Referrer-Policy 與 Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy#effect_on_the_origin_header)。
+
 ## 事件定義
 
 沿用 GA4 `G-DG02G9VVHY`、Meta Pixel `1811635619849853`。Google 匿名 Consent Mode 與明確拒絕規則保留，Meta 必須同意；沒有新 Pixel 或 OpenAI Ads Pixel。
@@ -74,7 +78,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 | 檢查 | 結果 | 限制 |
 | --- | --- | --- |
 | ETF Web／Functions build | 通過 | 非正式部署 |
-| ETF unit regression | 332通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、admin job、精確QA配對、舊瀏覽器randomUUID fallback均用替身 |
+| ETF unit regression | 334通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、admin job、精確QA配對、舊瀏覽器randomUUID fallback、capability短暫失敗與成功快取均用替身 |
 | Auth build／unit | 通過／20項通過 | 含原有其他產品redirect regression及舊ETF無Token返回 |
 | Chromium首屏／picker／解鎖 | 8項新漏斗測試及14項既有P1測試通過；三尺寸有產品識別、同日摘要、結果入口及CTA；無溢出、遮擋overlay或pageerror | 非實體WebView；首次測試CSS locator誤用，修正後通過 |
 | 比較事件 | begin/complete共用ID；重整／分頁重繪不重送；失敗不完成；預覽另記 | 無平台receipt |
