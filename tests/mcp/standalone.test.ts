@@ -31,8 +31,9 @@ describe("independent MCP Function isolation", () => {
       const result=await handler(new HttpRequest({url:`https://mcp.example/${locale}/mcp/support`,method:"GET"}));
       expect(result.status).toBe(200);
       expect(String(result.body)).toContain("service@inthewins.com");
-      expect(String(result.body)).toContain("IN THE WIN LIMITED");
-      expect(String(result.body)).toContain("14533535");
+      expect(String(result.body)).toContain("Global Triple Winners Ltd.");
+      expect(String(result.body)).toContain("寶瀛環彩有限公司");
+      expect(String(result.body)).toContain("24283696");
       expect(new Headers(result.headers).get("Content-Type")).toBe("text/html; charset=utf-8");
     }
   });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{ kind: "privacy" | "terms" }>();
-const updatedAt = "2026 年 9 月 30 日";
+const updatedAt = "2026 年 10 月 1 日";
 </script>
 
 <template>
@@ -11,7 +11,7 @@ const updatedAt = "2026 年 9 月 30 日";
       <p>最後更新：{{ updatedAt }}</p>
     </header>
 
-    <section><h2>營運者與聯絡方式 / Publisher and contact</h2><p>ETF 持倉雷達由 IN THE WIN LIMITED（英國公司編號 <a href="https://find-and-update.company-information.service.gov.uk/company/14533535" target="_blank" rel="noopener noreferrer">14533535</a>）提供，客服信箱為 <a href="mailto:service@inthewins.com">service@inthewins.com</a>。ETF Holdings Radar is provided by IN THE WIN LIMITED (UK company no. <a href="https://find-and-update.company-information.service.gov.uk/company/14533535" target="_blank" rel="noopener noreferrer">14533535</a>). For support, email <a href="mailto:service@inthewins.com">service@inthewins.com</a>.</p></section>
+    <section><h2>營運者與聯絡方式 / Publisher and contact</h2><p>ETF 持倉雷達由寶瀛環彩有限公司（統一編號 <a href="https://findbiz.nat.gov.tw/fts/company/24283696" target="_blank" rel="noopener noreferrer">24283696</a>）提供，客服信箱為 <a href="mailto:service@inthewins.com">service@inthewins.com</a>。ETF Holdings Radar is provided by Global Triple Winners Ltd. (寶瀛環彩有限公司, Taiwan unified business no. <a href="https://findbiz.nat.gov.tw/fts/company/24283696" target="_blank" rel="noopener noreferrer">24283696</a>). For support, email <a href="mailto:service@inthewins.com">service@inthewins.com</a>.</p></section>
 
     <template v-if="kind === 'privacy'">
       <section><h2>適用範圍</h2><p>本政策適用於 ETF 持倉雷達（active-etf.inthewins.com）。本站整理公開市場與 ETF 資料，並使用 GoGoWinners 共用登入服務驗證會員身分。</p></section>

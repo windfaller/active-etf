@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Source-linked research on supported Taiwan-listed and US-listed ETF holdings and observed changes.",
   "author": {
-    "name": "IN THE WIN LIMITED",
+    "name": "Global Triple Winners Ltd.",
     "email": "service@inthewins.com",
     "url": "https://active-etf.inthewins.com"
   },
@@ -16,7 +16,7 @@
         "displayName": "ETF Holdings Radar",
         "shortDescription": "Sourced ETF holdings research",
         "longDescription": "Explore issuer-sourced holdings for supported Taiwan-listed and US-listed ETFs. Compare holdings within one listing market, inspect observed changes, identify tracked ETFs that hold a stock, and assemble a dated research brief. Results include source dates and note missing observations. Account authorization is required. The plugin does not trade or provide personalized investment advice.",
-        "developerName": "IN THE WIN LIMITED",
+        "developerName": "Global Triple Winners Ltd.",
         "category": "Finance",
         "capabilities": ["Search supported ETFs", "Read ETF holdings and observed changes", "Compare same-market ETFs", "Find ETFs holding a stock"],
         "websiteURL": "https://active-etf.inthewins.com",
