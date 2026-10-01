@@ -31,8 +31,17 @@ function browserAnalyticsTarget(): AnalyticsTarget | null {
   return typeof window === "undefined" ? null : window as AnalyticsTarget;
 }
 
+function analyticsId(): string {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+  else for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6]! & 15) | 64; bytes[8] = (bytes[8]! & 63) | 128;
+  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 function sendAnalyticsEvent(target: AnalyticsTarget, event: string, params: AnalyticsEventParams, suppliedId?: string): boolean {
-  const eventId = suppliedId ?? globalThis.crypto.randomUUID();
+  const eventId = suppliedId ?? analyticsId();
   pushGoogleCommand(target, "event", event, { ...params, event_id: eventId });
   if (event !== ACTIVE_ETF_PAGE_CLICK_EVENT && event !== ACTIVE_ETF_FEATURE_INTERACTION_EVENT) {
     trackMetaCustomEvent(event, target, eventId);
@@ -65,7 +74,7 @@ export function createComparisonRequests(getTarget: () => AnalyticsTarget | null
     const count = new Set(codes).size;
     const target = getTarget();
     if (!target || count < 2 || count > 4) return null;
-    const request: ComparisonRequest = { compareId: globalThis.crypto.randomUUID(), market, count, source, key: keyOf(market, codes), at: Date.now(), complete: false };
+    const request: ComparisonRequest = { compareId: analyticsId(), market, count, source, key: keyOf(market, codes), at: Date.now(), complete: false };
     save(request);
     sendAnalyticsEvent(target, ACTIVE_ETF_COMPARE_STARTED_EVENT, params(request), `${request.compareId}:started`);
     return request;

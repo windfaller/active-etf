@@ -68,7 +68,7 @@ macOS／既有 Playwright Chromium；Browser plugin 不可用。桌面1365×844�
 | 檢查 | 結果 | 限制 |
 | --- | --- | --- |
 | ETF Web／Functions build | 通過 | 非正式部署 |
-| ETF unit regression | 328通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI均用替身 |
+| ETF unit regression | 329通過，4項既有skip | 新舊會員、偽造action、拒絕、取消、失敗、重送、ledger／CAPI、舊瀏覽器randomUUID fallback均用替身 |
 | Auth build／unit | 通過／19項通過 | 含原有其他產品redirect regression |
 | Chromium首屏／picker／解鎖 | 8項新漏斗測試及14項既有P1測試通過；三尺寸有產品識別、同日摘要、結果入口及CTA；無溢出、遮擋overlay或pageerror | 非實體WebView；首次測試CSS locator誤用，修正後通過 |
 | 比較事件 | begin/complete共用ID；重整／分頁重繪不重送；失敗不完成；預覽另記 | 無平台receipt |

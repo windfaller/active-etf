@@ -26,6 +26,17 @@ function eventCommand(target: AnalyticsTarget, event: string): unknown[] | undef
 }
 
 describe("Active ETF analytics", () => {
+  it('keeps research usable in browsers without crypto.randomUUID', () => {
+    vi.stubGlobal('crypto', { getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto) });
+    try {
+      const target: AnalyticsTarget = {};
+      const requests = createComparisonRequests(() => target);
+      const request = requests.begin('tw', ['00981A', '00982A'], 'direct_url');
+      expect(request?.compareId).toMatch(/^[a-f\d-]{36}$/u);
+      expect(requests.complete(request)).toBe(true);
+      expect(requests.begin('tw', ['00981A', '00982A'], 'comparison_builder')?.compareId).not.toBe(request?.compareId);
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("tracks a completed comparison without sending ETF codes", () => {
     const target: AnalyticsTarget = { __ACTIVE_ETF_TRACKING_ALLOWED__: true };
     const tracker = createComparisonRequests(() => target);
