@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
+vi.mock("../../src/services/cache/dataCacheVersion.js", () => ({ getDataCacheGeneration: vi.fn(async () => "tw.test") }));
 vi.mock("../../src/services/intelligence/stockIntelligenceService.js", () => ({
   searchStocks: mocks.searchStocks,
   stockOverview: mocks.stockOverview,

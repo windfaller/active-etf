@@ -328,7 +328,7 @@ export async function availableGlobalEtfSourceDates(db: Db, limit = 180): Promis
   return rows.map((row) => row._id);
 }
 
-async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promise<GlobalEtfSnapshot | null> {
+async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot, recoverMetadata = true): Promise<GlobalEtfSnapshot | null> {
   const filter: Filter<GlobalEtfSnapshot> = {
     etfCode: current.etfCode,
     sourceAsOf: { $lt: current.sourceAsOf },
@@ -342,15 +342,31 @@ async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot): Promi
     .limit(1)
     .next();
   if (!previous) return null;
-  return (await recoverSec13fMetadata(db, [previous]))[0] ?? null;
+  return recoverMetadata ? (await recoverSec13fMetadata(db, [previous]))[0] ?? null : previous;
+}
+
+async function previousSnapshotsForReport(db: Db, snapshots: GlobalEtfSnapshot[]): Promise<Array<GlobalEtfSnapshot | null>> {
+  const previous: Array<GlobalEtfSnapshot | null> = Array.from({ length: snapshots.length }, () => null);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(4, snapshots.length) }, async () => {
+    while (nextIndex < snapshots.length) {
+      const index = nextIndex++;
+      previous[index] = await previousSnapshotFromDb(db, snapshots[index]!, false);
+    }
+  }));
+  // Recover 13F metadata once for the whole report rather than once per fund.
+  const recovered = await recoverSec13fMetadata(db, previous.filter((row): row is GlobalEtfSnapshot => row !== null));
+  let recoveredIndex = 0;
+  return previous.map((row) => row ? recovered[recoveredIndex++]! : null);
 }
 
 async function reportFromSnapshots(db: Db | null, snapshots: GlobalEtfSnapshot[], demoMode = false, selectedDate?: string): Promise<GlobalEtfDailyReport> {
   const sections: GlobalEtfReportSection[] = [];
   const globalMovers = [];
+  const previousSnapshots = db ? await previousSnapshotsForReport(db, snapshots) : snapshots.map(samplePrevious);
 
-  for (const snapshot of snapshots) {
-    const previous = db ? await previousSnapshotFromDb(db, snapshot) : samplePrevious(snapshot);
+  for (const [index, snapshot] of snapshots.entries()) {
+    const previous = previousSnapshots[index] ?? null;
     const changes = calculateGlobalEtfChanges(snapshot, previous);
     const split = splitGlobalEtfChanges(changes);
     const section = {
@@ -482,6 +498,8 @@ export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
     .next();
 
   if (current?.signature === snapshot.signature) {
+    // A retry after a failed version update must still invalidate old caches.
+    await invalidateGlobalEtfCache(db);
     return { etfCode: snapshot.etfCode, sourceAsOf: snapshot.sourceAsOf, changed: false, rowCount: current.rowCount };
   }
 
@@ -491,7 +509,7 @@ export async function syncGlobalEtfHoldings(db: Db, etfCode: string) {
   const changes = calculateGlobalEtfChanges(snapshot, previous ?? null);
   await db.collection("global_etf_holding_changes").deleteMany({ etfCode: snapshot.etfCode, sourceAsOf: snapshot.sourceAsOf });
   if (changes.length) await db.collection("global_etf_holding_changes").insertMany(changes.map((change) => ({ ...change, changeId: randomUUID(), createdAt: new Date() })));
-  await invalidateGlobalEtfCache();
+  await invalidateGlobalEtfCache(db);
 
   return {
     etfCode: snapshot.etfCode,

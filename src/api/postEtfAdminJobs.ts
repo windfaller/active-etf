@@ -1,6 +1,6 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { configuredEtfs } from "../config/etfs.js";
-import { ensureP1IntelligenceIndexes } from "../db/indexes.js";
+import { ensureP1IntelligenceIndexes, ensureReadCacheIndexes } from "../db/indexes.js";
 import { getDb } from "../db/mongo.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
@@ -145,7 +145,8 @@ export async function postEnsureP1Indexes(request: HttpRequest, context: Invocat
   if (authError) return authError;
 
   try {
-    const indexes = await ensureP1IntelligenceIndexes(await getDb());
+    const db = await getDb();
+    const indexes = [...await ensureP1IntelligenceIndexes(db), ...await ensureReadCacheIndexes(db)];
     return jsonResponse({ ok: true, job: "ensureP1Indexes", result: { ensured: indexes.length } });
   } catch (error) {
     context.error("P1 index ensure failed", error);
@@ -203,7 +204,7 @@ export async function postDailyRefresh(request: HttpRequest, _context: Invocatio
       sectorRows: sectorFlow.length,
       marketIntelligence
     });
-    await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+    await invalidateDailyCache("MARKET", tradeDate, db);
   }
 
   const globalEtfs = await syncAllGlobalEtfHoldings(db);
@@ -228,7 +229,7 @@ export async function postSyncMarketIntelligence(request: HttpRequest, _context:
   const tradeDate = assertTradeDate(dateParam);
   const db = await getDb();
   const result = await syncDailyMarketIntelligence(db, tradeDate);
-  await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+  await invalidateDailyCache("MARKET", tradeDate, db);
   return jsonResponse({ ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
 }
 
@@ -247,7 +248,7 @@ export async function postDailyAggregates(request: HttpRequest, _context: Invoca
     syncDailyMarketIntelligence(db, tradeDate)
   ]);
 
-  await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+  await invalidateDailyCache("MARKET", tradeDate, db);
 
   return jsonResponse({
     ok: marketIntelligence.errors.length === 0,
@@ -269,7 +270,7 @@ export async function postRefreshSectorProfiles(request: HttpRequest, _context: 
   const result = await refreshStockSectorProfiles(db);
   const tradeDate = await latestHoldingChangeTradeDate();
   if (tradeDate) {
-    await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+    await invalidateDailyCache("MARKET", tradeDate, db);
   }
 
   return jsonResponse({ ok: true, job: "refreshSectorProfiles", result, cacheInvalidatedTradeDate: tradeDate });

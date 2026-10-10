@@ -2,6 +2,7 @@ import type { Db } from "mongodb";
 import { configuredEtfs } from "../../config/etfs.js";
 import type { EtfDailySummary } from "../../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
+import { getOrSetDailyCache } from "../cache/dailyDataCache.js";
 
 export const MARKET_DATE_COVERAGE_THRESHOLD = 0.7;
 export const MARKET_DATE_COVERAGE_WINDOW = 5;
@@ -25,22 +26,20 @@ export function safeMarketDateLimit(limit = 180): number {
 
 export async function availableMarketDates(db: Db, limit = 180): Promise<string[]> {
   const enabledCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
-  const rows = await db
-    .collection<EtfHoldingChange>("etf_holding_changes")
-    .aggregate<{ _id: string }>([
-      {
-        $match: {
-          etfCode: { $in: enabledCodes },
-          tradeDate: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
-        }
-      },
-      { $group: { _id: "$tradeDate" } },
-      { $sort: { _id: -1 } },
-      { $limit: safeMarketDateLimit(limit) }
-    ])
-    .toArray();
-
-  return rows.map((row) => row._id);
+  // All callers share one canonical calendar, then apply their requested limit.
+  // Keep changes as the source: a summary can exist before changes finish.
+  const dates = await getOrSetDailyCache(["market", "source-dates", "v1", enabledCodes.join(".")], async () => {
+    // Filtering the date shape after distinct lets Mongo skip repeated dates
+    // with DISTINCT_SCAN on the existing etfCode/tradeDate/stockId index.
+    const values = await db
+      .collection<EtfHoldingChange>("etf_holding_changes")
+      .distinct("tradeDate", { etfCode: { $in: enabledCodes } }, { maxTimeMS: 10_000 });
+    return values
+      .filter((value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value))
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 365);
+  });
+  return dates.slice(0, safeMarketDateLimit(limit));
 }
 
 export function selectRecommendedMarketDate(
