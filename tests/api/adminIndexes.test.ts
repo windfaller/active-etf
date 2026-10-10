@@ -3,11 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(async () => ({ name: "db" })),
+  ensureReadCacheIndexes: vi.fn(async () => ["global_changes", "global_raw", "holdings_date"]),
   ensureP1IntelligenceIndexes: vi.fn(async () => ["holdings_stock_history", "global_etf_history", "global_holding_lookup"])
 }));
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
-vi.mock("../../src/db/indexes.js", () => ({ ensureP1IntelligenceIndexes: mocks.ensureP1IntelligenceIndexes }));
+vi.mock("../../src/db/indexes.js", () => ({ ensureP1IntelligenceIndexes: mocks.ensureP1IntelligenceIndexes, ensureReadCacheIndexes: mocks.ensureReadCacheIndexes }));
 
 import { postEnsureP1Indexes } from "../../src/api/postEtfAdminJobs.js";
 
@@ -41,17 +42,19 @@ describe("P1 index administration job", () => {
     expect((await postEnsureP1Indexes(request("wrong-secret"), context)).status).toBe(401);
     expect(mocks.getDb).not.toHaveBeenCalled();
     expect(mocks.ensureP1IntelligenceIndexes).not.toHaveBeenCalled();
+    expect(mocks.ensureReadCacheIndexes).not.toHaveBeenCalled();
   });
 
-  it("runs only the bounded P1 index ensure operation for an authorized request", async () => {
+  it("runs the bounded query and read-cache indexes for an authorized request", async () => {
     const response = await postEnsureP1Indexes(request("expected-secret"), context);
 
     expect(response).toMatchObject({
       status: 200,
-      jsonBody: { ok: true, job: "ensureP1Indexes", result: { ensured: 3 } }
+      jsonBody: { ok: true, job: "ensureP1Indexes", result: { ensured: 6 } }
     });
     expect(mocks.getDb).toHaveBeenCalledTimes(1);
     expect(mocks.ensureP1IntelligenceIndexes).toHaveBeenCalledTimes(1);
+    expect(mocks.ensureReadCacheIndexes).toHaveBeenCalledTimes(1);
     expect(mocks.ensureP1IntelligenceIndexes).toHaveBeenCalledWith(await mocks.getDb.mock.results[0]?.value);
   });
 });

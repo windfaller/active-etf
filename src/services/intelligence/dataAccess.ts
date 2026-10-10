@@ -6,6 +6,7 @@ import type { EtfHoldingChange } from "../../models/EtfHoldingChange.js";
 import type { GlobalEtfSnapshot } from "../../models/GlobalEtf.js";
 import { BoundedRequestCache } from "../cache/boundedRequestCache.js";
 import { availableMarketDates, marketDateOverview } from "../market/marketDatesService.js";
+import { getDataCacheGeneration } from "../cache/dataCacheVersion.js";
 
 export const enabledTaiwanEtfCodes = configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode);
 export const enabledDailyGlobalEtfCodes = enabledGlobalEtfs.filter((etf) => etf.strategyType !== "13f").map((etf) => etf.etfCode);
@@ -28,8 +29,7 @@ function effectiveDateCacheFor(db: Db): BoundedRequestCache {
 }
 
 export async function effectiveTaiwanDates(db: Db, date: string | undefined, limit: number): Promise<string[]> {
-  const key = `${date ?? "latest"}:${limit}`;
-  return effectiveDateCacheFor(db).getOrLoad(key, 60_000, async () => {
+  const load = async () => {
     const queryLimit = Math.max(limit * 2, 40);
     if (date) {
       const dates = await availableMarketDates(db, queryLimit);
@@ -40,7 +40,14 @@ export async function effectiveTaiwanDates(db: Db, date: string | undefined, lim
     const anchorDate = overview.recommendedDate ?? overview.dates[0];
     const eligible = anchorDate ? overview.dates.filter((candidate) => candidate <= anchorDate) : [];
     return eligible.slice(0, limit);
-  });
+  };
+  try {
+    const generation = await getDataCacheGeneration(["market"], db);
+    return effectiveDateCacheFor(db).getOrLoad(`${date ?? "latest"}:${limit}:${generation}`, 60_000, load);
+  } catch {
+    // Never reuse an unversioned L1 result if its generation is unavailable.
+    return load();
+  }
 }
 
 export async function taiwanCoverageForDate(db: Db, date: string | null): Promise<IntelligenceCoverage> {

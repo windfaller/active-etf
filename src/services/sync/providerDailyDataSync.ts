@@ -9,6 +9,7 @@ import { todayInTaipei } from "../../utils/date.js";
 import { logger } from "../../utils/logger.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
 import { syncTwseClosingPrice } from "./twseClosingPriceSync.js";
+import { invalidateDailyCache } from "../cache/dailyDataCache.js";
 
 export interface SyncProviderDailyDataOptions {
   queryDate?: string;
@@ -159,6 +160,7 @@ export async function syncProviderDailyData(
     });
   }
 
+  await invalidateDailyCache(etf.etfCode, summary.tradeDate, db);
   return {
     snapshotId: snapshot.snapshotId,
     tradeDate: summary.tradeDate,

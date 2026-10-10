@@ -3,7 +3,8 @@ import { BoundedRequestCache } from "../../src/services/cache/boundedRequestCach
 
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(async () => ({ name: "db" })),
-  getOrSetDailyCache: vi.fn()
+  getOrSetDailyCache: vi.fn(),
+  getDataCacheGeneration: vi.fn(async () => "tw.first")
 }));
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
@@ -11,14 +12,17 @@ vi.mock("../../src/services/cache/dailyDataCache.js", () => ({
   getOrSetDailyCache: mocks.getOrSetDailyCache
 }));
 
+vi.mock("../../src/services/cache/dataCacheVersion.js", () => ({ getDataCacheGeneration: mocks.getDataCacheGeneration }));
+
 import { getTimedCached } from "../../src/api/timedRequestCache.js";
 
 describe("getTimedCached", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getDataCacheGeneration.mockResolvedValue("tw.first");
   });
 
-  it("serves a shared Redis hit without opening MongoDB", async () => {
+  it("serves a shared Redis hit without loading report data", async () => {
     mocks.getOrSetDailyCache.mockImplementationOnce(async (
       _parts: unknown,
       _loader: unknown,
@@ -61,5 +65,27 @@ describe("getTimedCached", () => {
     expect(mocks.getDb).toHaveBeenCalledTimes(1);
     expect(loader).toHaveBeenCalledWith({ name: "db" });
     expect(result.metrics.some((metric) => metric.name === "shared-cache")).toBe(false);
+  });
+
+  it("rechecks the committed generation before a local cache hit", async () => {
+    const cache = new BoundedRequestCache();
+    const options = { sharedCacheKey: ["api", "signals", "latest"], sharedCacheTtlSeconds: 600 };
+    mocks.getOrSetDailyCache.mockResolvedValueOnce("old").mockResolvedValueOnce("new");
+    expect((await getTimedCached(cache, "same-key", 60_000, vi.fn(), options)).value).toBe("old");
+    mocks.getDataCacheGeneration.mockResolvedValue("tw.second");
+    expect((await getTimedCached(cache, "same-key", 60_000, vi.fn(), options)).value).toBe("new");
+    expect(mocks.getOrSetDailyCache).toHaveBeenCalledTimes(2);
+  });
+
+  it("bypasses an existing L1 value when generation lookup fails", async () => {
+    const cache = new BoundedRequestCache();
+    const options = { sharedCacheKey: ["api", "signals", "latest"], sharedCacheTtlSeconds: 600 };
+    mocks.getOrSetDailyCache.mockResolvedValueOnce("old");
+    await getTimedCached(cache, "same-key", 60_000, vi.fn(), options);
+    mocks.getDataCacheGeneration.mockRejectedValueOnce(new Error("offline"));
+    const result = await getTimedCached(cache, "same-key", 60_000, async () => "direct", options);
+    expect(result.value).toBe("direct");
+    expect(result.metrics).toContainEqual({ name: "app-cache", description: "bypass" });
+    expect(mocks.getOrSetDailyCache).toHaveBeenCalledTimes(1);
   });
 });

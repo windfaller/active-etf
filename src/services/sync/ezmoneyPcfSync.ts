@@ -8,6 +8,7 @@ import { EzmoneyClient } from "../source/ezmoneyClient.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
 import { syncTwseClosingPrice } from "./twseClosingPriceSync.js";
 import { logger } from "../../utils/logger.js";
+import { invalidateDailyCache } from "../cache/dailyDataCache.js";
 
 export interface SyncEzmoneyPcfOptions {
   queryDate?: string;
@@ -92,6 +93,7 @@ export async function syncEzmoneyPcf(
     });
   }
 
+  await invalidateDailyCache(etf.etfCode, tradeDate, db);
   return {
     snapshotId: snapshot.snapshotId,
     tradeDate,

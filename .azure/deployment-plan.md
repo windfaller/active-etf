@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Deployed and verified — 2026-09-30 company-registration link support-page update.
+Status: Validated — application-only MongoDB read/cache repair release, 2026-10-10.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -77,3 +77,19 @@ Deployment proof (2026-09-30): Azure config-zip operation `e40336c3-7e73-4b77-81
 The user supplied the official Companies House record for IN THE WIN LIMITED, UK company number 14533535. The support page now links to that public record; privacy and terms copy in the draft PR does the same. This is an application-only copy update: no change to OAuth, MCP tools, quota, app settings, infrastructure, or public Skill visibility. Validation Proof: official Companies House page returned 200 and identified the name, company number, and Active status; `npm run test:mcp` passed 23 tests (4 optional Mongo tests skipped), `npm run functions:build` and `npm run web:build` passed, `git diff --check` passed, and the production-only Function ZIP contains the compiled standalone entry and public pages. The existing active-etf-member-mcp Function and canonical hostname are the target.
 
 Company-link deployment proof (2026-09-30): Azure config-zip operation `83a7ab20-05bf-4fe7-82b2-54fc1c371421` exited successfully. The production `/en/mcp/support` page now displays IN THE WIN LIMITED, links UK company number 14533535 to the official Companies House record, and retains `service@inthewins.com`. `/api/mcp-health` returned 200 and the unconfigured OpenAI challenge returned 404. Main-site privacy and terms text remains in draft PR #22, not yet released.
+
+## MongoDB read/cache release — 2026-10-10
+
+User explicitly requested merge and deployment, followed by overseas-report investigation. Recipe: existing GitHub Actions SWA pipeline plus existing independent member MCP package upload. Target existing subscription e4c458d1-80eb-419b-9680-0dc8682a9df4, group active-etf, SWA tw-active-etf and Function active-etf-member-mcp. No new infrastructure, hosting tier, RBAC, tracking, scheduling, or data migration. Use latest remote main in an isolated checkout and apply only MongoDB/cache changes; retain local unrelated work. Existing nonunique indexes were already added and verified. Versioned keys expire naturally.
+
+Validation checklist:
+- [x] Full regression tests against latest main.
+- [x] Functions, MCP and production frontend builds; generated route validation.
+- [x] Native member-MCP package includes Redis dependency and boots its standalone entry.
+- [x] Existing Azure subscription/resources and current pipeline verified.
+- [x] Diff/check confirms only authorized read/cache and packaging changes.
+- [x] Validation proof recorded; infrastructure/template/what-if/RBAC checks are not applicable because this release changes application code only and uses existing validated infrastructure.
+
+Post-deploy: confirm exact release on both origins, public routes and new cache timing; compare latest/history overseas report requests with bounded samples. Keep unknown runtime results explicit. Revert only this repair commit if a regression requires rollback.
+
+Validation Proof (2026-10-10, UTC 2026-10-10T10:53:03.273289+00:00): latest origin/main f3ae028b8d2c28c7e844aa4998fd8f8a07e41c7b cloned into an isolated checkout; scoped patch applied without conflicts. npm ci passed. npm test: 365 passed, 4 existing opt-in Mongo tests skipped. npm run functions:build, npm run mcp:build, npm run web:build, node scripts/verify-prerender.mjs and git diff --check passed. Member package npm ci --omit=dev and standalone entry import passed with @redis/client included. Azure MCP confirmed subscription Enabled, existing SWA/resource group and Function Running in East Asia. Existing SWA pipeline builds frontend and API then ensures indexes and runs production smoke. Static/live role changes and ARM what-if are not applicable: no infrastructure, resource, settings or identity mutation. This validation invokes azure-validate for an application-only release; proceed through azure-deploy existing CI/CD and package recipes.

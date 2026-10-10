@@ -8,7 +8,7 @@ mkdirSync(target, {recursive: true});
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 pkg.main = "dist-api/src/mcp/standalone.js";
 pkg.scripts = {}; delete pkg.devDependencies;
-pkg.dependencies = Object.fromEntries(["@azure/functions", "@modelcontextprotocol/sdk", "mongodb", "zod"].map(name => [name, pkg.dependencies[name]]));
+pkg.dependencies = Object.fromEntries(["@azure/functions", "@modelcontextprotocol/sdk", "@redis/client", "mongodb", "zod"].map(name => [name, pkg.dependencies[name]]));
 pkg.engines = {node: ">=24"};
 writeFileSync(resolve(target, "package.json"), JSON.stringify(pkg, null, 2));
 cpSync("package-lock.json", resolve(target, "package-lock.json"));

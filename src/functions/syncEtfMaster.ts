@@ -4,6 +4,7 @@ import { ensureIndexes } from "../db/indexes.js";
 import { getDb } from "../db/mongo.js";
 import type { EtfMaster } from "../models/EtfMaster.js";
 import { logger } from "../utils/logger.js";
+import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 
 export async function syncEtfMaster(_timer: Timer, _context: InvocationContext): Promise<void> {
   const db = await getDb();
@@ -25,6 +26,7 @@ export async function syncEtfMaster(_timer: Timer, _context: InvocationContext):
     );
   }
 
+  await invalidateDailyCache("MASTER", "latest", db);
   logger.info("ETF master synced", { count: configuredEtfs.length });
 }
 

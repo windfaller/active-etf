@@ -143,7 +143,7 @@ export function createResearchProvider(
         .maxTimeMS(15_000)
         .toArray(),
       db
-        .collection("etf_daily_summaries")
+        .collection("etf_daily_summary")
         .findOne({ etfCode, tradeDate: sourceAsOf }, { maxTimeMS: 10_000 }),
     ]);
     return {

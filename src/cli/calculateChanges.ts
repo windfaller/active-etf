@@ -6,6 +6,7 @@ import type { EtfDailySummary } from "../models/EtfDailySummary.js";
 import type { EtfHoldingChange } from "../models/EtfHoldingChange.js";
 import { applyActiveSignals } from "../services/calculator/activeSignalCalculator.js";
 import { calculateDailyChanges } from "../services/calculator/changeCalculator.js";
+import { invalidateDailyCache } from "../services/cache/dailyDataCache.js";
 
 const etfCode = process.argv[2] ?? "00981A";
 const requestedDate = process.argv[3];
@@ -74,6 +75,8 @@ await Promise.all(
     );
   })
 );
+
+await invalidateDailyCache(etf.etfCode, tradeDate, db);
 
 const topActive = changes
   .filter((change) => (change.activeDiffShares ?? 0) > 0)

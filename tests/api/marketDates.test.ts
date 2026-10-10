@@ -2,15 +2,14 @@ import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const dateToArray = vi.fn().mockResolvedValue([{ _id: "2026-07-21" }, { _id: "2026-07-20" }]);
+  const distinct = vi.fn().mockResolvedValue(["2026-07-21", "2026-07-20"]);
   const summaryToArray = vi.fn().mockResolvedValue([
     ...Array.from({ length: 4 }, (_, index) => ({ etfCode: `ETF${index}`, tradeDate: "2026-07-21" })),
     ...Array.from({ length: 22 }, (_, index) => ({ etfCode: `ETF${index}`, tradeDate: "2026-07-20" }))
   ]);
-  const aggregate = vi.fn().mockReturnValue({ toArray: dateToArray });
   const find = vi.fn().mockReturnValue({ toArray: summaryToArray });
-  const collection = vi.fn((name: string) => name === "etf_holding_changes" ? { aggregate } : { find });
-  return { dateToArray, summaryToArray, aggregate, find, collection, getDb: vi.fn(async () => ({ collection })) };
+  const collection = vi.fn((name: string) => name === "etf_holding_changes" ? { distinct } : { find });
+  return { distinct, summaryToArray, find, collection, getDb: vi.fn(async () => ({ collection })) };
 });
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));

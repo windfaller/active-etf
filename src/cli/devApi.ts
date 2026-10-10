@@ -937,7 +937,7 @@ const server = createServer(async (req, res) => {
           calculateSectorFlow(db, tradeDate),
           syncDailyMarketIntelligence(db, tradeDate)
         ]);
-        await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+        await invalidateDailyCache("MARKET", tradeDate, db);
         aggregates.push({
           tradeDate,
           consensusRows: consensus.length,
@@ -960,7 +960,7 @@ const server = createServer(async (req, res) => {
       const tradeDate = assertTradeDate(required(requestUrl.searchParams.get("date"), "date"));
       const db = await getDevDb();
       const result = await syncDailyMarketIntelligence(db, tradeDate);
-      await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+      await invalidateDailyCache("MARKET", tradeDate, db);
       sendJson(res, 200, { ok: result.errors.length === 0, job: "syncMarketIntelligence", result });
       return;
     }
@@ -985,7 +985,7 @@ const server = createServer(async (req, res) => {
         calculateSectorFlow(db, tradeDate),
         syncDailyMarketIntelligence(db, tradeDate)
       ]);
-      await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+      await invalidateDailyCache("MARKET", tradeDate, db);
       sendJson(res, 200, {
         ok: marketIntelligence.errors.length === 0,
         job: "dailyAggregates",
@@ -1010,7 +1010,7 @@ const server = createServer(async (req, res) => {
       const result = await refreshStockSectorProfiles(db);
       const tradeDate = await latestHoldingChangeTradeDate();
       if (tradeDate) {
-        await Promise.all(configuredEtfs.filter((item) => item.enabled).map((etf) => invalidateDailyCache(etf.etfCode, tradeDate)));
+        await invalidateDailyCache("MARKET", tradeDate, db);
       }
       sendJson(res, 200, { ok: true, job: "refreshSectorProfiles", result, cacheInvalidatedTradeDate: tradeDate });
       return;

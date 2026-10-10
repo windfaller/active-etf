@@ -3,6 +3,7 @@ import type { EtfDailyHolding } from "../../models/EtfDailyHolding.js";
 import type { StockDailyMarket } from "../../models/StockDailyMarket.js";
 import type { StockSectorProfile } from "../../models/StockSectorProfile.js";
 import { sectorProfileForStock } from "./sectorMapping.js";
+import { invalidateDailyCache } from "../cache/dailyDataCache.js";
 
 export interface SectorProfileRefreshResult {
   marketTradeDate: string | null;
@@ -67,6 +68,7 @@ export async function refreshStockSectorProfiles(db: Db): Promise<SectorProfileR
 
   if (operations.length) {
     await db.collection<StockSectorProfile>("stock_sector_profiles").bulkWrite(operations, { ordered: false });
+    await invalidateDailyCache("MARKET", holdingTradeDate ?? marketTradeDate ?? "latest", db);
   }
 
   return {

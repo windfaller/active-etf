@@ -62,7 +62,6 @@ export async function runSyncDailyHoldingsJob(etfCode = "00981A"): Promise<SyncD
     holdings: result.holdingsCount,
     rawSnapshotId: result.snapshotId
   });
-  await invalidateDailyCache(etf.etfCode, result.tradeDate);
 
   return {
     etfCode: etf.etfCode,
@@ -126,7 +125,7 @@ export async function runCalculateDailyChangesJob(
   );
 
   logger.info("Daily changes calculated", { etfCode: etf.etfCode, tradeDate, count: changes.length });
-  await invalidateDailyCache(etf.etfCode, tradeDate);
+  await invalidateDailyCache(etf.etfCode, tradeDate, db);
 
   return {
     etfCode: etf.etfCode,

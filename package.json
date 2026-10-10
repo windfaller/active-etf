@@ -7,6 +7,7 @@
   "scripts": {
     "build": "npm run web:build",
     "functions:build": "tsc -p tsconfig.json",
+    "db:indexes:read-cache": "node dist-api/src/cli/ensureReadCacheIndexes.js",
     "test": "vitest run",
     "test:seo": "npm run web:build && node scripts/verify-prerender.mjs",
     "test:e2e": "playwright test",
@@ -31,6 +32,7 @@
     "@azure/functions": "^4.7.3",
     "@lucide/vue": "^1.16.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@redis/client": "^6.3.0",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "mongodb": "^6.12.0",

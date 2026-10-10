@@ -8,6 +8,15 @@ export async function ensureP1IntelligenceIndexes(db: Db): Promise<string[]> {
   ]);
 }
 
+export async function ensureReadCacheIndexes(db: Db): Promise<string[]> {
+  const names: string[] = [];
+  // Avoid simultaneous builds on the shared cluster.
+  names.push(await db.collection("global_etf_holding_changes").createIndex({ etfCode: 1, sourceAsOf: 1 }));
+  names.push(await db.collection("global_etf_raw_snapshots").createIndex({ snapshotId: 1 }));
+  names.push(await db.collection("etf_daily_holdings").createIndex({ tradeDate: -1, stockId: 1 }));
+  return names;
+}
+
 export async function ensureIndexes(db: Db): Promise<void> {
   await Promise.all([
     db.collection("etf_master").createIndex({ etfCode: 1 }, { unique: true }),
@@ -39,6 +48,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection("stock_sector_profiles").createIndex({ sector: 1 }),
     db.collection("stock_sector_profiles").createIndex({ themeTags: 1 }),
     ensureP1IntelligenceIndexes(db),
+    ensureReadCacheIndexes(db),
     db.collection("active_etf_discoveries").createIndex({ etfCode: 1 }, { unique: true }),
     db.collection("active_etf_discoveries").createIndex({ discoveryStatus: 1, listingDate: -1 }),
     db.collection("telegram_subscribers").createIndex({ chatId: 1 }, { unique: true }),

@@ -16,16 +16,15 @@ describe("market date service", () => {
   });
 
   it("queries cross-ETF holding changes instead of a fixed ETF", async () => {
-    const toArray = vi.fn().mockResolvedValue([{ _id: "2026-07-21" }, { _id: "2026-07-20" }]);
-    const aggregate = vi.fn().mockReturnValue({ toArray });
-    const collection = vi.fn().mockReturnValue({ aggregate });
+    const distinct = vi.fn().mockResolvedValue(["2026-07-21", "2026-07-20"]);
+    const collection = vi.fn().mockReturnValue({ distinct });
     const dates = await availableMarketDates({ collection } as never, 180);
 
     expect(dates).toEqual(["2026-07-21", "2026-07-20"]);
     expect(collection).toHaveBeenCalledWith("etf_holding_changes");
-    const pipeline = aggregate.mock.calls[0]?.[0] as Array<Record<string, unknown>>;
-    expect(JSON.stringify(pipeline)).toContain("tradeDate");
-    expect(JSON.stringify(pipeline)).not.toContain('"etfCode":"00981A"');
+    expect(distinct).toHaveBeenCalledWith("tradeDate", {
+      etfCode: { $in: configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode) }
+    }, { maxTimeMS: 10_000 });
   });
 
   it("recommends the newest date that reaches 70% same-date coverage", async () => {
@@ -37,7 +36,7 @@ describe("market date service", () => {
       ...enabledCodes.map((etfCode) => ({ etfCode, tradeDate: "2026-07-17" }))
     ];
     const collection = vi.fn((name: string) => name === "etf_holding_changes"
-      ? { aggregate: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(dateRows) }) }
+      ? { distinct: vi.fn().mockResolvedValue(dateRows.map((row) => row._id)) }
       : { find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(summaryRows) }) });
 
     const overview = await marketDateOverview({ collection } as never, 180);
@@ -73,11 +72,16 @@ describe("market date service", () => {
       ...enabledCodes.slice(0, 25).map((etfCode) => ({ etfCode, tradeDate: "2026-07-20" }))
     ];
     const collection = vi.fn((name: string) => name === "etf_holding_changes"
-      ? { aggregate: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(dateRows) }) }
+      ? { distinct: vi.fn().mockResolvedValue(dateRows.map((row) => row._id)) }
       : { find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue(summaryRows) }) });
 
     const dates = await effectiveTaiwanDates({ collection } as never, undefined, 3);
 
     expect(dates).toEqual(["2026-07-20", "2026-07-17"]);
+  });
+
+  it("preserves the date shape, descending order and limit after the indexed distinct read", async () => {
+    const distinct = vi.fn().mockResolvedValue(["2026-07-17", null, "junk", "2026-07-21", "2026-07-20", "2026-7-1"]);
+    expect(await availableMarketDates({ collection: () => ({ distinct }) } as never, 2)).toEqual(["2026-07-21", "2026-07-20"]);
   });
 });

@@ -14,6 +14,7 @@ import {
 import { sectorProfileForStock } from "../sector/sectorMapping.js";
 import { MarketDataClient } from "../source/marketDataClient.js";
 import { createRawSnapshot, saveRawSnapshot } from "../source/rawSnapshotService.js";
+import { invalidateDailyCache } from "../cache/dailyDataCache.js";
 
 export interface MarketIntelligenceSyncResult {
   tradeDate: string;
@@ -174,6 +175,7 @@ export async function syncDailyMarketIntelligence(db: Db, tradeDate: string): Pr
   }
 
   result.sectorProfiles = await upsertSectorProfiles(db, allMarketRows);
+  await invalidateDailyCache("MARKET", tradeDate, db);
   logger.info("Daily market intelligence synced", { ...result });
   return result;
 }
