@@ -187,25 +187,31 @@ export function globalStockHistoryPipeline(symbol: string, window: 3 | 5 | 20, d
   ];
 }
 
-export type GlobalHistoryObservation = Pick<GlobalEtfSnapshot, "etfCode" | "sourceAsOf" | "fetchedAt" | "holdings">;
+export type GlobalHistoryObservation = Pick<GlobalEtfSnapshot, "etfCode" | "sourceAsOf" | "fetchedAt"> & {
+  holdings: Array<Pick<GlobalEtfHolding, "ticker" | "weightPercent">>;
+};
 interface GlobalHistorySelection extends Omit<GlobalHistoryObservation, "holdings"> { snapshotId: ObjectId }
 export async function globalStockHistorySnapshots(db: Db, symbol: string, window: 3 | 5 | 20, date?: string): Promise<GlobalHistoryObservation[]> {
   const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
   const selected = await collection.aggregate<GlobalHistorySelection>(globalStockHistoryPipeline(symbol, window, date), { maxTimeMS: 10000 }).toArray();
   if (!selected.length) return [];
   const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  // The existing ticker index finds only winners that contain the stock.
-  // Keep every selected date in the result, including empty holdings, so an
-  // exit cannot fall back to an older positive snapshot or disappear.
+  // Bound hydration to the metadata winners. A case-insensitive ticker regex
+  // cannot bound the ticker index and would scan unrelated historical captures.
+  // Keep empty observations below so exits never fall back to an old holding.
   const rows = await collection.find({
     _id: { $in: selected.map(row => row.snapshotId) },
     "holdings.ticker": { $regex: `^${escaped}$`, $options: "i" }
   }, {
-    hint: "holdings.ticker_1_sourceAsOf_-1_etfCode_1",
+    hint: "_id_",
     maxTimeMS: 20000,
     projection: {
-      _id: 1, etfCode: 1, sourceAsOf: 1, fetchedAt: 1,
-      holdings: { $filter: { input: "$holdings", as: "holding", cond: { $eq: [{ $toUpper: { $ifNull: ["$$holding.ticker", ""] } }, symbol] } } }
+      _id: 1,
+      holdings: { $map: {
+        input: { $filter: { input: "$holdings", as: "holding", cond: { $eq: [{ $toUpper: { $ifNull: ["$$holding.ticker", ""] } }, symbol] } } },
+        as: "holding",
+        in: { ticker: "$$holding.ticker", weightPercent: "$$holding.weightPercent" }
+      } }
     }
   }).toArray();
   const byId = new Map(rows.map(row => [String(row._id), row]));

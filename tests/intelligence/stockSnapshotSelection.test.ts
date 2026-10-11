@@ -169,14 +169,51 @@ describe("latest global stock snapshot selection", () => {
     const unrelated = weightedSnapshot("HBMX", "2026-07-21", null);
     const fixtures = [entry, exit, unrelated].map(row => ({ ...row, _id: new ObjectId() }));
     const selected = fixtures.map(row => ({ etfCode: row.etfCode, sourceAsOf: row.sourceAsOf, fetchedAt: row.fetchedAt, snapshotId: row._id }));
-    const find = vi.fn(() => ({ toArray: async () => [fixtures[0]] }));
+    const find = vi.fn((_filter: unknown, _options: { projection: unknown }) => ({ toArray: async () => [fixtures[0]] }));
     const db = { collection: () => ({ aggregate: () => ({ toArray: async () => selected }), find }) } as unknown as Db;
     const observations = await globalStockHistorySnapshots(db, "MU", 20);
     expect(observations.map(row => row.holdings.length)).toEqual([1, 0, 0]);
     expect(globalStockHistoryPoints("MU", observations, 20)).toEqual([{
       date: "2026-07-21", weightChangePercentPoints: -8, direction: "decrease", updatedEtfCount: 1, increaseEtfCount: 0, decreaseEtfCount: 1, neutralEtfCount: 0
     }]);
-    expect(find).toHaveBeenCalledWith(expect.objectContaining({ "holdings.ticker": { $regex: "^MU$", $options: "i" } }), expect.objectContaining({ hint: "holdings.ticker_1_sourceAsOf_-1_etfCode_1" }));
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ _id: { $in: fixtures.map(row => row._id) }, "holdings.ticker": { $regex: "^MU$", $options: "i" } }), expect.objectContaining({ hint: "_id_" }));
+    expect(find.mock.calls[0]?.[1]?.projection).toEqual({
+      _id: 1,
+      holdings: { $map: {
+        input: { $filter: { input: "$holdings", as: "holding", cond: { $eq: [{ $toUpper: { $ifNull: ["$$holding.ticker", ""] } }, "MU"] } } },
+        as: "holding", in: { ticker: "$$holding.ticker", weightPercent: "$$holding.weightPercent" }
+      } }
+    });
+  });
+
+  it("computes the same changes from compact mixed-case holdings and metadata-only dates", async () => {
+    const first = new ObjectId(), second = new ObjectId();
+    const selected = [
+      { snapshotId: first, etfCode: "DRAM", sourceAsOf: "2026-07-20", fetchedAt: new Date("2026-07-20T12:00:00Z") },
+      { snapshotId: second, etfCode: "DRAM", sourceAsOf: "2026-07-21", fetchedAt: new Date("2026-07-21T12:00:00Z") }
+    ];
+    // Hydration no longer returns date, fund name, raw source rows or other
+    // holding attributes. It still retains every matching asset's weight.
+    const rows = [
+      { _id: first, holdings: [{ ticker: "mU", weightPercent: 0.5 }, { ticker: "MU", weightPercent: 1.5 }] },
+      { _id: second, holdings: [{ ticker: "Mu", weightPercent: 3 }] }
+    ];
+    const db = { collection: () => ({
+      aggregate: () => ({ toArray: async () => selected }),
+      find: () => ({ toArray: async () => rows })
+    }) } as unknown as Db;
+    const observations = await globalStockHistorySnapshots(db, "MU", 20);
+    expect(observations.map(row => row.sourceAsOf)).toEqual(["2026-07-20", "2026-07-21"]);
+    expect(globalStockHistoryPoints("MU", observations, 20)).toEqual([{
+      date: "2026-07-21", weightChangePercentPoints: 1, direction: "increase", updatedEtfCount: 1, increaseEtfCount: 1, decreaseEtfCount: 0, neutralEtfCount: 0
+    }]);
+  });
+
+  it("skips hydration when metadata selection contains no eligible history", async () => {
+    const find = vi.fn();
+    const db = { collection: () => ({ aggregate: () => ({ toArray: async () => [] }), find }) } as unknown as Db;
+    expect(await globalStockHistorySnapshots(db, "MU", 20, "2000-01-01")).toEqual([]);
+    expect(find).not.toHaveBeenCalled();
   });
 
   it("deduplicates captures and reports weight change points including exits", () => {
