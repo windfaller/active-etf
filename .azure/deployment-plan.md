@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — stock query cache and search market follow-up, application-only release.
+Status: Validated — bounded stock history hydration follow-up, application-only release.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -128,3 +128,20 @@ Validation checklist for the existing application-only recipe:
 Post-deploy: verify the exact merge SHA on both origins, repeat public stock and report reads, inspect server cache timings and correct stock market routes. Guest history has three preview points by contract; use /api/stocks/search for stock-search results (symbol) and /api/search for generic results (code). No real user quota, auth flows, infrastructure or cluster configuration changes are included.
 
 Validation Proof (azure-validate, 2026-10-11T04:55Z): origin/main remains 8c4883297f58bda9a025d4b55d3fad24806a0cb1. npm test: 379 passed, four existing opt-in Mongo integration tests skipped. npm run functions:build, npm run mcp:build, frontend build with canonical member-MCP origin/hidden public Skill, node scripts/verify-prerender.mjs and git diff --check passed. Fresh member package npm ci --omit=dev, standalone entry and Redis imports passed (outside the host this is test-mode packaging verification). ZIP CRC, entry, Redis dependency, validation version and absence of dotenv files were verified; validation package SHA-256 e54232eef8bbabaf8322aa9d655ea5ca291dc16f226ceca011fa70cfb0fdc38c. Azure MCP confirmed subscription Enabled/default and existing Function Running in East Asia. Workflow review confirms production index ensure and semantic smoke after SWA upload. Infrastructure/package dependency diff is empty. Existing application-only recipe, resources and user authorization remain applicable; no provisioning, settings or RBAC mutation. Proceed through azure-deploy; rebuild the final native package with the exact merged release SHA before upload.
+
+## Bounded history hydration — 2026-10-11
+
+The user requested renewed evaluation and implementation. Reuse the existing authorized application deployment targets and recipe. Remote main remains PR #27/ece9fba. Fresh HTTP MU historical cache miss took 5,288 ms, with 3,612 ms data loading. Atlas slow logs show the forced case-insensitive ticker index scanned 446,763 keys/1,579 full snapshots even after history metadata had selected only 704 winner IDs.
+
+Bound hydration with the existing _id_ index, preserve the current case-insensitive predicate, and return only ticker/weightPercent needed for history calculations. Keep every selected metadata observation, including exits, and leave response/cache/member contracts unchanged. No new indexes, collections, backfill, infrastructure, settings, dependencies or real-user quota changes.
+
+Validation checklist:
+- [x] Full regressions and Functions/MCP/frontend/prerender/diff checks pass.
+- [x] Bounded live comparison preserves complete MU, NVDA and absent-symbol history results and confirms ID-index scan bounds.
+- [x] Compact holdings preserve mixed case, multiple asset weights, exits and no-history behavior.
+- [x] Fresh native package, production dependencies, entry and ZIP verified; existing Azure targets verified.
+- [x] Actual azure-validate proof recorded; proceed through azure-deploy and verify exact release on both origins.
+
+Post-deploy: measure a deliberately uncached history key and repeat cache hit, check date cutoffs/visitor masks, run existing public report/search checks and native health/discovery/unauthenticated MCP checks. No claim of host cold start or long-term p95 from bounded samples.
+
+Validation Proof (azure-validate, 2026-10-11T07:08Z): latest origin/main confirmed ece9fbad3f6c8dd951192ad5a888baabb0c100de, isolated source diff contains only history hydration/API cache-key revision, regressions and documentation. npm test: 381 pass, four existing opt-in Mongo integration tests skipped. Functions/MCP/frontend builds, generated prerender verification and git diff --check passed. Four bounded live old/new comparisons returned identical complete history points: MU historical/latest 20 points, NVDA five points, absent symbol zero. Actual final MU historical helper completed in 515 ms, examined 742 keys/704 documents instead of 446,763 keys/1,579 documents; result observations shrank from 421,322 to 80,916 JSON bytes. Existing _id_ index confirmed; no new index or backfill required. Fresh native package npm ci --omit=dev and standalone/Redis imports passed (outside-host import is test-mode packaging verification only). Validation ZIP CRC, entry, dependency, validation version and no dotenv files passed; SHA-256 edff5fafc1b9c0813cc0c6087567b4a5edde4444602937c9080a0b53b373aa07. Azure MCP confirmed subscription Enabled/default and existing Function Running in East Asia. Existing application-only recipe is reused without infrastructure, settings, roles or dependencies changing; template/what-if/new environment checks remain inapplicable. History cache keys use v2 to isolate rolling deployment readers; prior keys expire naturally. Proceed through azure-deploy using existing CI/CD and a final native ZIP built with the exact merged SHA.

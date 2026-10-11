@@ -137,6 +137,7 @@ describe("P1 intelligence APIs", () => {
     expect(visitorAgain.jsonBody).toEqual(visitor.jsonBody);
     expect(member.jsonBody).toMatchObject({ points, globalSummary: { secret: "MEMBER_SUMMARY" } });
     expect(mocks.stockHistory).toHaveBeenCalledTimes(1);
+    expect(mocks.getDataCacheGeneration).toHaveBeenCalledWith(expect.arrayContaining(["api", "stocks", "v2", "us", "history", "MU", 20]));
     expect(new Headers(member.headers).get("Server-Timing")).toContain('app-cache;desc="hit"');
     for (const response of [visitor, member, visitorAgain]) expect(new Headers(response.headers).get("Cache-Control")).toContain("private, no-store");
   });
