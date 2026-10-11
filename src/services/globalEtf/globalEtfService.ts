@@ -7,6 +7,7 @@ import { invalidateGlobalEtfCache } from "../cache/dailyDataCache.js";
 import { createRawSnapshot } from "../source/rawSnapshotService.js";
 import { calculateGlobalEtfAggregateChanges, calculateGlobalEtfChanges, splitGlobalEtfChanges } from "./changeCalculator.js";
 import { buildGlobalEtfDailyReport, buildTakeaway } from "./reportGenerator.js";
+import { selectLatestSnapshotIds, snapshotReadMetadataProjection, type SnapshotReadMetadata } from "./snapshotSelection.js";
 
 function sampleHolding(etfCode: string, ticker: string, name: string, weightPercent: number, sector: string, marketValue = 1_000_000) {
   const etf = findGlobalEtfConfig(etfCode);
@@ -277,55 +278,30 @@ async function recoverSec13fMetadata(db: Db, snapshots: GlobalEtfSnapshot[]): Pr
 
 async function latestSnapshotsFromDb(db: Db, sourceDate?: string): Promise<GlobalEtfSnapshot[]> {
   const normalizedSourceDate = normalizeGlobalSourceDate(sourceDate);
-  const usableSnapshotsFilter: Filter<GlobalEtfSnapshot> = {
+  const filter: Filter<GlobalEtfSnapshot> = {
     etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
-    sourceAsOf: normalizedSourceDate ? { $regex: "^\\d{4}-\\d{2}-\\d{2}$", $lte: normalizedSourceDate } : { $regex: "^\\d{4}-\\d{2}-\\d{2}$" },
-    $or: usableSnapshotClauses()
+    sourceAsOf: normalizedSourceDate ? { $regex: "^\\d{4}-\\d{2}-\\d{2}$", $lte: normalizedSourceDate } : { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
   };
-  const rows = await db
-    .collection<GlobalEtfSnapshot>("global_etf_snapshots")
-    .aggregate<GlobalEtfSnapshot>([
-      { $match: usableSnapshotsFilter },
-      {
-        $set: {
-          selectionDate: {
-            $cond: [
-              { $eq: ["$strategyType", "13f"] },
-              { $ifNull: ["$filedAt", "$sourceAsOf"] },
-              "$sourceAsOf"
-            ]
-          }
-        }
-      },
-      { $sort: { selectionDate: -1, fetchedAt: -1 } },
-      { $group: { _id: "$etfCode", doc: { $first: "$$ROOT" } } },
-      { $replaceRoot: { newRoot: "$doc" } },
-      { $unset: "selectionDate" }
-    ])
-    .toArray();
+  const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
+  // All requested fields are in the metadata index. Keep the nullable usability
+  // predicate out of the Mongo filter so it does not force historical FETCHes.
+  const metadata = await collection.find<SnapshotReadMetadata>(filter, { projection: snapshotReadMetadataProjection, maxTimeMS: 10000 }).toArray();
+  const ids = selectLatestSnapshotIds(metadata, normalizedSourceDate);
+  if (!ids.length) return [];
+  const selected = await collection.find({ _id: { $in: ids } }, { maxTimeMS: 20000 }).toArray();
+  const byId = new Map(selected.map(row => [String(row._id), row]));
+  const rows = ids.flatMap(id => { const row = byId.get(String(id)); return row ? [row] : []; });
 
   return recoverSec13fMetadata(db, rows);
 }
 
 export async function availableGlobalEtfSourceDates(db: Db, limit = 180): Promise<string[]> {
   const safeLimit = Math.max(1, Math.min(Math.trunc(limit) || 180, 365));
-  const rows = await db
-    .collection<GlobalEtfSnapshot>("global_etf_snapshots")
-    .aggregate<{ _id: string }>([
-      {
-        $match: {
-          etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
-          sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" },
-          $or: usableSnapshotClauses()
-        }
-      },
-      { $group: { _id: "$sourceAsOf" } },
-      { $sort: { _id: -1 } },
-      { $limit: safeLimit }
-    ])
-    .toArray();
-
-  return rows.map((row) => row._id);
+  const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").find({
+    etfCode: { $in: enabledGlobalEtfs.map((etf) => etf.etfCode) },
+    sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
+  }, { projection: { _id: 0, sourceAsOf: 1, unusableReason: 1 }, maxTimeMS: 10000 }).toArray();
+  return [...new Set(rows.filter(row => ISO_SOURCE_DATE_PATTERN.test(row.sourceAsOf) && row.unusableReason == null).map(row => row.sourceAsOf))].sort().reverse().slice(0, safeLimit);
 }
 
 async function previousSnapshotFromDb(db: Db, current: GlobalEtfSnapshot, recoverMetadata = true): Promise<GlobalEtfSnapshot | null> {

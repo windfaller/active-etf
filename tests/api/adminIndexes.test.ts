@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(async () => ({ name: "db" })),
-  ensureReadCacheIndexes: vi.fn(async () => ["global_changes", "global_raw", "holdings_date"]),
+  ensureReadCacheIndexes: vi.fn(async () => ["global_changes", "global_raw", "holdings_date", "global_metadata"]),
   ensureP1IntelligenceIndexes: vi.fn(async () => ["holdings_stock_history", "global_etf_history", "global_holding_lookup"])
 }));
 
@@ -50,7 +50,7 @@ describe("P1 index administration job", () => {
 
     expect(response).toMatchObject({
       status: 200,
-      jsonBody: { ok: true, job: "ensureP1Indexes", result: { ensured: 6 } }
+      jsonBody: { ok: true, job: "ensureP1Indexes", result: { ensured: 7 } }
     });
     expect(mocks.getDb).toHaveBeenCalledTimes(1);
     expect(mocks.ensureP1IntelligenceIndexes).toHaveBeenCalledTimes(1);

@@ -1,4 +1,4 @@
-import type { Db } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { describe, expect, it, vi } from "vitest";
 import type { GlobalEtfSnapshot } from "../../src/models/GlobalEtf.js";
 import { latestGlobalSourceDate } from "../../src/services/intelligence/dataAccess.js";
@@ -6,6 +6,7 @@ import {
   globalSnapshotsForStock,
   globalStockHistoryPipeline,
   globalStockHistoryPoints,
+  globalStockHistorySnapshots,
   latestSnapshotsForStockPipeline,
   latestStockSearchPipeline
 } from "../../src/services/intelligence/stockIntelligenceService.js";
@@ -50,11 +51,15 @@ function weightedSnapshot(
 }
 
 function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
+  const documents = fixtures.map(row => ({ ...row, _id: new ObjectId() }));
   return {
     collection: () => ({
+      find: (filter: { _id: { $in: ObjectId[] }; rowCount: { $gt: number } }) => ({
+        toArray: async () => documents.filter(row => filter._id.$in.some(id => id.equals(row._id)) && row.rowCount > filter.rowCount.$gt)
+      }),
       aggregate: (pipeline: Array<Record<string, any>>) => ({
         toArray: async () => {
-          let rows: any[] = [...fixtures];
+          let rows: any[] = [...documents];
           for (const stage of pipeline) {
             if (stage.$match) {
               const match = stage.$match;
@@ -91,11 +96,13 @@ function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
 }
 
 describe("latest global stock snapshot selection", () => {
-  it("groups the latest valid snapshot before filtering ticker", () => {
+  it("selects covered metadata before fetching and filtering ticker holdings", () => {
     const pipeline = latestSnapshotsForStockPipeline("MU", false);
-    expect(pipeline.findIndex((stage) => "$group" in stage)).toBeLessThan(
-      pipeline.findIndex((stage) => stage.$match && "holdings" in stage.$match)
-    );
+    expect(pipeline[0]?.$match).not.toHaveProperty("holdings");
+    expect(pipeline[0]?.$match).not.toHaveProperty("rowCount");
+    expect(pipeline[0]?.$match).not.toHaveProperty("unusableReason");
+    expect(pipeline.at(-1)?.$project).toHaveProperty("_id", 1);
+    expect(pipeline.at(-1)?.$project).not.toHaveProperty("holdings");
   });
 
   it("groups latest ETF snapshots before search unwinds and filters holdings", () => {
@@ -105,6 +112,8 @@ describe("latest global stock snapshot selection", () => {
     const holdingMatchIndex = pipeline.findIndex((stage) => stage.$match && "$or" in stage.$match);
     expect(groupIndex).toBeLessThan(unwindIndex);
     expect(groupIndex).toBeLessThan(holdingMatchIndex);
+    expect(pipeline[groupIndex]?.$group).toEqual({ _id: "$etfCode", snapshotId: { $first: "$_id" } });
+    expect(pipeline.findIndex(stage => "$lookup" in stage)).toBeGreaterThan(groupIndex);
   });
 
   it("does not fall back to an older ETF snapshot after MU exited", async () => {
@@ -133,12 +142,41 @@ describe("latest global stock snapshot selection", () => {
     expect(rows.map((row) => row.etfCode)).toEqual(["BRK13F"]);
   });
 
+  it("skips unusable and empty captures before choosing a valid snapshot", async () => {
+    const unusable = { ...snapshot("DRAM", "2026-07-23", ["NVDA"]), unusableReason: "bad source" };
+    const rows = await globalSnapshotsForStock(fakeDb([
+      snapshot("DRAM", "2026-07-20", ["MU"]),
+      snapshot("DRAM", "2026-07-22", []),
+      unusable
+    ]), "MU", false);
+    expect(rows.map(row => row.sourceAsOf)).toEqual(["2026-07-20"]);
+  });
+
   it("builds US history from ISO-dated, latest-per-day ETF snapshots", () => {
     const pipeline = globalStockHistoryPipeline("MU", 20);
     const initialMatch = pipeline[0]?.$match as Record<string, any>;
     const group = pipeline.find((stage) => "$group" in stage)?.$group as Record<string, any>;
     expect(initialMatch.sourceAsOf.$regex).toBe("^\\d{4}-\\d{2}-\\d{2}$");
     expect(group._id).toEqual({ etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" });
+    // Historical holdings must never enter group/sort memory or disk spills.
+    expect(group.snapshot.$first).toEqual({ snapshotId: "$_id", etfCode: "$etfCode", sourceAsOf: "$sourceAsOf", fetchedAt: "$fetchedAt" });
+    expect(pipeline.at(-1)).toHaveProperty("$limit");
+  });
+
+  it("keeps zero holdings observations after indexed ticker hydration, so exits and unchanged zeros are preserved", async () => {
+    const entry = weightedSnapshot("DRAM", "2026-07-20", 8);
+    const exit = weightedSnapshot("DRAM", "2026-07-21", null);
+    const unrelated = weightedSnapshot("HBMX", "2026-07-21", null);
+    const fixtures = [entry, exit, unrelated].map(row => ({ ...row, _id: new ObjectId() }));
+    const selected = fixtures.map(row => ({ etfCode: row.etfCode, sourceAsOf: row.sourceAsOf, fetchedAt: row.fetchedAt, snapshotId: row._id }));
+    const find = vi.fn(() => ({ toArray: async () => [fixtures[0]] }));
+    const db = { collection: () => ({ aggregate: () => ({ toArray: async () => selected }), find }) } as unknown as Db;
+    const observations = await globalStockHistorySnapshots(db, "MU", 20);
+    expect(observations.map(row => row.holdings.length)).toEqual([1, 0, 0]);
+    expect(globalStockHistoryPoints("MU", observations, 20)).toEqual([{
+      date: "2026-07-21", weightChangePercentPoints: -8, direction: "decrease", updatedEtfCount: 1, increaseEtfCount: 0, decreaseEtfCount: 1, neutralEtfCount: 0
+    }]);
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ "holdings.ticker": { $regex: "^MU$", $options: "i" } }), expect.objectContaining({ hint: "holdings.ticker_1_sourceAsOf_-1_etfCode_1" }));
   });
 
   it("deduplicates captures and reports weight change points including exits", () => {
