@@ -23,7 +23,7 @@ describe("P1 intelligence indexes", () => {
 });
 
 describe("read/cache index migration", () => {
-  it("builds the three missing indexes sequentially without unique or drop operations", async () => {
+  it("builds the read indexes sequentially without unique or drop operations", async () => {
     let activeBuilds = 0;
     let maximumBuilds = 0;
     const builds: Array<{ collection: string; keys: unknown; options: unknown }> = [];
@@ -43,7 +43,8 @@ describe("read/cache index migration", () => {
     expect(builds).toEqual([
       { collection: "global_etf_holding_changes", keys: { etfCode: 1, sourceAsOf: 1 }, options: undefined },
       { collection: "global_etf_raw_snapshots", keys: { snapshotId: 1 }, options: undefined },
-      { collection: "etf_daily_holdings", keys: { tradeDate: -1, stockId: 1 }, options: undefined }
+      { collection: "etf_daily_holdings", keys: { tradeDate: -1, stockId: 1 }, options: undefined },
+      { collection: "global_etf_snapshots", keys: { etfCode: 1, sourceAsOf: -1, fetchedAt: -1, strategyType: 1, filedAt: 1, unusableReason: 1, sourceStatus: 1, _id: 1 }, options: { name: "global_snapshot_read_metadata" } }
     ]);
   });
 });

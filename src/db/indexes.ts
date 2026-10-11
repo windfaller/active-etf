@@ -1,5 +1,8 @@
 import type { Db } from "mongodb";
 
+export const globalSnapshotMetadataIndexKey = { etfCode: 1, sourceAsOf: -1, fetchedAt: -1, strategyType: 1, filedAt: 1, unusableReason: 1, sourceStatus: 1, _id: 1 } as const;
+export const globalSnapshotMetadataIndexName = "global_snapshot_read_metadata";
+
 export async function ensureP1IntelligenceIndexes(db: Db): Promise<string[]> {
   return Promise.all([
     db.collection("etf_daily_holdings").createIndex({ stockId: 1, tradeDate: -1, etfCode: 1 }),
@@ -14,6 +17,7 @@ export async function ensureReadCacheIndexes(db: Db): Promise<string[]> {
   names.push(await db.collection("global_etf_holding_changes").createIndex({ etfCode: 1, sourceAsOf: 1 }));
   names.push(await db.collection("global_etf_raw_snapshots").createIndex({ snapshotId: 1 }));
   names.push(await db.collection("etf_daily_holdings").createIndex({ tradeDate: -1, stockId: 1 }));
+  names.push(await db.collection("global_etf_snapshots").createIndex(globalSnapshotMetadataIndexKey, { name: globalSnapshotMetadataIndexName }));
   return names;
 }
 

@@ -1,4 +1,4 @@
-import type { Db } from "mongodb";
+import type { Db, ObjectId } from "mongodb";
 import { enabledGlobalEtfs, findGlobalEtfConfig } from "../../config/globalEtfs.js";
 import { configuredEtfs } from "../../config/etfs.js";
 import type { EtfDailyHolding } from "../../models/EtfDailyHolding.js";
@@ -8,6 +8,7 @@ import type { StockInstitutionalFlow } from "../../models/StockInstitutionalFlow
 import type { StockSectorProfile } from "../../models/StockSectorProfile.js";
 import { round } from "../../utils/number.js";
 import { preferredStockName } from "../market/stockImpactService.js";
+import { snapshotReadMetadataProjection, type SnapshotReadMetadata } from "../globalEtf/snapshotSelection.js";
 import {
   confidenceForSignal,
   consecutiveDirection,
@@ -113,7 +114,7 @@ function latestHoldingForTicker(snapshot: GlobalEtfSnapshot, symbol: string): Gl
   return snapshot.holdings.filter((holding) => holding.ticker?.trim().toUpperCase() === symbol);
 }
 
-export function latestSnapshotsForStockPipeline(symbol: string, include13f: boolean) {
+export function latestSnapshotsForStockPipeline(_symbol: string, include13f: boolean) {
   const codes = include13f ? enabledInstitutionCodes : enabledDailyGlobalEtfCodes;
   return [
     {
@@ -121,23 +122,47 @@ export function latestSnapshotsForStockPipeline(symbol: string, include13f: bool
         etfCode: { $in: codes },
         strategyType: include13f ? "13f" : { $ne: "13f" },
         sourceStatus: "ok",
-        unusableReason: null,
-        rowCount: { $gt: 0 },
         sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" }
       }
     },
     { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
-    { $group: { _id: "$etfCode", snapshot: { $first: "$$ROOT" } } },
-    { $replaceRoot: { newRoot: "$snapshot" } },
-    { $match: { holdings: { $elemMatch: { ticker: symbol } } } },
-    { $sort: { sourceAsOf: -1, etfCode: 1 } }
+    { $project: snapshotReadMetadataProjection }
   ];
 }
 
 export async function globalSnapshotsForStock(db: Db, symbol: string, include13f: boolean): Promise<GlobalEtfSnapshot[]> {
-  return db.collection<GlobalEtfSnapshot>("global_etf_snapshots").aggregate<GlobalEtfSnapshot>(
-    latestSnapshotsForStockPipeline(symbol, include13f)
-  ).toArray();
+  const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
+  const metadata = await collection.aggregate<SnapshotReadMetadata>(latestSnapshotsForStockPipeline(symbol, include13f), { maxTimeMS: 10000 }).toArray();
+  const candidates = new Map<string, SnapshotReadMetadata[]>();
+  for (const row of metadata) {
+    if (row.unusableReason != null) continue;
+    const rows = candidates.get(row.etfCode) ?? [];
+    rows.push(row);
+    candidates.set(row.etfCode, rows);
+  }
+  const selected: GlobalEtfSnapshot[] = [];
+  const deadline = Date.now() + 20000;
+  // Validate rowCount only on selected IDs. An invalid capture can use the next
+  // valid one, but a valid capture without the ticker is a definitive exit.
+  while (candidates.size) {
+    const ids = [...candidates.values()].map(rows => rows[0]!._id);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("Global stock snapshot selection exceeded its read deadline");
+    const rows = await collection.find({ _id: { $in: ids }, rowCount: { $gt: 0 } }, { maxTimeMS: remaining }).toArray();
+    const valid = new Map(rows.map(row => [String(row._id), row]));
+    for (const [code, queue] of candidates) {
+      const row = valid.get(String(queue[0]!._id));
+      if (row) {
+        selected.push(row);
+        candidates.delete(code);
+      } else {
+        queue.shift();
+        if (!queue.length) candidates.delete(code);
+      }
+    }
+  }
+  return selected.filter(row => row.holdings.some(holding => holding.ticker === symbol))
+    .sort((a, b) => b.sourceAsOf.localeCompare(a.sourceAsOf) || a.etfCode.localeCompare(b.etfCode));
 }
 
 export function globalStockHistoryPipeline(symbol: string, window: 3 | 5 | 20, date?: string) {
@@ -155,49 +180,47 @@ export function globalStockHistoryPipeline(symbol: string, window: 3 | 5 | 20, d
       }
     },
     { $sort: { etfCode: 1, sourceAsOf: -1, fetchedAt: -1 } },
-    { $group: { _id: { etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" }, snapshot: { $first: "$$ROOT" } } },
+    { $group: { _id: { etfCode: "$etfCode", sourceAsOf: "$sourceAsOf" }, snapshot: { $first: { snapshotId: "$_id", etfCode: "$etfCode", sourceAsOf: "$sourceAsOf", fetchedAt: "$fetchedAt" } } } },
     { $replaceRoot: { newRoot: "$snapshot" } },
     { $sort: { sourceAsOf: -1, fetchedAt: -1, etfCode: 1 } },
-    { $limit: maximumRows },
-    {
-      $project: {
-        etfCode: 1,
-        fundName: 1,
-        issuer: 1,
-        sourceAsOf: 1,
-        fetchedAt: 1,
-        sourceUrl: 1,
-        sourceStatus: 1,
-        productGroup: 1,
-        market: 1,
-        strategyType: 1,
-        rowCount: 1,
-        rawRowCount: 1,
-        signature: 1,
-        snapshotId: 1,
-        holdings: {
-          $filter: {
-            input: "$holdings",
-            as: "holding",
-            cond: {
-              $eq: [
-                { $toUpper: { $ifNull: ["$$holding.ticker", ""] } },
-                symbol
-              ]
-            }
-          }
-        }
-      }
-    }
+    { $limit: maximumRows }
   ];
 }
 
-function fetchedAtMilliseconds(snapshot: GlobalEtfSnapshot): number {
+export type GlobalHistoryObservation = Pick<GlobalEtfSnapshot, "etfCode" | "sourceAsOf" | "fetchedAt" | "holdings">;
+interface GlobalHistorySelection extends Omit<GlobalHistoryObservation, "holdings"> { snapshotId: ObjectId }
+export async function globalStockHistorySnapshots(db: Db, symbol: string, window: 3 | 5 | 20, date?: string): Promise<GlobalHistoryObservation[]> {
+  const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
+  const selected = await collection.aggregate<GlobalHistorySelection>(globalStockHistoryPipeline(symbol, window, date), { maxTimeMS: 10000 }).toArray();
+  if (!selected.length) return [];
+  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  // The existing ticker index finds only winners that contain the stock.
+  // Keep every selected date in the result, including empty holdings, so an
+  // exit cannot fall back to an older positive snapshot or disappear.
+  const rows = await collection.find({
+    _id: { $in: selected.map(row => row.snapshotId) },
+    "holdings.ticker": { $regex: `^${escaped}$`, $options: "i" }
+  }, {
+    hint: "holdings.ticker_1_sourceAsOf_-1_etfCode_1",
+    maxTimeMS: 20000,
+    projection: {
+      _id: 1, etfCode: 1, sourceAsOf: 1, fetchedAt: 1,
+      holdings: { $filter: { input: "$holdings", as: "holding", cond: { $eq: [{ $toUpper: { $ifNull: ["$$holding.ticker", ""] } }, symbol] } } }
+    }
+  }).toArray();
+  const byId = new Map(rows.map(row => [String(row._id), row]));
+  return selected.map(row => ({
+    etfCode: row.etfCode, sourceAsOf: row.sourceAsOf, fetchedAt: row.fetchedAt,
+    holdings: byId.get(String(row.snapshotId))?.holdings ?? []
+  }));
+}
+
+function fetchedAtMilliseconds(snapshot: Pick<GlobalEtfSnapshot, "fetchedAt">): number {
   const value = snapshot.fetchedAt instanceof Date ? snapshot.fetchedAt.getTime() : new Date(snapshot.fetchedAt).getTime();
   return Number.isFinite(value) ? value : 0;
 }
 
-function stockWeight(snapshot: GlobalEtfSnapshot, symbol: string): number {
+function stockWeight(snapshot: GlobalHistoryObservation, symbol: string): number {
   return round(snapshot.holdings
     .filter((holding) => holding.ticker?.trim().toUpperCase() === symbol)
     .reduce((sum, holding) => sum + (holding.weightPercent ?? 0), 0), 6);
@@ -205,11 +228,11 @@ function stockWeight(snapshot: GlobalEtfSnapshot, symbol: string): number {
 
 export function globalStockHistoryPoints(
   rawSymbol: string,
-  snapshots: GlobalEtfSnapshot[],
+  snapshots: GlobalHistoryObservation[],
   window: 3 | 5 | 20
 ): GlobalStockHistoryPoint[] {
   const symbol = rawSymbol.trim().toUpperCase();
-  const latestByEtfAndDate = new Map<string, GlobalEtfSnapshot>();
+  const latestByEtfAndDate = new Map<string, GlobalHistoryObservation>();
   for (const snapshot of snapshots) {
     if (!isoSourceDatePattern.test(snapshot.sourceAsOf)) continue;
     const key = `${snapshot.etfCode}|${snapshot.sourceAsOf}`;
@@ -219,7 +242,7 @@ export function globalStockHistoryPoints(
     }
   }
 
-  const byEtf = new Map<string, GlobalEtfSnapshot[]>();
+  const byEtf = new Map<string, GlobalHistoryObservation[]>();
   for (const snapshot of latestByEtfAndDate.values()) {
     byEtf.set(snapshot.etfCode, [...(byEtf.get(snapshot.etfCode) ?? []), snapshot]);
   }
@@ -266,7 +289,9 @@ export function latestStockSearchPipeline(normalizedQuery: string, limit: number
   return [
     { $match: { etfCode: { $in: enabledDailyGlobalEtfCodes }, strategyType: { $ne: "13f" }, sourceStatus: "ok", sourceAsOf: { $regex: "^\\d{4}-\\d{2}-\\d{2}$" } } },
     { $sort: { sourceAsOf: -1, fetchedAt: -1 } },
-    { $group: { _id: "$etfCode", snapshot: { $first: "$$ROOT" } } },
+    { $group: { _id: "$etfCode", snapshotId: { $first: "$_id" } } },
+    { $lookup: { from: "global_etf_snapshots", localField: "snapshotId", foreignField: "_id", as: "snapshot" } },
+    { $unwind: "$snapshot" },
     { $replaceRoot: { newRoot: "$snapshot" } },
     { $unwind: "$holdings" },
     { $match: { $or: [{ "holdings.ticker": { $regex: `^${usEscaped}`, $options: "i" } }, { "holdings.name": { $regex: `^${escaped}`, $options: "i" } }] } },
@@ -317,7 +342,7 @@ export async function searchStocks(db: Db, query: string, market: StockMarket | 
       name: string;
       sector?: string;
       sourceAsOf: string;
-    }>(latestStockSearchPipeline(normalizedQuery, limit - results.length)).toArray();
+    }>(latestStockSearchPipeline(normalizedQuery, limit - results.length), { maxTimeMS: 20000 }).toArray();
     for (const row of rows) {
       if (!row.ticker) continue;
       results.push({ market: "us", symbol: row.ticker, normalizedSymbol: row.ticker, name: row.name, sector: row.sector ?? null, latestDataDate: row.sourceAsOf, path: `/stocks/us/${row.ticker}` });
@@ -463,9 +488,7 @@ export async function stockHistory(db: Db, market: StockMarket, rawSymbol: strin
     };
   }
 
-  const rows = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots")
-    .aggregate<GlobalEtfSnapshot>(globalStockHistoryPipeline(symbol, window, date))
-    .toArray();
+  const rows = await globalStockHistorySnapshots(db, symbol, window, date);
   const points = globalStockHistoryPoints(symbol, rows, window);
   const latestHoldingDate = rows
     .filter((snapshot) => stockWeight(snapshot, symbol) > 0)
