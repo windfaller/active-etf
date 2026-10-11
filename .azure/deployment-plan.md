@@ -1,6 +1,6 @@
 # Azure Deployment Plan — independent member MCP
 
-Status: Validated — overseas snapshot selection follow-up, application-only release.
+Status: Validated — stock query cache and search market follow-up, application-only release.
 
 ## Scope and authorization
 Keep the market website on existing Free SWA tw-active-etf. Deploy the existing MCP handler to a new independent Azure Function to preserve standard Authorization. Reuse existing MongoDB and optional Redis. User now requires Skill information hidden until acceptance; remove public navigation and prevent direct access to all five public Skill pages/downloads. No platform directory publication. Preserve unrelated local changes.
@@ -111,3 +111,20 @@ Validation checklist for this application-only recipe:
 Validation Proof (azure-validate, 2026-10-11T04:36Z): full regression/build checks above passed against unchanged source; git fetch confirmed no newer main commits. Metadata index default-quorum builds timed out at 120/600 seconds and were confirmed absent. One secondary was observed 26 minutes behind. Retrying this nonunique index with majority commit quorum and majority write acknowledgement completed in 2,328 ms and listIndexes confirmed readiness. This was a per-command choice, without any cluster/replica settings change. Fresh hello checks now show all three write-progress timestamps aligned. Fresh direct verification: full latest report 918.9 ms, historical 2026-10-02 report 1,030.4 ms, both 36 sections with demoMode=false; full MU overview 834.8 ms, full MU history 3,565.7 ms/20 points, MU prefix search 94.4 ms and Micron name lookup 44.1 ms. These are bounded direct-service samples, not HTTP percentiles or cold-start timings. Existing Function package generation, production dependency install and standalone entry import passed; no real user quota used. Proceed through azure-deploy with existing SWA CI/CD and native package upload; then verify exact release and HTTP routes.
 
 Production dependency review: npm audit reports existing GHSA-6qxp-vccf-f47h for the SDK OAuth client. The official advisory explicitly excludes MCP servers built with the SDK (https://github.com/advisories/GHSA-6qxp-vccf-f47h); source inspection found only server/mcp.js and server/webStandardStreamableHttp.js imports, without client OAuth/authProvider usage. This release changes no dependency versions; the advisory's affected client path is not used by this Function.
+
+## Stock query cache and market boundaries — 2026-10-11
+
+PR #26 / 8c48832 is deployed on both origins. SWA run 38112154637 succeeded, including indexes and production semantic smoke; native package operation 65507e4d-003e-41fb-accc-7b81af74957f completed successfully. Native health now returns HTTP 200; discovery returns 200 and unauthenticated MCP initialization returns the expected 401. These checks do not establish authenticated user or real quota acceptance.
+
+HTTP sampling found repeated US MU history reads still took 8.07 and 9.57 seconds because stock endpoints lacked server caching. Cache complete stock data in the existing bounded L1 and Redis layers, with TW/global generation invalidation. Keep market, operation, enabled universe, symbol, date, window, query and limit in keys. Project the visitor/member response after validating each request's identity; retain private/no-store for protected responses and existing guest previews. Avoid invalid Taiwan search routes from mixed-market stock profiles and apply an explicitly requested stock market before the search limit.
+
+Validation checklist for the existing application-only recipe:
+- [x] Full regressions, Functions/MCP/frontend builds, prerender and diff checks pass.
+- [x] Tests verify visitor/member isolation, expired identity revalidation, coalescing, generation invalidation, window/date separation and search market boundaries.
+- [x] Native package dependencies/entry/zip and existing Azure targets verified.
+- [x] Source diff excludes infrastructure, settings, dependency changes and unrelated local edits.
+- [x] Actual azure-validate proof recorded before setting Validated and using azure-deploy.
+
+Post-deploy: verify the exact merge SHA on both origins, repeat public stock and report reads, inspect server cache timings and correct stock market routes. Guest history has three preview points by contract; use /api/stocks/search for stock-search results (symbol) and /api/search for generic results (code). No real user quota, auth flows, infrastructure or cluster configuration changes are included.
+
+Validation Proof (azure-validate, 2026-10-11T04:55Z): origin/main remains 8c4883297f58bda9a025d4b55d3fad24806a0cb1. npm test: 379 passed, four existing opt-in Mongo integration tests skipped. npm run functions:build, npm run mcp:build, frontend build with canonical member-MCP origin/hidden public Skill, node scripts/verify-prerender.mjs and git diff --check passed. Fresh member package npm ci --omit=dev, standalone entry and Redis imports passed (outside the host this is test-mode packaging verification). ZIP CRC, entry, Redis dependency, validation version and absence of dotenv files were verified; validation package SHA-256 e54232eef8bbabaf8322aa9d655ea5ca291dc16f226ceca011fa70cfb0fdc38c. Azure MCP confirmed subscription Enabled/default and existing Function Running in East Asia. Workflow review confirms production index ensure and semantic smoke after SWA upload. Infrastructure/package dependency diff is empty. Existing application-only recipe, resources and user authorization remain applicable; no provisioning, settings or RBAC mutation. Proceed through azure-deploy; rebuild the final native package with the exact merged release SHA before upload.

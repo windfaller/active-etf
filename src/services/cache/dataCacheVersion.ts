@@ -13,6 +13,10 @@ export function dataCacheScopes(parts: Array<string | number>): DataCacheScope[]
   if (parts[0] === "global-etfs") return ["global"];
   if (parts[0] === "api" && parts[1] === "compare" && parts[3] === "global") return ["global"];
   if (parts[0] === "api" && parts[1] === "fund-performance") return ["tw", "global"];
+  if (parts[0] === "api" && parts[1] === "stocks") {
+    if (parts[3] === "us") return ["global"];
+    if (parts[3] === "all") return ["tw", "global"];
+  }
   if (parts[0] === "mcp" && parts[1] === "research") return ["tw", "global"];
   return ["tw"];
 }

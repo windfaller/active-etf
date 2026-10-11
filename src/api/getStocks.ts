@@ -1,10 +1,32 @@
 import { app, type HttpRequest, type InvocationContext } from "@azure/functions";
 import { maskMemberResults, maskMemberResultsByStableKey } from "../domain/memberAccess.js";
-import { getDb } from "../db/mongo.js";
-import { stockEtfs, stockHistory, stockInstitutions, stockOverview, searchStocks } from "../services/intelligence/stockIntelligenceService.js";
-import { badRequest, cachedJsonResponse, jsonResponse, notFound } from "./response.js";
+import type { Db } from "mongodb";
+import { BoundedRequestCache } from "../services/cache/boundedRequestCache.js";
+import { enabledDailyGlobalEtfCodes, enabledInstitutionCodes, enabledTaiwanEtfCodes } from "../services/intelligence/dataAccess.js";
+import { stockEtfs, stockHistory, stockInstitutions, stockOverview, searchStocks, type StockMarket } from "../services/intelligence/stockIntelligenceService.js";
+import { badRequest, cachedJsonResponse, jsonResponse, notFound, withServerTiming } from "./response.js";
+import { getTimedCached } from "./timedRequestCache.js";
 import { limitSchema, marketSchema, normalizedStockSymbol, optionalDate, querySchema, stockSymbolSchema, windowSchema } from "./intelligenceValidation.js";
 import { memberJsonResponse, memberRequestAccess } from "./memberResponse.js";
+
+const requestCache = new BoundedRequestCache();
+const requestCacheTtlMilliseconds = 180_000;
+const sharedCacheTtlSeconds = 600;
+
+export function clearStocksRequestCache(): void {
+  requestCache.clear();
+}
+
+function readStockData<T>(market: StockMarket | "all", operation: string, parameters: Array<string | number>, loader: (db: Db) => Promise<T>) {
+  const codes = market === "tw" ? enabledTaiwanEtfCodes
+    : market === "us" ? [...enabledDailyGlobalEtfCodes, ...enabledInstitutionCodes]
+      : [...enabledTaiwanEtfCodes, ...enabledDailyGlobalEtfCodes, ...enabledInstitutionCodes];
+  const universe = codes.join(".");
+  const parts = ["api", "stocks", "v1", market, operation, universe, ...parameters];
+  // Cache raw data shared by visitors and members. Identity is verified and
+  // previews are projected separately on every request below.
+  return getTimedCached(requestCache, JSON.stringify(parts), requestCacheTtlMilliseconds, loader, { sharedCacheKey: parts, sharedCacheTtlSeconds });
+}
 
 type StockParamsResult =
   | { error: string }
@@ -52,7 +74,8 @@ export async function getStocksSearch(request: HttpRequest, context: InvocationC
   if (market && !market.success) return badRequest("market must be tw or us");
   if (!limit.success) return badRequest("limit must be between 1 and 50");
   try {
-    return cachedJsonResponse(await searchStocks(await getDb(), query.data, market?.data, limit.data), 120);
+    const timed = await readStockData(market?.data ?? "all", "search", [query.data, limit.data], db => searchStocks(db, query.data, market?.data, limit.data));
+    return withServerTiming(cachedJsonResponse(timed.value, 120), timed.metrics);
   } catch (error) {
     context.error("stocks search failed", error);
     return jsonResponse({ error: "stocks search is temporarily unavailable" }, 500);
@@ -63,10 +86,11 @@ export async function getStockOverview(request: HttpRequest, context: Invocation
   const params = stockParams(request);
   if ("error" in params) return badRequest(params.error);
   try {
-    const result = await stockOverview(await getDb(), params.market, params.symbol, params.date);
+    const timed = await readStockData(params.market, "overview", [params.symbol, params.date ?? "latest"], db => stockOverview(db, params.market, params.symbol, params.date));
+    const result = timed.value;
     if (!result.found) return notFound("stock was not found in the tracked data universe");
     const access = await memberRequestAccess(request);
-    return memberJsonResponse({
+    return withServerTiming(memberJsonResponse({
       ...result,
       overseasEtfExposure: result.overseasEtfExposure
         ? { ...result.overseasEtfExposure, rows: maskMemberResultsByStableKey(result.overseasEtfExposure.rows, access.authenticated, (row) => `${params.market}:${params.symbol}:exposure:${row.etfCode}:${row.assetType}`) }
@@ -74,7 +98,7 @@ export async function getStockOverview(request: HttpRequest, context: Invocation
       sec13f: result.sec13f
         ? { ...result.sec13f, rows: maskMemberResultsByStableKey(result.sec13f.rows, access.authenticated, (row) => `${params.market}:${params.symbol}:13f:${row.institutionCode}`) }
         : null
-    });
+    }), timed.metrics);
   } catch (error) {
     context.error("stock overview failed", error);
     return jsonResponse({ error: "stock overview is temporarily unavailable" }, 500);
@@ -87,16 +111,17 @@ export async function getStockHistory(request: HttpRequest, context: InvocationC
   const window = windowSchema.safeParse(request.query.get("window") ?? "20");
   if (!window.success) return badRequest("window must be 3, 5, or 20 effective trading days");
   try {
-    const result = await stockHistory(await getDb(), params.market, params.symbol, window.data, params.date);
+    const timed = await readStockData(params.market, "history", [params.symbol, window.data, params.date ?? "latest"], db => stockHistory(db, params.market, params.symbol, window.data, params.date));
+    const result = timed.value;
     const access = await memberRequestAccess(request);
     const memberTrendWindows = maskMemberResults(stockTrendWindows(result), access.authenticated, "after-first");
-    return memberJsonResponse(access.authenticated ? { ...result, memberTrendWindows } : {
+    return withServerTiming(memberJsonResponse(access.authenticated ? { ...result, memberTrendWindows } : {
       ...result,
       points: result.points.slice(0, 3),
       summary: undefined,
       globalSummary: undefined,
       memberTrendWindows
-    });
+    }), timed.metrics);
   } catch (error) {
     context.error("stock history failed", error);
     return jsonResponse({ error: "stock history is temporarily unavailable" }, 500);
@@ -107,17 +132,18 @@ export async function getStockEtfs(request: HttpRequest, context: InvocationCont
   const params = stockParams(request);
   if ("error" in params) return badRequest(params.error);
   try {
-    const result = await stockEtfs(await getDb(), params.market, params.symbol, params.date);
+    const timed = await readStockData(params.market, "etfs", [params.symbol, params.date ?? "latest"], db => stockEtfs(db, params.market, params.symbol, params.date));
+    const result = timed.value;
     const access = await memberRequestAccess(request);
     const rows = result.rows as Array<(typeof result.rows)[number]>;
-    return memberJsonResponse({
+    return withServerTiming(memberJsonResponse({
       ...result,
       rows: maskMemberResultsByStableKey(
         rows,
         access.authenticated,
         (row) => `${params.market}:${params.symbol}:etf:${row.etfCode}:${"assetType" in row ? row.assetType : "holding"}`
       )
-    });
+    }), timed.metrics);
   } catch (error) {
     context.error("stock ETF detail failed", error);
     return jsonResponse({ error: "stock ETF detail is temporarily unavailable" }, 500);
@@ -128,12 +154,13 @@ export async function getStockInstitutions(request: HttpRequest, context: Invoca
   const params = stockParams(request);
   if ("error" in params) return badRequest(params.error);
   try {
-    const result = await stockInstitutions(await getDb(), params.market, params.symbol, params.date);
+    const timed = await readStockData(params.market, "institutions", [params.symbol, params.date ?? "latest"], db => stockInstitutions(db, params.market, params.symbol, params.date));
+    const result = timed.value;
     const access = await memberRequestAccess(request);
-    return memberJsonResponse({
+    return withServerTiming(memberJsonResponse({
       ...result,
       rows: result.rows ? maskMemberResultsByStableKey(result.rows, access.authenticated, (row) => `${params.market}:${params.symbol}:institution:${row.institutionCode}`) : undefined
-    });
+    }), timed.metrics);
   } catch (error) {
     context.error("stock institutions failed", error);
     return jsonResponse({ error: "institution data is temporarily unavailable" }, 500);

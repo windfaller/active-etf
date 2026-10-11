@@ -6,6 +6,9 @@ describe("authoritative cache generations", () => {
     expect(dataCacheScopes(["global-etfs", "daily-report"])).toEqual(["global"]);
     expect(dataCacheScopes(["api", "compare", "v1", "global"])).toEqual(["global"]);
     expect(dataCacheScopes(["api", "fund-performance"])).toEqual(["tw", "global"]);
+    expect(dataCacheScopes(["api", "stocks", "v1", "us", "history"])).toEqual(["global"]);
+    expect(dataCacheScopes(["api", "stocks", "v1", "tw", "history"])).toEqual(["tw"]);
+    expect(dataCacheScopes(["api", "stocks", "v1", "all", "search"])).toEqual(["tw", "global"]);
     expect(dataCacheScopes(["mcp", "research"])).toEqual(["tw", "global"]);
     expect(dataCacheScopes(["dashboard", "v2", "00981A"])).toEqual(["tw"]);
   });
@@ -31,6 +34,7 @@ describe("authoritative cache generations", () => {
     version = "global.second";
     expect(await getDataCacheGeneration(["api", "fund-performance"], db)).not.toBe(first);
     expect(await getDataCacheGeneration(["mcp", "research"], db)).not.toBe(first);
+    expect(await getDataCacheGeneration(["api", "stocks", "v1", "all", "search"], db)).not.toBe(first);
   });
 
   it("does not hide a failed committed invalidation", async () => {
