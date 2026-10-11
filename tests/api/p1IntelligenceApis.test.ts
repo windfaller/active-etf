@@ -116,6 +116,7 @@ describe("P1 intelligence APIs", () => {
     expect(memberJson).toContain("SECRET_AAA");
     expect(memberJson).toContain("SECRET_DDD");
     expect(new Headers(anonymous.headers).get("Cache-Control")).toContain("private, no-store");
+    expect(mocks.getDataCacheGeneration).toHaveBeenCalledWith(expect.arrayContaining(["api", "stocks", "v2", "us", "etfs", "MU"]));
   });
 
   it("rejects invalid market, symbol, and history windows before database access", async () => {

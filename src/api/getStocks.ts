@@ -22,9 +22,9 @@ function readStockData<T>(market: StockMarket | "all", operation: string, parame
     : market === "us" ? [...enabledDailyGlobalEtfCodes, ...enabledInstitutionCodes]
       : [...enabledTaiwanEtfCodes, ...enabledDailyGlobalEtfCodes, ...enabledInstitutionCodes];
   const universe = codes.join(".");
-  // Keep history reads from this implementation separate during rolling
-  // deployments. Previous keys expire through their existing TTL.
-  const cacheVersion = operation === "history" ? "v2" : "v1";
+  // Separate revised US snapshot readers during rolling deployments. Old
+  // values expire through their existing TTL without a shared-cache flush.
+  const cacheVersion = operation === "history" || (market === "us" && ["overview", "etfs", "institutions"].includes(operation)) ? "v2" : "v1";
   const parts = ["api", "stocks", cacheVersion, market, operation, universe, ...parameters];
   // Cache raw data shared by visitors and members. Identity is verified and
   // previews are projected separately on every request below.

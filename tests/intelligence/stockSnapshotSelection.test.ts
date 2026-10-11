@@ -8,7 +8,9 @@ import {
   globalStockHistoryPoints,
   globalStockHistorySnapshots,
   latestSnapshotsForStockPipeline,
-  latestStockSearchPipeline
+  latestStockSearchPipeline,
+  previousGlobalSnapshotsForStock,
+  stockEtfs
 } from "../../src/services/intelligence/stockIntelligenceService.js";
 
 function snapshot(etfCode: string, sourceAsOf: string, tickers: string[], strategyType: "index" | "active" | "13f" = "index"): GlobalEtfSnapshot {
@@ -54,8 +56,20 @@ function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
   const documents = fixtures.map(row => ({ ...row, _id: new ObjectId() }));
   return {
     collection: () => ({
-      find: (filter: { _id: { $in: ObjectId[] }; rowCount: { $gt: number } }) => ({
-        toArray: async () => documents.filter(row => filter._id.$in.some(id => id.equals(row._id)) && row.rowCount > filter.rowCount.$gt)
+      distinct: async () => [...new Set(documents.map(row => row.etfCode))],
+      find: (filter: { _id: { $in: ObjectId[] }; rowCount?: { $gt: number } }, options?: { projection?: Record<string, any> }) => ({
+        toArray: async () => documents.filter(row => filter._id.$in.some(id => id.equals(row._id)) && (!filter.rowCount || row.rowCount > filter.rowCount.$gt)).map(row => {
+          const projection = options?.projection;
+          if (!projection) return row;
+          const symbol = projection.holdings.$map.input.$filter.cond.$eq[1].$literal;
+          return {
+            _id: row._id,
+            ...Object.fromEntries(Object.entries(projection).filter(([, value]) => value === 1).map(([key]) => [key, (row as any)[key]])),
+            holdings: row.holdings.filter(holding => holding.ticker?.trim().toUpperCase() === symbol).map(holding => Object.fromEntries(
+              Object.entries(projection.holdings.$map.in).map(([key, path]) => [key, (holding as any)[String(path).replace("$$holding.", "")]])
+            ))
+          };
+        })
       }),
       aggregate: (pipeline: Array<Record<string, any>>) => ({
         toArray: async () => {
@@ -69,6 +83,7 @@ function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
                 if (match.strategyType === "13f" && row.strategyType !== "13f") return false;
                 if (match.strategyType?.$ne === "13f" && row.strategyType === "13f") return false;
                 if (match.sourceAsOf?.$regex && !new RegExp(match.sourceAsOf.$regex).test(row.sourceAsOf)) return false;
+                if (match.$or && !match.$or.some((pair: any) => row.etfCode === pair.etfCode && row.sourceAsOf < pair.sourceAsOf.$lt)) return false;
                 const ticker = match.holdings?.$elemMatch?.ticker;
                 return !ticker || row.holdings.some((holding: { ticker?: string }) => holding.ticker === ticker);
               });
@@ -83,7 +98,7 @@ function fakeDb(fixtures: GlobalEtfSnapshot[]): Db {
             } else if (stage.$group) {
               const firstByEtf = new Map<string, GlobalEtfSnapshot>();
               for (const row of rows) if (!firstByEtf.has(row.etfCode)) firstByEtf.set(row.etfCode, row);
-              rows = [...firstByEtf.entries()].map(([key, value]) => ({ _id: key, snapshot: value }));
+              rows = [...firstByEtf.entries()].map(([key, value]) => stage.$group.snapshotId ? { _id: key, snapshotId: (value as any)._id } : { _id: key, snapshot: value });
             } else if (stage.$replaceRoot) {
               rows = rows.map((row) => row.snapshot);
             }
@@ -150,6 +165,64 @@ describe("latest global stock snapshot selection", () => {
       unusable
     ]), "MU", false);
     expect(rows.map(row => row.sourceAsOf)).toEqual(["2026-07-20"]);
+  });
+
+  it("retains all matching asset rows in order, without changing exact-case snapshot presence", async () => {
+    const mixed = snapshot("DRAM", "2026-07-21", ["MU", " mU ", "NVDA"]);
+    mixed.holdings[0]!.weightPercent = 0;
+    mixed.holdings[1]!.shares = 42;
+    mixed.holdings[1]!.assetType = "Option";
+    mixed.holdings[0]!.raw = { privateSourceData: true };
+    const rows = await globalSnapshotsForStock(fakeDb([mixed, snapshot("HBMX", "2026-07-21", ["mu"])]), "MU", false);
+    expect(rows.map(row => row.etfCode)).toEqual(["DRAM"]);
+    expect(rows[0]?.holdings.map(row => row.ticker)).toEqual(["MU", " mU "]);
+    expect(rows[0]?.holdings[0]?.weightPercent).toBe(0);
+    expect(rows[0]?.holdings[1]).toMatchObject({ shares: 42, assetType: "Option" });
+    expect(rows[0]?.holdings[0]).not.toHaveProperty("raw");
+  });
+
+  it("selects each ETF's own prior date and latest capture before checking the target holding", async () => {
+    const current = [snapshot("DRAM", "2026-07-23", ["MU"]), snapshot("HBMX", "2026-07-21", ["MU"])];
+    const olderCapture = weightedSnapshot("DRAM", "2026-07-22", 5, "2026-07-22T08:00:00Z");
+    const newCapture = snapshot("DRAM", "2026-07-22", ["NVDA"]);
+    const rows = await previousGlobalSnapshotsForStock(fakeDb([
+      ...current, snapshot("DRAM", "2026-07-21", ["MU"]), olderCapture, newCapture,
+      snapshot("HBMX", "2026-07-20", ["MU"]), snapshot("HBMX", "2026-07-22", ["MU"])
+    ]), current, "MU");
+    expect(rows.get("DRAM")?.sourceAsOf).toBe("2026-07-22");
+    expect(rows.get("DRAM")?.holdings).toEqual([]);
+    expect(rows.get("HBMX")?.sourceAsOf).toBe("2026-07-20");
+  });
+
+  it("preserves prior empty or unusable captures and does not query without current snapshots", async () => {
+    const current = snapshot("DRAM", "2026-07-23", ["MU"]);
+    const empty = { ...snapshot("DRAM", "2026-07-22", []), unusableReason: "empty capture" };
+    const rows = await previousGlobalSnapshotsForStock(fakeDb([current, empty, snapshot("DRAM", "2026-07-21", ["MU"])]), [current], "MU");
+    expect(rows.get("DRAM")?.sourceAsOf).toBe("2026-07-22");
+    expect(rows.get("DRAM")?.holdings).toEqual([]);
+    const collection = vi.fn();
+    expect(await previousGlobalSnapshotsForStock({ collection } as unknown as Db, [], "MU")).toEqual(new Map());
+    expect(collection).not.toHaveBeenCalled();
+  });
+
+  it("keeps zero weights and existing position/asset matching for detail changes", async () => {
+    const prior = snapshot("DRAM", "2026-07-21", ["MU", " mU "]);
+    prior.holdings[0]!.weightPercent = 0;
+    prior.holdings[0]!.assetType = "Equity";
+    prior.holdings[1]!.positionKey = "option-prior";
+    prior.holdings[1]!.assetType = "Option";
+    prior.holdings[1]!.weightPercent = 2;
+    const current = snapshot("DRAM", "2026-07-22", ["MU", "MU", "MU"]);
+    current.holdings[0]!.assetType = "Equity";
+    current.holdings[0]!.weightPercent = 1;
+    current.holdings[1]!.positionKey = "option-current";
+    current.holdings[1]!.assetType = "Option";
+    current.holdings[1]!.weightPercent = 3;
+    current.holdings[2]!.positionKey = "missing";
+    current.holdings[2]!.assetType = "Bond";
+    const result = await stockEtfs(fakeDb([prior, current]), "us", "mu");
+    expect(result.rows.map(row => row.latestWeight)).toEqual([1, 3, null]);
+    expect(result.rows.map(row => row.weightChange)).toEqual([1, 1, null]);
   });
 
   it("builds US history from ISO-dated, latest-per-day ETF snapshots", () => {
