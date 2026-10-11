@@ -110,8 +110,26 @@ export function groupTaiwanDays(dates: string[], changes: EtfHoldingChange[]): D
   return dates.map((date) => aggregateTaiwanDay(date, byDate.get(date) ?? []));
 }
 
-function latestHoldingForTicker(snapshot: GlobalEtfSnapshot, symbol: string): GlobalEtfHolding[] {
+type GlobalStockHolding = Pick<GlobalEtfHolding, "ticker" | "positionKey" | "name" | "weightPercent" | "shares" | "marketValue" | "sector" | "assetType">;
+export type GlobalStockSnapshot = Pick<GlobalEtfSnapshot, "etfCode" | "fundName" | "sourceAsOf" | "filedAt" | "capturedAt" | "fetchedAt" | "sourceUrl" | "sourceStatus"> & { holdings: GlobalStockHolding[] };
+
+function latestHoldingForTicker(snapshot: Pick<GlobalStockSnapshot, "holdings">, symbol: string): GlobalStockHolding[] {
   return snapshot.holdings.filter((holding) => holding.ticker?.trim().toUpperCase() === symbol);
+}
+
+function stockSnapshotProjection(symbol: string) {
+  return {
+    etfCode: 1, fundName: 1, sourceAsOf: 1, filedAt: 1, capturedAt: 1,
+    fetchedAt: 1, sourceUrl: 1, sourceStatus: 1,
+    holdings: { $map: {
+      input: { $filter: {
+        input: "$holdings", as: "holding",
+        cond: { $eq: [{ $toUpper: { $trim: { input: { $ifNull: ["$$holding.ticker", ""] } } } }, { $literal: symbol }] }
+      } },
+      as: "holding",
+      in: { ticker: "$$holding.ticker", positionKey: "$$holding.positionKey", name: "$$holding.name", weightPercent: "$$holding.weightPercent", shares: "$$holding.shares", marketValue: "$$holding.marketValue", sector: "$$holding.sector", assetType: "$$holding.assetType" }
+    } }
+  };
 }
 
 export function latestSnapshotsForStockPipeline(_symbol: string, include13f: boolean) {
@@ -130,7 +148,7 @@ export function latestSnapshotsForStockPipeline(_symbol: string, include13f: boo
   ];
 }
 
-export async function globalSnapshotsForStock(db: Db, symbol: string, include13f: boolean): Promise<GlobalEtfSnapshot[]> {
+export async function globalSnapshotsForStock(db: Db, symbol: string, include13f: boolean): Promise<GlobalStockSnapshot[]> {
   const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
   const metadata = await collection.aggregate<SnapshotReadMetadata>(latestSnapshotsForStockPipeline(symbol, include13f), { maxTimeMS: 10000 }).toArray();
   const candidates = new Map<string, SnapshotReadMetadata[]>();
@@ -140,7 +158,7 @@ export async function globalSnapshotsForStock(db: Db, symbol: string, include13f
     rows.push(row);
     candidates.set(row.etfCode, rows);
   }
-  const selected: GlobalEtfSnapshot[] = [];
+  const selected: GlobalStockSnapshot[] = [];
   const deadline = Date.now() + 20000;
   // Validate rowCount only on selected IDs. An invalid capture can use the next
   // valid one, but a valid capture without the ticker is a definitive exit.
@@ -148,7 +166,9 @@ export async function globalSnapshotsForStock(db: Db, symbol: string, include13f
     const ids = [...candidates.values()].map(rows => rows[0]!._id);
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new Error("Global stock snapshot selection exceeded its read deadline");
-    const rows = await collection.find({ _id: { $in: ids }, rowCount: { $gt: 0 } }, { maxTimeMS: remaining }).toArray();
+    const rows = await collection.find<GlobalStockSnapshot & { _id: ObjectId }>({ _id: { $in: ids }, rowCount: { $gt: 0 } }, {
+      hint: "_id_", maxTimeMS: remaining, projection: stockSnapshotProjection(symbol)
+    }).toArray();
     const valid = new Map(rows.map(row => [String(row._id), row]));
     for (const [code, queue] of candidates) {
       const row = valid.get(String(queue[0]!._id));
@@ -308,22 +328,24 @@ export function latestStockSearchPipeline(normalizedQuery: string, limit: number
   ];
 }
 
-async function previousGlobalSnapshots(db: Db, snapshots: GlobalEtfSnapshot[]): Promise<Map<string, GlobalEtfSnapshot>> {
-  const pairs = await Promise.all(snapshots.map(async (snapshot) => {
-    const previous = await db.collection<GlobalEtfSnapshot>("global_etf_snapshots").findOne(
-      { etfCode: snapshot.etfCode, sourceAsOf: { $lt: snapshot.sourceAsOf }, sourceStatus: "ok" },
-      { sort: { sourceAsOf: -1, fetchedAt: -1 } }
-    );
-    return [snapshot.etfCode, previous] as const;
-  }));
-  const result = new Map<string, GlobalEtfSnapshot>();
-  for (const [code, snapshot] of pairs) {
-    if (snapshot) result.set(code, snapshot);
-  }
-  return result;
+export async function previousGlobalSnapshotsForStock(db: Db, snapshots: GlobalStockSnapshot[], symbol: string): Promise<Map<string, GlobalStockSnapshot>> {
+  if (!snapshots.length) return new Map();
+  const collection = db.collection<GlobalEtfSnapshot>("global_etf_snapshots");
+  // Select each ETF's newest earlier capture using covered metadata before
+  // inspecting holdings. An empty prior position must never backfill an older one.
+  const selected = await collection.aggregate<{ _id: string; snapshotId: ObjectId }>([
+    { $match: { sourceStatus: "ok", $or: snapshots.map(snapshot => ({ etfCode: snapshot.etfCode, sourceAsOf: { $lt: snapshot.sourceAsOf } })) } },
+    { $sort: { etfCode: 1, sourceAsOf: -1, fetchedAt: -1 } },
+    { $group: { _id: "$etfCode", snapshotId: { $first: "$_id" } } }
+  ], { maxTimeMS: 10000 }).toArray();
+  if (!selected.length) return new Map();
+  const rows = await collection.find<GlobalStockSnapshot>({ _id: { $in: selected.map(row => row.snapshotId) } }, {
+    hint: "_id_", maxTimeMS: 10000, projection: stockSnapshotProjection(symbol)
+  }).toArray();
+  return new Map(rows.map(row => [row.etfCode, row]));
 }
 
-function globalStockName(symbol: string, snapshots: GlobalEtfSnapshot[]): string {
+function globalStockName(symbol: string, snapshots: GlobalStockSnapshot[]): string {
   return snapshots.flatMap((snapshot) => latestHoldingForTicker(snapshot, symbol)).find((holding) => holding.name)?.name ?? symbol;
 }
 
@@ -451,7 +473,7 @@ export async function stockOverview(db: Db, market: StockMarket, rawSymbol: stri
     sourceAsOf,
     coverage,
     confidence,
-    stock: { market, symbol, normalizedSymbol: symbol, name: globalStockName(symbol, [...snapshots, ...institutions]), sector: latestHoldingForTicker(snapshots[0] ?? ({ holdings: [] } as unknown as GlobalEtfSnapshot), symbol)[0]?.sector ?? null, industry: null },
+    stock: { market, symbol, normalizedSymbol: symbol, name: globalStockName(symbol, [...snapshots, ...institutions]), sector: latestHoldingForTicker(snapshots[0] ?? { holdings: [] }, symbol)[0]?.sector ?? null, industry: null },
     summary: { dataDate: sourceAsOf, lastUpdated: snapshots[0]?.fetchedAt instanceof Date ? snapshots[0].fetchedAt.toISOString() : snapshots[0]?.fetchedAt ?? null, coveredEtfs: snapshots.length, primarySources: ["海外 ETF 發行商官方持股", "SEC 13F"] },
     today: null,
     overseasEtfExposure: { timeScale: "依發行商實際更新頻率", rows: exposures },
@@ -591,11 +613,12 @@ export async function stockEtfs(db: Db, market: StockMarket, rawSymbol: string, 
   }
 
   const snapshots = await globalSnapshotsForStock(db, symbol, false);
-  const previous = await previousGlobalSnapshots(db, snapshots);
+  const previous = await previousGlobalSnapshotsForStock(db, snapshots, symbol);
   const sourceAsOf = snapshots[0]?.sourceAsOf ?? await latestGlobalSourceDate(db);
   const coverage = await globalCoverageForDate(db, sourceAsOf);
   const rows = snapshots.flatMap((snapshot) => latestHoldingForTicker(snapshot, symbol).map((holding) => {
-    const priorHolding = previous.get(snapshot.etfCode) ? latestHoldingForTicker(previous.get(snapshot.etfCode) as GlobalEtfSnapshot, symbol).find((row) => row.positionKey === holding.positionKey || row.assetType === holding.assetType) : undefined;
+    const previousSnapshot = previous.get(snapshot.etfCode);
+    const priorHolding = previousSnapshot ? latestHoldingForTicker(previousSnapshot, symbol).find((row) => row.positionKey === holding.positionKey || row.assetType === holding.assetType) : undefined;
     return {
       etfCode: snapshot.etfCode,
       name: snapshot.fundName,
