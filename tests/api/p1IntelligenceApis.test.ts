@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(async () => ({ name: "db" })),
+  getDataCacheGeneration: vi.fn(async () => "tw.test"),
   searchStocks: vi.fn(async () => ({ generatedAt: "2026-07-21T00:00:00Z", results: [{ market: "tw", symbol: "2330" }] })),
   stockOverview: vi.fn(async () => ({ found: true, generatedAt: "2026-07-21T00:00:00Z", sourceAsOf: "2026-07-21", coverage: { tracked: 28, available: 24, delayed: 4 }, confidence: { level: "medium", reason: "4 檔延遲" } })),
   stockHistory: vi.fn(async () => ({ points: [] })),
@@ -16,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../src/db/mongo.js", () => ({ getDb: mocks.getDb }));
-vi.mock("../../src/services/cache/dataCacheVersion.js", () => ({ getDataCacheGeneration: vi.fn(async () => "tw.test") }));
+vi.mock("../../src/services/cache/dataCacheVersion.js", () => ({ getDataCacheGeneration: mocks.getDataCacheGeneration }));
 vi.mock("../../src/services/intelligence/stockIntelligenceService.js", () => ({
   searchStocks: mocks.searchStocks,
   stockOverview: mocks.stockOverview,
@@ -33,7 +34,7 @@ vi.mock("../../src/services/auth/firebaseTokenVerifier.js", () => ({ verifyFireb
 import { clearEtfComparisonRequestCache, getEtfComparison } from "../../src/api/getEtfComparison.js";
 import { getSearch } from "../../src/api/getSearch.js";
 import { clearSignalsRequestCache, getSignals } from "../../src/api/getSignals.js";
-import { getStockEtfs, getStockHistory, getStockInstitutions, getStockOverview, getStocksSearch } from "../../src/api/getStocks.js";
+import { clearStocksRequestCache, getStockEtfs, getStockHistory, getStockInstitutions, getStockOverview, getStocksSearch } from "../../src/api/getStocks.js";
 import { clearStyleProfileRequestCache, getStyleProfile } from "../../src/api/getStyleProfile.js";
 
 function request(query = "", params: Record<string, string> = {}, cookie?: string): HttpRequest {
@@ -48,6 +49,8 @@ describe("P1 intelligence APIs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.verifyFirebaseIdToken.mockResolvedValue({ sub: "member-1" });
+    mocks.getDataCacheGeneration.mockResolvedValue("tw.test");
+    clearStocksRequestCache();
     clearEtfComparisonRequestCache();
     clearSignalsRequestCache();
     clearStyleProfileRequestCache();
@@ -120,6 +123,67 @@ describe("P1 intelligence APIs", () => {
     expect((await getStockOverview(request("", { market: "tw", symbol: "23.*" }), context)).status).toBe(400);
     expect((await getStockHistory(request("window=365", { market: "us", symbol: "MU" }), context)).status).toBe(400);
     expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
+  it("reuses complete history across visitor and member requests without caching the preview or identity", async () => {
+    const points = Array.from({ length: 20 }, (_, index) => ({ date: `2026-07-${String(21-index).padStart(2,"0")}`, weightChangePercentPoints: index, direction: "increase" }));
+    mocks.stockHistory.mockResolvedValueOnce({ market: "us", points, globalSummary: { secret: "MEMBER_SUMMARY" }, coverage: { tracked: 32, available: 30 } } as never);
+    const params = { market: "us", symbol: "MU" }, query = "window=20";
+    const visitor = await getStockHistory(request(query, params), context);
+    const member = await getStockHistory(request(query, params, "active_etf_session=valid-token"), context);
+    const visitorAgain = await getStockHistory(request(query, params), context);
+    expect(visitor.jsonBody).toMatchObject({ points: points.slice(0,3), memberTrendWindows: [expect.objectContaining({ window: 3 }), { memberLocked: true }, { memberLocked: true }] });
+    expect(JSON.stringify(visitor.jsonBody)).not.toContain("MEMBER_SUMMARY");
+    expect(visitorAgain.jsonBody).toEqual(visitor.jsonBody);
+    expect(member.jsonBody).toMatchObject({ points, globalSummary: { secret: "MEMBER_SUMMARY" } });
+    expect(mocks.stockHistory).toHaveBeenCalledTimes(1);
+    expect(new Headers(member.headers).get("Server-Timing")).toContain('app-cache;desc="hit"');
+    for (const response of [visitor, member, visitorAgain]) expect(new Headers(response.headers).get("Cache-Control")).toContain("private, no-store");
+  });
+
+  it("coalesces concurrent stock history reads while preserving the visitor preview", async () => {
+    mocks.stockHistory.mockImplementationOnce(async () => { await new Promise(resolve => setTimeout(resolve,10));return { market: "us", points: [{ date: "2026-07-21", weightChangePercentPoints: 1, direction: "increase" }] } as never; });
+    const params = { market: "us", symbol: "MU" };
+    const [first, second] = await Promise.all([getStockHistory(request("window=20",params),context), getStockHistory(request("window=20",params),context)]);
+    expect(first.status).toBe(200);
+    expect(second.jsonBody).toEqual(first.jsonBody);
+    expect(mocks.stockHistory).toHaveBeenCalledTimes(1);
+    expect(mocks.getDb).toHaveBeenCalledTimes(1);
+  });
+
+  it("rechecks the same member cookie after cached data was loaded", async () => {
+    const points = Array.from({ length: 20 }, (_, index) => ({ date: `2026-07-${String(21 - index).padStart(2, "0")}`, weightChangePercentPoints: index, direction: "increase" }));
+    mocks.stockHistory.mockResolvedValueOnce({ market: "us", points, globalSummary: { secret: "MEMBER_SUMMARY" } } as never);
+    mocks.verifyFirebaseIdToken.mockResolvedValueOnce({ sub: "member-1" }).mockRejectedValueOnce(new Error("expired"));
+    const memberRequest = request("window=20", { market: "us", symbol: "MU" }, "active_etf_session=valid-token");
+    const member = await getStockHistory(memberRequest, context);
+    const expired = await getStockHistory(memberRequest, context);
+    expect(member.jsonBody).toMatchObject({ points, globalSummary: { secret: "MEMBER_SUMMARY" } });
+    expect(expired.jsonBody).toMatchObject({ points: points.slice(0, 3) });
+    expect(JSON.stringify(expired.jsonBody)).not.toContain("MEMBER_SUMMARY");
+    expect(mocks.stockHistory).toHaveBeenCalledTimes(1);
+    expect(mocks.verifyFirebaseIdToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("recomputes stock data after a committed generation change", async () => {
+    mocks.getDataCacheGeneration.mockResolvedValueOnce("global.first").mockResolvedValueOnce("global.second");
+    mocks.stockHistory.mockResolvedValueOnce({ market: "us", points: [{ date: "2026-07-21", weightChangePercentPoints: 1, direction: "increase" }] } as never)
+      .mockResolvedValueOnce({ market: "us", points: [{ date: "2026-07-21", weightChangePercentPoints: 2, direction: "increase" }] } as never);
+    const params = { market: "us", symbol: "MU" };
+    const first = await getStockHistory(request("window=20",params),context);
+    const second = await getStockHistory(request("window=20",params),context);
+    expect(first.jsonBody).toMatchObject({ points: [{ weightChangePercentPoints: 1 }] });
+    expect(second.jsonBody).toMatchObject({ points: [{ weightChangePercentPoints: 2 }] });
+    expect(mocks.stockHistory).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps different history windows and source dates in distinct cache entries", async () => {
+    const params = { market: "us", symbol: "MU" };
+    await getStockHistory(request("window=3&date=2026-07-20",params),context);
+    await getStockHistory(request("window=20&date=2026-07-20",params),context);
+    await getStockHistory(request("window=20&date=2026-07-21",params),context);
+    await getStockHistory(request("window=20&date=2026-07-21",params),context);
+    expect(mocks.stockHistory).toHaveBeenCalledTimes(3);
   });
 
   it("returns 404 for a syntactically valid stock absent from the tracked universe", async () => {

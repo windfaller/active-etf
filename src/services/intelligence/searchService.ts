@@ -17,6 +17,7 @@ function includesQuery(values: Array<string | undefined>, query: string): boolea
 export async function globalSearch(db: Db, query: string, types: SearchResultType[], limit: number) {
   const activeTypes = new Set(types);
   const wants = (type: SearchResultType) => !activeTypes.size || activeTypes.has(type);
+  const stockMarket = wants("tw_stock") && wants("us_stock") ? undefined : wants("tw_stock") ? "tw" : "us";
   const [twDates, globalDates, stockResults] = await Promise.all([
     wants("tw_etf") ? db.collection<EtfDailySummary>("etf_daily_summary").aggregate<{ _id: string; date: string }>([
       { $match: { etfCode: { $in: configuredEtfs.filter((row) => row.enabled).map((row) => row.etfCode) } } },
@@ -26,7 +27,7 @@ export async function globalSearch(db: Db, query: string, types: SearchResultTyp
       { $match: { etfCode: { $in: enabledGlobalEtfs.map((row) => row.etfCode) }, sourceStatus: "ok" } },
       { $group: { _id: "$etfCode", date: { $max: "$sourceAsOf" } } }
     ]).toArray() : [],
-    wants("tw_stock") || wants("us_stock") ? searchStocks(db, query, undefined, limit) : Promise.resolve({ results: [] })
+    wants("tw_stock") || wants("us_stock") ? searchStocks(db, query, stockMarket, limit) : Promise.resolve({ results: [] })
   ]);
   const twDateByCode = new Map(twDates.map((row) => [row._id, row.date]));
   const globalDateByCode = new Map(globalDates.map((row) => [row._id, row.date]));

@@ -328,7 +328,12 @@ export async function searchStocks(db: Db, query: string, market: StockMarket | 
 
   if (!market || market === "tw") {
     const profiles = await db.collection<StockSectorProfile>("stock_sector_profiles").find(
-      { $or: [{ stockId: { $regex: `^${escaped}`, $options: "i" } }, { stockName: { $regex: `^${escaped}`, $options: "i" } }] },
+      {
+        // This collection also contains overseas profiles. Only identifiers
+        // accepted by the Taiwan stock routes may consume the result limit.
+        stockId: { $regex: "^\\d{4,6}$" },
+        $or: [{ stockId: { $regex: `^${escaped}`, $options: "i" } }, { stockName: { $regex: `^${escaped}`, $options: "i" } }]
+      },
       { limit, projection: { _id: 0, stockId: 1, stockName: 1, sector: 1 } }
     ).toArray();
     for (const profile of profiles) {
