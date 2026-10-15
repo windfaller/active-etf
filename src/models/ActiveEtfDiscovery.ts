@@ -4,7 +4,7 @@ export const activeEtfDiscoverySchema = z.object({
   etfCode: z.string(),
   stockName: z.string(),
   listingDate: z.string(),
-  issuer: z.string(),
+  issuer: z.string().nullable(),
   indexName: z.string().nullable(),
   totalAssetValue: z.number().nullable(),
   closePrice: z.number().nullable(),

@@ -353,6 +353,38 @@ export const configuredEtfs: EtfMaster[] = [
     updatedAt: now
   },
   {
+    etfCode: "00412A",
+    fundCode: "E0004",
+    name: "主動安聯亞半導體",
+    issuer: "安聯投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: true,
+    source: {
+      providerId: "allianz",
+      infoUrl: "https://etf.allianzgi.com.tw/etf-info/E0004",
+      pcfUrl: "https://etf.allianzgi.com.tw/list-trade"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    etfCode: "00415A",
+    fundCode: "504",
+    name: "主動群益核心50",
+    issuer: "群益投信",
+    type: "active_etf",
+    currency: "TWD",
+    enabled: false,
+    source: {
+      providerId: "capital",
+      infoUrl: "https://www.capitalfund.com.tw/etf/product/detail/504/basic",
+      pcfUrl: "https://www.capitalfund.com.tw/etf/product/detail/504/buyback"
+    },
+    createdAt: now,
+    updatedAt: now
+  },
+  {
     etfCode: "00404A",
     fundCode: "TW00000404A5",
     name: "主動聯博動能50",

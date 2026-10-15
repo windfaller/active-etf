@@ -10,7 +10,7 @@ const twseProductRowSchema = z.object({
   holders: z.string().nullable().optional(),
   valueYTD: z.string().nullable().optional(),
   volumeYTD: z.string().nullable().optional(),
-  issuer: z.string()
+  issuer: z.string().nullish()
 });
 
 const twseProductsResponseSchema = z.object({
@@ -22,7 +22,7 @@ export interface TwseActiveEtfProduct {
   etfCode: string;
   stockName: string;
   listingDate: string;
-  issuer: string;
+  issuer: string | null;
   indexName: string | null;
   totalAssetValue: number | null;
   closePrice: number | null;
@@ -59,7 +59,7 @@ export function parseTwseActiveEtfProducts(rawBody: string): TwseActiveEtfProduc
     etfCode: row.stockNo.trim(),
     stockName: row.stockName.trim(),
     listingDate: toIsoDate(row.listingDate),
-    issuer: row.issuer.trim(),
+    issuer: row.issuer?.trim() || null,
     indexName: row.indexName?.trim() || null,
     totalAssetValue: parseNumber(row.totalAv),
     closePrice: parseNumber(row.close1),

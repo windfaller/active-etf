@@ -598,6 +598,7 @@ Confirmed products:
 - `00984A`: `FundNo` `E0001`
 - `00993A`: `FundNo` `E0002`
 - `00402A`: `FundNo` `E0003`
+- `00412A`: `FundNo` `E0004`; listed `2026-10-13`. Request `2026-10-15` returned 49 stock rows and `CNavDt=2026-10-13`, NAV `9.70`, total units `629,988,000`, fund size `6,113,680,193`, and stock ratio `90.35%`.
 
 Headers for trade info:
 
@@ -641,6 +642,8 @@ Notes:
 
 - The official `GetFundOverview` endpoint maps `00984A -> E0001`, `00993A -> E0002`, and `00402A -> E0003`.
 - Market closing price is filled by the shared TWSE closing price sync.
+
+Pending October listing: `00415A` maps to Capital fund ID `504` at `https://www.capitalfund.com.tw/etf/product/detail/504/basic`, with listing date `2026-10-20`. On `2026-10-15`, `POST https://www.capitalfund.com.tw/CFWeb/api/etf/buyback` with `{ "fundId": "504", "date": "2026/10/15" }` returned HTTP 200 / `code=400` / `data=null`. The mapping remains disabled until both real holdings and NAV are verified.
 
 ## 兆豐 holdings and summary
 

@@ -23,7 +23,8 @@ export interface ActiveEtfDiscoveryResult {
   rawSnapshotId: string;
 }
 
-function providerSuggestion(issuer: string): string | null {
+function providerSuggestion(issuer: string | null): string | null {
+  if (!issuer) return null;
   if (/統一/u.test(issuer)) return "uniPresident";
   if (/野村/u.test(issuer)) return "nomura";
   if (/群益/u.test(issuer)) return "capital";
@@ -68,7 +69,7 @@ function buildDiscovery(
   now: Date
 ): ActiveEtfDiscovery {
   const configured = configuredEtfs.find((etf) => etf.etfCode === product.etfCode);
-  const suggestedProviderId = providerSuggestion(product.issuer);
+  const suggestedProviderId = providerSuggestion(product.issuer) ?? configured?.source.providerId ?? null;
   const isTracked = trackedCodes.has(product.etfCode);
 
   return {
@@ -105,7 +106,7 @@ function onboardingPrompt(newlyDetected: ActiveEtfDiscovery[]): string {
   const etfLines = newlyDetected
     .map((item) => {
       const providerHint = item.suggestedProviderId ? `建議 providerId: ${item.suggestedProviderId}` : "需要新增 provider";
-      return `- ${item.etfCode} ${item.stockName}｜${item.issuer}｜上市日 ${item.listingDate}｜${providerHint}`;
+      return `- ${item.etfCode} ${item.stockName}｜${item.issuer ?? "發行商未公告"}｜上市日 ${item.listingDate}｜${providerHint}`;
     })
     .join("\n");
 
@@ -142,7 +143,7 @@ export function formatDiscoveryMessage(newlyDetected: ActiveEtfDiscovery[], allU
   const list = newlyDetected.length ? newlyDetected : allUntracked.slice(0, 12);
   for (const item of list) {
     const provider = item.suggestedProviderId ? `建議 provider: ${item.suggestedProviderId}` : "需新增 provider";
-    lines.push(`- ${item.etfCode} ${item.stockName}｜${item.listingDate}｜${item.issuer}｜${provider}`);
+    lines.push(`- ${item.etfCode} ${item.stockName}｜${item.listingDate}｜${item.issuer ?? "發行商未公告"}｜${provider}`);
   }
 
   if (!newlyDetected.length && allUntracked.length) {
@@ -164,14 +165,22 @@ export async function runActiveEtfDiscovery(
   options: { notify?: boolean } = {}
 ): Promise<ActiveEtfDiscoveryResult> {
   const fetchResult = await fetchOfficialActiveEtfs();
-  const products = parseTwseActiveEtfProducts(fetchResult.rawBody);
   const snapshot = createRawSnapshot({
     source: "twse_etfortune",
     etfCode: "__ACTIVE_ETF_LIST__",
     dataType: "api_response",
     fetchResult,
-    parsedOk: true
+    parsedOk: false
   });
+  let products: TwseActiveEtfProduct[];
+  try {
+    products = parseTwseActiveEtfProducts(fetchResult.rawBody);
+    snapshot.parsedOk = true;
+  } catch (error) {
+    snapshot.parseError = error instanceof Error ? error.message : String(error);
+    await saveRawSnapshot(db, snapshot);
+    throw error;
+  }
   await saveRawSnapshot(db, snapshot);
 
   const configuredCodes = new Set(configuredEtfs.filter((etf) => etf.enabled).map((etf) => etf.etfCode));

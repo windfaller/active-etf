@@ -139,6 +139,8 @@ Refresh paths:
 
 ### `active_etf_discoveries`
 
+`issuer` is nullable because TWSE may publish announced pre-listing products before the issuer field is populated. Keep the official missing value as `null`; provider suggestions may use an already verified configured mapping. Failed official-list parsing is retained in `raw_snapshots` with `parsedOk=false` and `parseError`.
+
 Official TWSE ETFortune active ETF registry comparison rows. This collection records listed active ETFs that are already tracked and newly discovered ETFs that still need provider mapping or reverse engineering.
 
 Unique key:

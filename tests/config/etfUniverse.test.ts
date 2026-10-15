@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { configuredEtfs } from "../../src/config/etfs.js";
 import { allianceBernsteinEtfs } from "../../src/providers/allianceBernstein/types.js";
 import { allianzEtfs } from "../../src/providers/allianz/types.js";
+import { capitalEtfs } from "../../src/providers/capital/types.js";
 import { ctbcEtfs } from "../../src/providers/ctbc/types.js";
 import { firstEtfs } from "../../src/providers/first/types.js";
 import { fubonEtfs } from "../../src/providers/fubon/types.js";
@@ -10,6 +11,21 @@ import { kgiEtfs } from "../../src/providers/kgi/types.js";
 import { sinopacEtfs } from "../../src/providers/sinopac/types.js";
 
 describe("configured active ETF universe", () => {
+  it("enables verified 00412A and keeps pre-listing 00415A pending real holdings/NAV", () => {
+    expect(configuredEtfs.find((etf) => etf.etfCode === "00412A")).toMatchObject({
+      fundCode: "E0004", enabled: true, source: { providerId: "allianz" }
+    });
+    expect(allianzEtfs.find((etf) => etf.etfCode === "00412A")).toMatchObject({
+      fundCode: "E0004", enabled: true, implementationStatus: "verified"
+    });
+    expect(configuredEtfs.find((etf) => etf.etfCode === "00415A")).toMatchObject({
+      fundCode: "504", enabled: false, source: { providerId: "capital" }
+    });
+    expect(capitalEtfs.find((etf) => etf.etfCode === "00415A")).toMatchObject({
+      fundCode: "504", enabled: false, implementationStatus: "pending_reverse_engineering"
+    });
+  });
+
   it("enables verified June 2026 equity active ETFs with provider fund codes", () => {
     expect(configuredEtfs).toEqual(
       expect.arrayContaining([

@@ -10,7 +10,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 | 野村投信 `nomura` | `00980A`, `00985A`, `00999A` | Verified and enabled | Official ETFWEB Angular app calls `Fund/GetFundAssets`; holdings, NAV, AUM, total units and allocation rows were verified for all three ETFs. TWSE currently lists `00999A` as `主動野村臺灣高息`. Production daily refresh is enabled. |
 | 群益投信 `capital` | `00997A`, `00982A`, `00992A` | Verified and enabled | Official CFWeb Angular app calls `/api/etf/buyback`; holdings, NAV, AUM, total units, creation units and allocation rows were verified. Production daily refresh is enabled. |
 | 國泰投信 `cathay` | `00400A` | Verified and enabled | Official Cathay `DownloadETFWeightExcel` XLSX endpoint uses `FundCode=EA&SearchDate=YYYY-MM-DD`; holdings, NAV, AUM, total units, stock value and cash value were verified. Production daily refresh is enabled. |
-| 安聯投信 `allianz` | `00984A`, `00993A`, `00402A` | Verified and enabled | Official Allianz Angular app calls `AntiForgery/GetAntiForgeryToken` then `Fund/GetFundTradeInfo`; holdings, NAV, AUM, total units, creation unit delta and stock allocation rows were verified. `00402A` maps to `FundNo=E0003`. Production daily refresh is enabled. |
+| 安聯投信 `allianz` | `00984A`, `00993A`, `00402A`, `00412A` | Verified and enabled | Official Allianz Angular app calls `AntiForgery/GetAntiForgeryToken` then `Fund/GetFundTradeInfo`; holdings, NAV, AUM, total units, creation unit delta and stock allocation rows were verified. `00402A` maps to `FundNo=E0003`; `00412A` maps to `E0004`. Production daily refresh is enabled. |
 | 兆豐投信 `mega` | `00996A` | Verified and enabled | Official Mega ETF product page renders current holdings and summary server-side. The PCF page was also verified through ASP.NET form POST and confirms `fund_id=23`, but complete stock holdings are on the product page. Production daily refresh is enabled. |
 | 富邦投信 `fubon` | `00405A` | Verified and enabled | Official Fubon ETF assets page renders equity holdings and summary server-side. Production daily refresh is enabled for `00405A`. |
 | 富邦投信 `fubon` | `00982D`, `00983D` | Verified, disabled for equity-only sync | Official Fubon ETF assets page renders fixed-income holdings and summary server-side. Bond ISINs and ETF tickers are normalized into the shared holding schema, but production daily refresh is disabled while the dashboard focuses on stock-type active ETFs. |
@@ -206,6 +206,7 @@ This project does not guess provider APIs. A provider can be enabled for product
 - Confirmed ETF codes:
   - `00984A`: `FundNo=E0001`; live smoke for request `2026-05-18` returned `CNavDt=2026-05-15`, 109 stock rows, NAV `14.68`, total units `451,958,000`.
   - `00993A`: `FundNo=E0002`; live smoke for request `2026-05-18` returned `CNavDt=2026-05-15`, 51 stock rows, NAV `12.68`, total units `896,091,000`.
+  - `00412A`: `FundNo=E0004`; official TWSE listing date `2026-10-13`. Live request `2026-10-15` returned `CNavDt=2026-10-13`, 49 stock rows, NAV `9.70`, fund size `6,113,680,193`, total units `629,988,000`, and stock allocation `90.35%`. Japanese, Chinese, Korean and US ticker suffixes are retained from the source.
 - Response type: JSON
 - Contains:
   - `Entries.CPcfdate` for PCF announcement date
@@ -214,6 +215,12 @@ This project does not guess provider APIs. A provider can be enabled for product
   - `Entries.DynamicTableData[]`, where the table title containing `股票` holds stock code, stock name, shares and weight rows
 - Important date rule: the request `Date` is the PCF announcement date, while the saved `tradeDate` is `CNavDt`. Historical sync queries the next business day and validates `CNavDt` before saving.
 - Limitation: this endpoint does not provide market closing price. Premium/discount is calculated by the shared TWSE closing price sync after Allianz holdings/NAV sync.
+
+### October 2026 pending listing
+
+- `00415A` is announced for listing on `2026-10-20`; the official Capital product page maps it to fund ID `504` (`https://www.capitalfund.com.tw/etf/product/detail/504/basic`).
+- On `2026-10-15`, the existing official buyback API returned HTTP 200 with `code=400`, `data=null`, and no holdings/NAV for fund `504`, both for that date and an empty date. Its master/provider mapping stays disabled pending a real holdings and summary response. The provider status is pending; it is not included in daily holdings sync yet.
+- TWSE currently includes this announced product with `issuer=null`. Discovery preserves that missing value and uses the verified configured provider mapping when available; invalid official responses are saved as failed raw snapshots before the error is returned.
 
 ### First Securities Investment Trust FundDetail WebAPI
 

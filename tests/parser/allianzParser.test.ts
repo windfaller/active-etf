@@ -68,6 +68,33 @@ const fetchResult = {
 };
 
 describe("allianz provider parser", () => {
+  it("preserves 00412A's NAV date and Asian exchange tickers from the October official response", () => {
+    const body = JSON.stringify({ StatusCode: 0, Entries: {
+      CFundId: "E0004", CSecuritiesCode: "00412A", CPcfdate: "2026-10-15T00:00:00", CNavDt: "2026-10-13T00:00:00",
+      CAnceNav: 9.7, CAnceTotalAv: 6113680193, CAnceTotalIssues: 629988000, CAnceIssuesDiff: 17000000,
+      DynamicTableData: [{ TableTitle: "股票 (90.35%)", Columns: [
+        { Name: "序號" }, { Name: "股票代號" }, { Name: "股票名稱" }, { Name: "股數" }, { Name: "權重(%)" }
+      ], Rows: [
+        ["1", "2330", "台積電", "224,000", "9.16%"],
+        ["4", "6857 JP", "Advantest Corp", "29,300", "3.92%"],
+        ["8", "002463 C2", "WUS Printed Circuit Kunshan Co Ltd", "287,300", "2.61%"],
+        ["22", "000660 KS", "SK Hynix Inc", "2,954", "1.67%"]
+      ] }]
+    } });
+    const raw: RawHoldingResponse = {
+      providerId: "allianz", etfCode: "00412A", tradeDate: detectAllianzTradeDate(body), dataType: "pcf",
+      fetchResult: { ...fetchResult, rawBody: body }
+    };
+    expect(normalizeAllianzSummary({ ...raw, dataType: "summary" })).toMatchObject({
+      etfCode: "00412A", tradeDate: "2026-10-13", nav: 9.7, fundSize: 6113680193, totalUnits: 629988000, stockRatio: 90.35
+    });
+    expect(normalizeAllianzHoldings(raw)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ stockId: "6857 JP", shares: 29300, lots: 29.3, weight: 3.92 }),
+      expect.objectContaining({ stockId: "002463 C2", shares: 287300, weight: 2.61 }),
+      expect.objectContaining({ stockId: "000660 KS", shares: 2954, weight: 1.67 })
+    ]));
+  });
+
   it("parses official GetFundTradeInfo response shape", () => {
     const entries = parseAllianzTradeInfo(rawBody);
 

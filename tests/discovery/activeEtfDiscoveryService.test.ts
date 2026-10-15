@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import type { Db } from "mongodb";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActiveEtfDiscovery } from "../../src/models/ActiveEtfDiscovery.js";
-import { formatDiscoveryMessage } from "../../src/services/discovery/activeEtfDiscoveryService.js";
+import { formatDiscoveryMessage, runActiveEtfDiscovery } from "../../src/services/discovery/activeEtfDiscoveryService.js";
+import { fetchSource } from "../../src/services/source/httpClient.js";
+
+vi.mock("../../src/services/source/httpClient.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../src/services/source/httpClient.js")>(),
+  fetchSource: vi.fn()
+}));
 
 function discovery(input: Partial<ActiveEtfDiscovery> & Pick<ActiveEtfDiscovery, "etfCode" | "stockName" | "issuer">): ActiveEtfDiscovery {
   return {
@@ -27,6 +34,53 @@ function discovery(input: Partial<ActiveEtfDiscovery> & Pick<ActiveEtfDiscovery,
 }
 
 describe("active ETF discovery notifications", () => {
+  afterEach(() => vi.resetAllMocks());
+
+  it("retains a null issuer and uses only the verified configured provider mapping", async () => {
+    const rawBody = JSON.stringify({ status: "success", data: [{
+      stockNo: "00415A", stockName: "主動群益核心50", listingDate: "2026.10.20", issuer: null
+    }] });
+    vi.mocked(fetchSource).mockResolvedValue({
+      url: "https://wwwc.twse.com.tw/zh/ETFortune-institute/ajaxProducts", method: "POST", requestHeaders: {},
+      responseStatus: 200, responseHeaders: {}, rawContentType: "application/json", rawBody
+    });
+    const saved: ActiveEtfDiscovery[] = [];
+    const insertOne = vi.fn();
+    const db = { collection: (name: string) => {
+      if (name === "raw_snapshots") return { insertOne };
+      if (name === "etf_master") return { distinct: async () => [] };
+      return {
+        findOne: async () => null,
+        updateOne: async (_filter: unknown, update: { $set: ActiveEtfDiscovery }) => saved.push(update.$set),
+        find: () => ({ sort: () => ({ toArray: async () => saved }) })
+      };
+    } } as unknown as Db;
+
+    const result = await runActiveEtfDiscovery(db, { notify: false });
+
+    expect(result.allUntracked[0]).toMatchObject({
+      etfCode: "00415A", issuer: null, isTracked: false,
+      configuredProviderId: "capital", suggestedProviderId: "capital", discoveryStatus: "needs_provider_mapping"
+    });
+    expect(insertOne).toHaveBeenCalledWith(expect.objectContaining({ rawBody, parsedOk: true }));
+    expect(result.notification.attempted).toBe(false);
+    expect(formatDiscoveryMessage(result.newlyDetected, result.allUntracked)).toContain("發行商未公告");
+  });
+
+  it("saves the official raw response when parsing fails and leaves discoveries untouched", async () => {
+    vi.mocked(fetchSource).mockResolvedValue({
+      url: "https://wwwc.twse.com.tw/zh/ETFortune-institute/ajaxProducts", method: "POST", requestHeaders: {},
+      responseStatus: 200, responseHeaders: {}, rawContentType: "application/json", rawBody: "{\"status\":\"success\",\"data\":[{}]}"
+    });
+    const insertOne = vi.fn();
+    const collection = vi.fn(() => ({ insertOne }));
+    await expect(runActiveEtfDiscovery({ collection } as unknown as Db)).rejects.toThrow();
+    expect(collection).toHaveBeenCalledExactlyOnceWith("raw_snapshots");
+    expect(insertOne).toHaveBeenCalledWith(expect.objectContaining({
+      etfCode: "__ACTIVE_ETF_LIST__", parsedOk: false, parseError: expect.any(String)
+    }));
+  });
+
   it("includes a manual onboarding skill prompt for newly detected ETFs", () => {
     const message = formatDiscoveryMessage(
       [discovery({ etfCode: "00999A", stockName: "主動野村臺灣高息", issuer: "野村投信" })],

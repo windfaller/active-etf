@@ -32,6 +32,17 @@ const rawBody = JSON.stringify({
 });
 
 describe("TWSE active ETF product parser", () => {
+  it("preserves missing issuer and metrics on an announced pre-listing ETF", () => {
+    const raw = JSON.stringify({ status: "success", data: [{
+      stockNo: "00415A", stockName: "主動群益核心50", listingDate: "2026.10.20", issuer: null,
+      totalAv: null, close1: null, holders: null, valueYTD: null, volumeYTD: null
+    }] });
+    expect(parseTwseActiveEtfProducts(raw)).toEqual([expect.objectContaining({
+      etfCode: "00415A", listingDate: "2026-10-20", issuer: null,
+      totalAssetValue: null, closePrice: null, holders: null, valueYtd: null, volumeYtd: null
+    })]);
+  });
+
   it("parses ETFortune active ETF product rows", () => {
     expect(parseTwseActiveEtfProducts(rawBody)).toEqual([
       {
