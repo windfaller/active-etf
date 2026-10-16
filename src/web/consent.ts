@@ -202,7 +202,7 @@ function asElement(target: EventTarget | null): Element | null {
 
 export function impliedConsentInteraction(target: EventTarget | null): ImpliedConsentInteraction | null {
   const element = asElement(target);
-  if (!element || element.closest("[data-tracking-consent-ui]")) return null;
+  if (!element || element.closest("[data-tracking-consent-ui]") || element.closest("[data-gogo-scene-ads]")) return null;
   const actionable = element.closest("a,button,input,select,textarea,[role='button'],[role='tab']");
   if (!actionable) return null;
   if (actionable.matches("a")) {

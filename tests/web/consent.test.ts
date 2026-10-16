@@ -36,12 +36,12 @@ function targetWithDocument(initial?: string): { target: TrackingConsentTarget; 
   return { target, appended };
 }
 
-function fakeAction(kind: "a" | "button" | "input", href = "", inConsentUi = false): EventTarget {
+function fakeAction(kind: "a" | "button" | "input", href = "", inConsentUi = false, inSceneAds = false): EventTarget {
   const action = {
     ownerDocument: { location: { origin: "https://active-etf.inthewins.com" } },
     closest: vi.fn((selector: string) => selector === "[data-tracking-consent-ui]"
       ? (inConsentUi ? action : null)
-      : action),
+      : selector === "[data-gogo-scene-ads]" ? (inSceneAds ? action : null) : action),
     getAttribute: vi.fn((name: string) => name === "href" ? href : null),
     matches: vi.fn((selector: string) => selector.split(",").includes(kind))
   };
@@ -108,5 +108,11 @@ describe("tracking consent", () => {
     expect(impliedConsentInteraction(fakeAction("a", "/privacy"))).toBeNull();
     expect(impliedConsentInteraction(fakeAction("a", "/terms"))).toBeNull();
     expect(impliedConsentInteraction(fakeAction("button", "", true))).toBeNull();
+  });
+
+  it("does not upgrade consent or report feature interactions for scene ad controls", () => {
+    expect(impliedConsentInteraction(fakeAction("button", "", false, true))).toBeNull();
+    expect(impliedConsentInteraction(fakeAction("input", "", false, true))).toBeNull();
+    expect(impliedConsentInteraction(fakeAction("a", "https://game.h8.com.tw/", false, true))).toBeNull();
   });
 });
