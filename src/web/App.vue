@@ -39,6 +39,7 @@ const loadLegalDocumentView = () => import("./views/LegalDocumentView.vue");
 const loadNotFoundView = () => import("./views/NotFoundView.vue");
 
 const ForvixMarketEmbed = defineAsyncComponent(loadForvixMarketEmbed);
+const SceneAdsPlacement = defineAsyncComponent(() => import("./components/SceneAdsPlacement.vue"));
 const GlobalSearchDialog = defineAsyncComponent(loadGlobalSearchDialog);
 const DailyBriefView = defineAsyncComponent(loadDailyBriefView);
 const StartView = defineAsyncComponent(loadStartView);
@@ -582,6 +583,7 @@ onBeforeUnmount(() => {
     <NotFoundView v-else :path="route.path" @navigate="navigate" />
 
     <ForvixMarketEmbed v-if="shouldShowForvixEmbed" />
+    <SceneAdsPlacement v-if="['stocks', 'stock', 'performance', 'compareEtfs', 'signals', 'etfStyle'].includes(route.view)" />
 
     <footer class="p0-footer">
       <p>本資料根據公開資訊整理，僅供資訊研究使用，不構成投資建議。</p>
