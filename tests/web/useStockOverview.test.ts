@@ -17,7 +17,7 @@ it("renders overview and ETF details while history is still pending, retaining p
   await vi.waitFor(() => expect(stock.overview.value?.stock.name).toBe("Micron"));
   expect(stock.history.value).toBeNull();
   expect(stock.sectionLoading.value.history).toBe(true);
-  expect(stock.etfs.value?.rows[0]?.etfCode).toBe("DRAM");
+  expect(stock.etfs.value?.rows[0]).toMatchObject({ etfCode: "DRAM" });
   pending.get("history")!(new Response(JSON.stringify({ error: "slow source failed" }), { status: 503 }));
   pending.get("institutions")!(new Response(JSON.stringify({ rows: [] })));
   await loaded;

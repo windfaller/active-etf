@@ -1,6 +1,6 @@
 import { ref, type Ref } from "vue";
-import { getJson, readCachedJson } from "../apiClient";
-import type { StockEtfs, StockHistory, StockInstitutions, StockMarket, StockOverview } from "../contracts/stocks";
+import { getJson, readCachedJson } from "../apiClient.js";
+import type { StockEtfs, StockHistory, StockInstitutions, StockMarket, StockOverview } from "../contracts/stocks.js";
 
 export function useStockOverview() {
   const overview = ref<StockOverview | null>(null);

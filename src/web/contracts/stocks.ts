@@ -1,4 +1,4 @@
-import type { IntelligenceMeta, SignalDirection } from "./intelligence";
+import type { IntelligenceMeta, SignalDirection } from "./intelligence.js";
 import type { MemberResult } from "../../domain/memberAccess.js";
 
 export type StockMarket = "tw" | "us";
