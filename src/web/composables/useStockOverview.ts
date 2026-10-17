@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import { getJson, readCachedJson } from "../apiClient";
 import type { StockEtfs, StockHistory, StockInstitutions, StockMarket, StockOverview } from "../contracts/stocks";
 
@@ -9,6 +9,8 @@ export function useStockOverview() {
   const institutions = ref<StockInstitutions | null>(null);
   const loading = ref(false);
   const error = ref("");
+  const sectionLoading = ref({ overview: false, history: false, etfs: false, institutions: false });
+  const sectionErrors = ref({ history: "", etfs: "", institutions: "" });
   let controller: AbortController | null = null;
 
   async function load(market: StockMarket, symbol: string, date?: string): Promise<void> {
@@ -28,30 +30,32 @@ export function useStockOverview() {
     history.value = readCachedJson<StockHistory>(paths.history);
     etfs.value = readCachedJson<StockEtfs>(paths.etfs);
     institutions.value = readCachedJson<StockInstitutions>(paths.institutions);
-    try {
-      const [overviewResult, historyResult, etfsResult, institutionsResult] = await Promise.all([
-        getJson<StockOverview>(paths.overview, requestController.signal),
-        getJson<StockHistory>(paths.history, requestController.signal),
-        getJson<StockEtfs>(paths.etfs, requestController.signal),
-        getJson<StockInstitutions>(paths.institutions, requestController.signal)
-      ]);
-      if (controller !== requestController) return;
-      overview.value = overviewResult;
-      history.value = historyResult;
-      etfs.value = etfsResult;
-      institutions.value = institutionsResult;
-    } catch (cause) {
-      if (controller === requestController && !(cause instanceof DOMException && cause.name === "AbortError") && !overview.value) {
-        error.value = cause instanceof Error ? cause.message : "股票情報讀取失敗。";
+    sectionLoading.value = { overview: true, history: true, etfs: true, institutions: true };
+    sectionErrors.value = { history: "", etfs: "", institutions: "" };
+    async function loadSection<T>(key: keyof typeof paths, target: Ref<T | null>): Promise<void> {
+      try {
+        const value = await getJson<T>(paths[key], requestController.signal);
+        if (controller === requestController) target.value = value;
+      } catch (cause) {
+        if (controller !== requestController || requestController.signal.aborted) return;
+        const message = cause instanceof Error ? cause.message : "資料暫時無法讀取。";
+        if (key === "overview") error.value = overview.value ? "更新失敗，先顯示先前取得的資料。" : message;
+        else sectionErrors.value[key] = message;
+      } finally {
+        if (controller === requestController) sectionLoading.value[key] = false;
       }
-    } finally {
-      if (controller === requestController) {
-        controller = null;
-        loading.value = false;
-      }
+    }
+    // Each successful response paints immediately; slow/failed details cannot hide the overview.
+    await Promise.all([
+      loadSection("overview", overview), loadSection("history", history),
+      loadSection("etfs", etfs), loadSection("institutions", institutions)
+    ]);
+    if (controller === requestController) {
+      controller = null;
+      loading.value = false;
     }
   }
 
-  function abort(): void { controller?.abort(); }
-  return { overview, history, etfs, institutions, loading, error, load, abort };
+  function abort(): void { controller?.abort(); controller = null; }
+  return { overview, history, etfs, institutions, loading, sectionLoading, sectionErrors, error, load, abort };
 }

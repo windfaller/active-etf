@@ -130,7 +130,7 @@ async function fetchJson<T>(baseUrl: string, path: string): Promise<T | undefine
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(4_000)
+      signal: AbortSignal.timeout(10_000)
     });
     if (!response.ok) return undefined;
     return await response.json() as T;

@@ -11,6 +11,7 @@ const displayName = computed(() => user.value?.name || user.value?.email || "ETF
 const initials = computed(() => {
   const source = displayName.value.trim();
   if (!source) return "會";
+  if (source === "ETF 雷達會員") return "會";
   if (/^[\p{Script=Han}]/u.test(source)) return source.slice(0, 1);
   return source.split(/\s+/u).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 });
@@ -33,9 +34,9 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", closeOnOutside
 </script>
 
 <template>
-  <div ref="root" class="auth-menu">
+  <div ref="root" class="auth-menu" @keydown.esc="isOpen = false">
+    <template v-if="!isAuthenticated">
     <button
-      v-if="!isAuthenticated"
       class="auth-sign-in"
       type="button"
       :disabled="isLoading"
@@ -49,10 +50,11 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", closeOnOutside
       <template v-else><span class="auth-desktop-label">登入 / 註冊</span><span class="auth-mobile-label">登入</span></template>
     </button>
 
-    <div v-if="!isAuthenticated && isOpen" class="auth-dropdown auth-handoff" role="dialog" aria-label="共用帳號登入說明">
+    <div v-if="isOpen" class="auth-dropdown auth-handoff" role="dialog" aria-label="共用帳號登入說明">
       <p>ETF 持倉雷達使用 GoGoWinners 共用帳號登入。</p>
       <button type="button" :disabled="isLoading" @click="signIn('header')">繼續登入／免費註冊</button>
     </div>
+    </template>
 
     <template v-else>
       <button

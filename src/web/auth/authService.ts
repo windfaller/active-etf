@@ -122,6 +122,7 @@ async function sessionRequest(init: RequestInit = {}): Promise<AuthSessionRespon
   const response = await fetch(`${apiBase}/api/auth/session`, {
     cache: "no-store",
     credentials: "include",
+    signal: AbortSignal.timeout(15_000),
     ...init,
     headers: {
       'x-active-etf-tracking-consent': readBrowserTrackingConsent() ?? 'unknown',

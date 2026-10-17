@@ -1,6 +1,6 @@
 import { computed, readonly, ref } from "vue";
 import { trackAuthEvent, trackVerifiedRegistration } from "../analytics";
-import { clearJsonCache } from "../apiClient";
+import { clearJsonCache, waitForJsonSession } from "../apiClient";
 import {
   startBrowserAuth,
   clearAuthSession,
@@ -22,8 +22,8 @@ function applySession(authenticated: boolean, nextUser: AuthUser | null): void {
 
 async function initialize(): Promise<void> {
   if (initialization) return initialization;
+  const { idToken, error: callbackError } = consumeBrowserAuthCallback();
   initialization = (async () => {
-    const { idToken, error: callbackError } = consumeBrowserAuthCallback();
 
     isLoading.value = true;
     error.value = "";
@@ -48,6 +48,7 @@ async function initialize(): Promise<void> {
       isLoading.value = false;
     }
   })();
+  if (idToken) waitForJsonSession(initialization);
   return initialization;
 }
 
