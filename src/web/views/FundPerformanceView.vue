@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { ArrowDown, ArrowUp, BarChart3, CalendarDays, ExternalLink, Medal, Trophy } from "@lucide/vue";
-import { getJson } from "../apiClient";
+import { getJson, readCachedJson } from "../apiClient";
 import MemberLockedResult from "../components/MemberLockedResult.vue";
 import { useAuth } from "../composables/useAuth";
 import type { PerformanceMarket, PerformancePeriod, PerformanceResponse, PerformanceRow } from "../contracts/performance";
@@ -58,6 +58,7 @@ function fundPath(row: PerformanceRow): string {
 async function load(): Promise<void> {
   loading.value = true;
   error.value = "";
+  data.value = readCachedJson<PerformanceResponse>("/api/funds/performance");
   try {
     data.value = await getJson<PerformanceResponse>("/api/funds/performance");
   } catch (caught) {

@@ -1,38 +1,23 @@
 # GogoShared Scene Ads 接入
 
-Web 宿主接入；共用政策維護與部署由既有流程處理。宿主是 Vue 3／Vite，沒有 Unity 套件或 native plugin。原有 FORVIX registry、搜尋彈窗廣告、內容末端 embed 與追蹤政策保持原狀。
+宿主為 Vue 3／Vite。固定 SDK **1.3.0**，原始碼位於 `public/vendor/gogoshared-ads/1.3.0/gogo-ads.js`，SHA256 為 `202503721b2adb4c9b0683ccebcfc191c8dd8c3390849a3b05536396dac72f82`，與固定發布網址相符，未修改或重複安裝。無 Unity 套件或 native plugin。
 
-## 身份與設定
+## 身份與控制
 
-- SDK：固定 **1.3.0**，從 https://gogoshared.z23.web.core.windows.net/games/shared/ads/sdk/1.3.0/web/gogo-ads.js 原封不動放在 `public/vendor/gogoshared-ads/1.3.0/gogo-ads.js`。
-- SDK SHA256：`202503721b2adb4c9b0683ccebcfc191c8dd8c3390849a3b05536396dac72f82`。
-- 本地 `projectId=active-etf`；首次接入前沒有 GogoShared projectId／偏好鍵。偏好由 SDK 保存於 `gogo.ads.active-etf`，不碰登入、會員資料或其他 localStorage。
-- 遠端採 SDK 預設 `configProjectId=shared-webp`，只公開 GET https://gogoshared.z23.web.core.windows.net/games/shared/ads/projects/shared-webp/config.json 。沒有 shared-default override，不建立專案政策、不需 Azure 權限。
-- 原有 `/api/config` 的 `ads.enabled` 是宿主第一道管理開關，預設關閉／讀取失敗亦關閉；未改動 `ENABLE_ADS` 或 `VITE_ENABLE_ADS`。SDK 共用政策 `enabled` 仍優先於使用者開關，使用者原有偏好不因管理關閉被覆寫。
-- 開放 all／games／h8-info 選擇，預設由共用政策決定。目標由驗證後的 creative.clickUrl 取得，不在宿主寫死。SDK 限定兩個 H8 HTTPS origin、保留 query，以 noopener/noreferrer 開新分頁。
+本地 `projectId=active-etf`，偏好鍵 `gogo.ads.active-etf`。遠端採 SDK 預設 `configProjectId=shared-webp`，只公開 GET 既有 `projects/shared-webp/config.json`，此次查核 revision=`20261016-clicks`、catalog SHA256=`e868d79d2a2c03ec3bac036ac1cb0dc9d728a1f78e4cd3b5116b543ae67968e5`。沒有 shared-default override，不建立專案政策、不需 Azure 權限。
 
-## 版位規劃
+依本次宿主要求，移除使用者的「顯示廣告」勾選。建立 client 時呼叫 `setEnabled(true)` 遷移舊 opt-out；保留原 projectId、all／games／h8-info 分類及其他偏好。宿主 `/api/config` 的 `ads.enabled` 和共用政策 `config.enabled` 仍優先，管理關閉不會被繞過。宿主設定讀取失敗則關閉，不預留空白側欄。這是宿主控制方式變更，不更動共用 SDK 或共用政策。
 
-只在股票清單／個股、績效排行、ETF 比較、訊號、ETF 風格頁的內容末端放一個卡片。這些頁面未放既有 FORVIX 內容 embed。主資料、表格、導覽、搜尋結果均先於廣告；首頁、市場總覽、單檔報告、搜尋彈窗、法務與方法論頁不增加此版位。
+## 版位與載入
 
-靠近可視區 200px 才載入 SDK 與廣告；沒有輪播、背景輪詢或強制開頁。桌面畫布 1200×628、視覺最大寬 520px；600px 以下採方形 640×640、視覺最大寬 280px。素材依 SDK 原分類與比例規則等比置中，留白不當作連結。
+研究頁提供持續可見的合作廣告：桌面置於內容旁的 sticky 側欄，1180px 以下為內容前的短卡，600px 以下使用小型方形素材。涵蓋今日情報、研究示範、台灣／海外 ETF、機構、股票、比較、績效、訊號與風格頁。搜尋、方法論、法務、404 不新增版位；原有 FORVIX embed 與搜尋版位不變。
 
-canvas 實際 draw 成功後明確 bindClick；分類／開關／斷點改變均重畫同一畫布。SDK 內建驗證檔頭、完整 SHA256、尺寸、PNG 備援與 last-good；更新失敗時保留有效素材並提供手動重試。首次失敗只顯示簡短狀態，不擋研究內容。
+SDK 與資料獨立載入，靠近可視區 200px 才載入廣告，不等待廣告才呈現資料，不使用倒數、蓋板或自動開頁。慢速／失敗資料請求期間仍可查看合作內容。SPA 在研究頁之間保留同一個 client、圖集與 canvas；以 route path 取得穩定的 creative 索引，換頁重畫已驗證素材，不重新下載圖集或輪詢。完整離開研究區、卸載或 pagehide 時 dispose，bfcache 恢復再載入。
 
-一個頁面只載入一份 SDK、一個版位 client。Vue 卸載及 pagehide dispose；bfcache 恢復才重新載入。新增廣告區排除既有「操作即同意」及功能互動量測；沒有廣告點擊／曝光遙測。
+canvas 實際 draw 成功後明確 bindClick。分類與斷點改變會重畫同一畫布；點擊目標由驗證後的 `creative.clickUrl` 取得，不在宿主寫死。保留兩個 H8 HTTPS origin、query、noopener/noreferrer、留白命中檢查、檔頭／完整 SHA256／尺寸驗證、PNG 備援與 last-good。重試失敗不清除已驗證圖。沒有新增點擊／曝光遙測或付費廣告網路，操作仍排除既有的隱含同意量測。
 
-## 驗證資料位置
+## 驗證與交付邊界
 
-圖集、QA 腳本、截圖、執行證據與修改前基準放在 `/Users/chi/My Projects/AI工作區/主動式ETF/`。專案只保存輕量 SDK 原始碼、宿主接入、文件與必要測試。驗證須分開說明實際公開 GET、使用真實已驗證圖集的本機瀏覽器操作、失敗注入、build 與未驗裝置，不以 SDK 發布代表宿主通過。
+固定文件：https://gogoshared.z23.web.core.windows.net/games/shared/ads/sdk/1.3.0/skill/SKILL.md 及相對 `references/integration.md`、`references/schema.md`。使用真實已驗證圖集驗證方／橫、分類、舊 opt-out 遷移、不同 projectId 偏好不變、遊戲／H8 資訊目標、Enter、新分頁、留白不誤開、管理關閉及 SPA 一份 SDK／一次圖集載入。
 
-固定文件入口：https://gogoshared.z23.web.core.windows.net/games/shared/ads/sdk/1.3.0/skill/SKILL.md ，以及其 `references/integration.md`、`references/schema.md`。
-
-## 本次修改檔案
-
-- `public/vendor/gogoshared-ads/1.3.0/gogo-ads.js`：固定 SDK 原始碼，無修改。
-- `src/ads/gogoSceneAds.ts`：型別、單一 script 載入與本地 projectId。
-- `src/web/components/SceneAdsPlacement.vue`：單一延遲載入版位、使用者控制、canvas 點擊及生命週期。
-- `src/web/App.vue`：只新增兩行，接入指定研究頁。
-- `src/web/consent.ts`：廣告區操作不觸發既有隱含同意／功能互動量測。
-- `tests/web/consent.test.ts`：檢查上述量測邊界，保留原本產品操作行為。
-- `docs/gogoshared-scene-ads.md`：接入與版位說明。
+大型圖集與 QA 位於 `/Users/chi/My Projects/AI工作區/active-etf-ui-speed-20261017/`。Chromium 桌面與 390px 模擬通過；實體設備與 Safari 未驗。此修改僅為本地源碼與 build，不包含公開部署或廣告政策維護。
